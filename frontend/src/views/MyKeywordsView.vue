@@ -116,6 +116,8 @@
                       <span class="stat-unit">위</span>
                     </div>
                   </div>
+                  <!-- 상위 퍼센트 태그 추가 -->
+                  <div class="dash-percent-tag">상위 {{ activityData.rankPercent }}%</div>
                 </div>
               </div>
             </div>
@@ -822,7 +824,32 @@ onMounted(() => {
 .progress-pct-float { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); font-size: 0.65rem; font-weight: 950; color: white; }
 .progress-footer-tip { font-size: 0.8rem; color: var(--text-secondary); text-align: right; margin-top: 8px; }
 
-.dash-stat-box { background: var(--hover-bg); padding: 18px; border-radius: 20px; border: 1px solid var(--border-color); text-align: center; display: flex; flex-direction: column; gap: 8px; transition: all 0.2s; }
+.dash-stat-box {
+  background: var(--hover-bg);
+  padding: 18px;
+  border-radius: 20px;
+  border: 1px solid var(--border-color);
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  transition: all 0.2s;
+  position: relative; /* 태그 배치를 위해 추가 */
+}
+
+.dash-percent-tag {
+  position: absolute;
+  top: -10px;
+  right: 10px;
+  background: #fadb14;
+  color: #000;
+  font-size: 0.65rem;
+  font-weight: 950;
+  padding: 3px 8px;
+  border-radius: 6px;
+  box-shadow: 0 4px 8px rgba(250, 219, 20, 0.3);
+  z-index: 10;
+}
 .dash-stat-box:hover { transform: translateY(-3px); border-color: var(--link-color); }
 .stat-icon-mini { font-size: 1.5rem; }
 .stat-label { font-size: 0.65rem; font-weight: 800; color: var(--text-secondary); text-transform: uppercase; }

@@ -7,7 +7,7 @@
         <input 
           type="text" 
           v-model="searchKeyword" 
-          placeholder="제목, 본문, 태그 검색..." 
+          placeholder="제목, 본문, 태그, 사용자 검색" 
           @keyup.enter="handleSidebarSearch"
           @keydown.down.prevent="moveFocus(1)"
           @keydown.up.prevent="moveFocus(-1)"
