@@ -1,0 +1,66 @@
+server:
+  port: 8081
+  address: 0.0.0.0
+
+spring:
+  application:
+    name: habidue
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: jdbc:mysql://172.24.96.243:3306/habidue_db?serverTimezone=Asia/Seoul&characterEncoding=UTF-8&allowPublicKeyRetrieval=true&useSSL=false
+    username: habidue_user
+    password: habidue123!
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+  data:
+    redis:
+      host: 172.24.96.243
+      port: 6379
+
+  mail:
+    host: smtp.gmail.com
+    port: 587
+    username: ${MAIL_USERNAME}
+    password: ${MAIL_PASSWORD}
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+
+  security:
+    oauth2:
+      client:
+        registration:
+          google:
+            client-id: 921709759349-mcj1se7f867c843d4mmpio5k5k35vsbg.apps.googleusercontent.com
+            client-secret: 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
+            scope:
+              - email
+              - profile
+
+# JWT 설정
+jwt:
+  secret: ${JWT_SECRET:c3FzYXE3d1E1bWp5Zzl0YzV2ZDRyM2YycDFvMGk5dWlqa2w4aDc2YjV2NGYzMnEzdWlkMW9wMjlhc2QxMml1eTBrMWw4Yzc2YjV2NGYzMnEzdWlkMW9wMjlhc2QxMml1eTBrMWw4Yzc2YjV2NGYzMnEzbWoyMGk5dTI5amtsOGg3NmI1djRm}
+  access-token-validity-in-seconds: 3600 # 1시간 (테스트 완료 후 복구)
+  refresh-token-validity-in-seconds: 1209600 # 2주
+
+logging:
+  level:
+    org.hibernate.SQL: debug
+    org.hibernate.type.descriptor.sql.BasicBinder: trace
+    com.habidue.app.service.notice.collector: debug
+
+# LH API 설정
+lh:
+  api:
+    key: ${LH_API_KEY}
+
+# Gemini API 설정 (2.5 Flash-Lite 고할당량 모델)
+gemini:
+  api:
+    key: AIzaSyDaNqpMpN506ySMnqwoVJThqrOmuTGzPjM
+    full-url: https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent

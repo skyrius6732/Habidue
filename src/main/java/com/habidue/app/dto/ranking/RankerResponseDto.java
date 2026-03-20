@@ -1,0 +1,20 @@
+package com.habidue.app.dto.ranking;
+
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+
+@Getter
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
+public class RankerResponseDto {
+    private Long userId;
+    private String nickname;
+    private int level;
+    private long exp; // 기간 내 획득 EXP (또는 전체 EXP)
+    private int karmaPoint;
+    private String rankDiff; // 순위 변동 (NEW, +2, -1, 0 등)
+    private String equippedBadgeName; // [시니어] 대표 칭호 이름 추가
+}
