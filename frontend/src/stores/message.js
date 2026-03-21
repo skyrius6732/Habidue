@@ -14,20 +14,7 @@ export const useMessageStore = defineStore('message', () => {
     isLoading.value = true
     try {
       const res = await axios.get(`/api/messages/rooms?page=${page}&size=${size}`)
-      let serverData = res.data?.data?.content || []
-      
-      // [UI 테스트용 더미 데이터 결합]
-      const dummyRooms = [
-        { id: 999, sender: { id: 101, nickname: 'Instagram_User' }, receiverId: 1, content: '오늘 날씨가 정말 좋네요! 사진 보셨나요?', unreadCount: 3, isPartnerOnline: true, createdAt: new Date().toISOString() },
-        { id: 998, sender: { id: 102, nickname: 'HabiDue_Lover' }, receiverId: 1, content: '네, 알겠습니다. 내일 뵙겠습니다.', unreadCount: 0, isPartnerOnline: false, createdAt: '2026-03-20T10:00:00' },
-        { id: 997, isSystem: true, content: '커뮤니티 가이드라인을 준수해 주세요.', unreadCount: 1, createdAt: '2026-03-19T15:30:00' },
-        { id: 996, sender: { id: 103, nickname: '긴닉네임을가진테스트유저입니다안녕하세요' }, receiverId: 1, content: '매우 긴 메시지 미리보기 테스트입니다. 이 메시지가 말줄임표 처리가 잘 되는지 확인해 보세요.', unreadCount: 15, isPartnerOnline: true, createdAt: new Date().toISOString() },
-        { id: 995, sender: { id: 104, nickname: '디자인체크' }, receiverId: 1, content: '📎 사진을 보냈습니다.', unreadCount: 0, isPartnerOnline: true, createdAt: '2026-03-21T09:00:00' },
-        { id: 994, sender: { id: 105, nickname: '오프라인친구' }, receiverId: 1, content: '자니?', unreadCount: 1, isPartnerOnline: false, createdAt: '2026-03-21T01:00:00' },
-        { id: 993, sender: { id: 106, nickname: '새로운멤버' }, receiverId: 1, content: '만나서 반가워요!', unreadCount: 0, isPartnerOnline: true, createdAt: '2026-03-21T11:30:00' }
-      ]
-
-      receivedMessages.value = [...serverData, ...dummyRooms]
+      receivedMessages.value = res.data?.data?.content || []
       updateUnreadCount()
     } catch (e) {
       console.error('대화방 목록 로드 실패:', e)
