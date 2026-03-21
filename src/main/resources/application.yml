@@ -42,6 +42,11 @@ spring:
               - email
               - profile
 
+  servlet:
+    multipart:
+      max-file-size: 50MB
+      max-request-size: 250MB
+
 # JWT 설정
 jwt:
   secret: ${JWT_SECRET:c3FzYXE3d1E1bWp5Zzl0YzV2ZDRyM2YycDFvMGk5dWlqa2w4aDc2YjV2NGYzMnEzdWlkMW9wMjlhc2QxMml1eTBrMWw4Yzc2YjV2NGYzMnEzdWlkMW9wMjlhc2QxMml1eTBrMWw4Yzc2YjV2NGYzMnEzbWoyMGk5dTI5amtsOGg3NmI1djRm}

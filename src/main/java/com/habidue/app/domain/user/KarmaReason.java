@@ -13,7 +13,8 @@ public enum KarmaReason {
     LIKE_RECEIVED("게시글 좋아요 획득 (평판 상승)"),
     RESTORATION("제재 복구 및 소명 승인"),
     POST_DELETED("심각한 위반으로 인한 게시글 삭제"),
-    COMMENT_DELETED("심각한 위반으로 인한 댓글 삭제");
+    COMMENT_DELETED("심각한 위반으로 인한 댓글 삭제"),
+    MESSAGE_SENT("쪽지 발송 (카르마 소모)");
 
     private final String description;
 }

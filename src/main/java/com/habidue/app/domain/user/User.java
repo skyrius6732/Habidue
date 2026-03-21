@@ -81,8 +81,8 @@ public class User {
 
     // [시니어 조치] 활동 신뢰도 및 페널티 시스템 필드
     @Builder.Default
-    @Column(nullable = false, columnDefinition = "int default 100")
-    private int karmaPoint = 100; // 신뢰 점수 (기본 100, 신고 승인 시 차감)
+    @Column(nullable = false, columnDefinition = "int default 1000")
+    private int karmaPoint = 1000; // 신뢰 점수 (기본 1000, 신고 승인 시 차감)
 
     private LocalDateTime restrictedUntil; // 활동 제한(글쓰기/댓글) 종료 시각
 

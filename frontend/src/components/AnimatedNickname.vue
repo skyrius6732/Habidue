@@ -55,14 +55,14 @@
           </div>
         </div>
 
-        <div class="tooltip-actions stagger-item">
+        <div class="tooltip-actions stagger-item" v-if="userId && !isMe">
           <button class="msg-send-btn" @click.stop="openMessageModal">
             <span>💌 쪽지 보내기</span>
           </button>
         </div>
       </div>
     </div>
-<!-- 쪽지 발송 모달 (인스턴스마다 고유하게 동작하도록 보장) -->
+<!-- 쪽지 발송 모달 -->
 <MessageSendModal 
   v-if="userId && showMessageModal"
   :show="showMessageModal" 
@@ -77,6 +77,7 @@
 <script setup>
 import { ref, computed, onMounted, nextTick } from 'vue'
 import { useBadgeStore } from '@/stores/badge'
+import { useAuthStore } from '@/stores/auth'
 import MessageSendModal from '@/components/MessageSendModal.vue'
 import gsap from 'gsap'
 
@@ -93,8 +94,9 @@ const props = defineProps({
 })
 
 const badgeStore = useBadgeStore()
+const authStore = useAuthStore()
 const showTooltip = ref(false)
-const isPinned = ref(false) // 클릭으로 고정되었는지 여부
+const isPinned = ref(false) 
 const tooltipRef = ref(null)
 const showMessageModal = ref(false)
 
@@ -163,6 +165,10 @@ const animateOut = () => {
     showTooltip.value = false
   }
 }
+
+const isMe = computed(() => {
+  return authStore.user && props.userId && String(authStore.user.id) === String(props.userId)
+})
 
 const openMessageModal = () => {
   if (!props.userId) {
@@ -256,7 +262,7 @@ onMounted(() => { if (!badgeStore.isLoaded) badgeStore.fetchRules() })
 @keyframes legendary-burn { from { box-shadow: 0 0 8px rgba(250, 204, 21, 0.5); } to { box-shadow: 0 0 20px rgba(250, 204, 21, 0.9); } }
 @keyframes rainbow-aura-pulse { from { box-shadow: 0 0 8px rgba(255, 65, 108, 0.3); } to { box-shadow: 0 0 18px rgba(255, 65, 108, 0.6); } }
 
-/* --- Tooltip System (2/3 크기로 축소) --- */
+/* --- Tooltip System --- */
 .nickname-tooltip {
   position: absolute; 
   width: 190px; background: var(--card-bg) !important; background-image: linear-gradient(to bottom, var(--card-bg), var(--tier-bg)) !important; 

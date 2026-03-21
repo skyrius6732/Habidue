@@ -1,6 +1,7 @@
 <script setup>
-import { ref } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useMessageStore } from '@/stores/message'
+import { useAuthStore } from '@/stores/auth'
 
 const props = defineProps({
   show: Boolean,
@@ -10,11 +11,21 @@ const props = defineProps({
 
 const emit = defineEmits(['close', 'success'])
 const messageStore = useMessageStore()
+const authStore = useAuthStore()
 
 const content = ref('')
 const selectedFiles = ref([])
 const isSending = ref(false)
 const errorMessage = ref('')
+
+const displayKarma = computed(() => {
+  const points = authStore.user?.karmaPoint || 1000
+  return (points / 10).toFixed(1)
+})
+
+onMounted(async () => {
+  await messageStore.fetchDailyStatus()
+})
 
 const handleFileChange = (e) => {
   const files = Array.from(e.target.files)
@@ -40,9 +51,15 @@ const getFilePreview = (file) => {
 const handleSend = async () => {
   if (!content.value.trim() && selectedFiles.value.length === 0) return
   
+  if (!props.receiverId) {
+    errorMessage.value = '수신자 정보를 찾을 수 없습니다. 다시 시도해 주세요.'
+    return
+  }
+
   isSending.value = true
   errorMessage.value = ''
   
+  // 백엔드에서 String으로 받으므로 그대로 전달
   const result = await messageStore.sendMessage(props.receiverId, content.value, selectedFiles.value)
   
   if (result.success) {
@@ -71,6 +88,19 @@ const handleSend = async () => {
           <span class="nickname">{{ receiverNickname }}</span>
         </div>
 
+        <!-- [시니어 조치] 발송 정책 안내 바 -->
+        <div class="message-policy-bar">
+          <div class="policy-item">
+            <span class="p-label">내 신뢰점수</span>
+            <span class="p-value">{{ displayKarma }} P</span>
+          </div>
+          <div class="policy-divider"></div>
+          <div class="policy-item">
+            <span class="p-label">오늘 남은 발송</span>
+            <span class="p-value highlight">{{ messageStore.dailyStatus.remainingCount }} / {{ messageStore.dailyStatus.maxCount }}</span>
+          </div>
+        </div>
+
         <div class="input-area">
           <textarea 
             v-model="content" 
@@ -81,7 +111,7 @@ const handleSend = async () => {
           <div class="char-count">{{ content.length }} / 500</div>
         </div>
 
-        <!-- 파일 첨부 영역 -->
+        <!-- 파일 첨부 영역 (우측 정렬 적용) -->
         <div class="attachment-area">
           <label class="btn-attach">
             <input type="file" multiple @change="handleFileChange" accept="image/*,.pdf,.zip,.docx,.xlsx,.txt" style="display: none;">
@@ -144,6 +174,17 @@ const handleSend = async () => {
 .receiver-info .label { font-size: 0.85rem; color: var(--text-secondary); font-weight: 700; }
 .receiver-info .nickname { font-weight: 900; color: var(--link-color); font-size: 0.95rem; }
 
+.message-policy-bar {
+  display: flex; align-items: center; justify-content: space-around;
+  background: var(--bg-primary); padding: 10px; border-radius: 12px;
+  margin-bottom: 15px; border: 1px solid var(--border-color);
+}
+.policy-item { display: flex; flex-direction: column; align-items: center; gap: 2px; }
+.p-label { font-size: 0.65rem; color: var(--text-muted); font-weight: 700; }
+.p-value { font-size: 0.85rem; font-weight: 850; color: var(--text-primary); }
+.p-value.highlight { color: var(--link-color); }
+.policy-divider { width: 1px; height: 20px; background: var(--border-color); }
+
 .input-area { position: relative; }
 textarea {
   width: 100%; height: 120px; background: var(--bg-primary); border: 1.5px solid var(--border-color);
@@ -155,7 +196,7 @@ textarea:focus { border-color: var(--link-color); outline: none; }
 .char-count { position: absolute; bottom: 10px; right: 10px; font-size: 0.7rem; color: var(--text-muted); font-weight: 600; }
 
 /* 파일 첨부 섹션 */
-.attachment-area { margin-top: 15px; }
+.attachment-area { margin-top: 15px; display: flex; justify-content: flex-end; }
 .btn-attach { 
   display: inline-flex; align-items: center; gap: 6px;
   font-size: 0.85rem; font-weight: 800; color: var(--link-color); cursor: pointer;

@@ -38,6 +38,14 @@ public class Message {
     @com.fasterxml.jackson.annotation.JsonProperty("isSystem")
     private boolean isSystem = false; // 운영자/시스템 발송 여부
 
+    @Builder.Default
+    @Column(nullable = false)
+    private boolean isDeleted = false; // [시니어 조치] 시스템상 삭제 여부 (양쪽 모두에게 삭제 표시)
+
+    @Builder.Default
+    @Column(nullable = false)
+    private boolean isEdited = false; // [시니어 조치] 수정 여부
+
     private LocalDateTime readAt;
 
     @Builder.Default
@@ -77,6 +85,13 @@ public class Message {
     public void deleteByReceiver() { this.deletedByReceiver = true; }
     public void report() { this.isReported = true; }
     
+    // [시니어 조치] 추가 메서드
+    public void softDelete() { this.isDeleted = true; }
+    public void updateContent(String content) { 
+        this.content = content; 
+        this.isEdited = true; 
+    }
+
     public void updateAiResult(Double score, String analysis) {
         this.aiScore = score;
         this.aiAnalysis = analysis;
