@@ -89,6 +89,23 @@ export const useMessageStore = defineStore('message', () => {
     } catch (e) {}
   }
 
+  const markRoomAsRead = async (partnerId) => {
+    try {
+      await axios.patch(`/api/messages/conversation/${partnerId}/read`)
+      // 로컬 목록에서도 안읽음 숫자 초기화
+      const room = receivedMessages.value.find(m => {
+        const pId = (m.sender && m.sender.id === partnerId) || (m.receiverId === partnerId);
+        return pId;
+      });
+      if (room) {
+        room.unreadCount = 0;
+        updateUnreadCount();
+      }
+    } catch (e) {
+      console.error('대화방 읽음 처리 실패:', e)
+    }
+  }
+
   const reportMessage = async (messageId, reason = '부적절한 내용의 쪽지') => {
     try {
       await axios.post(`/api/messages/${messageId}/report`, { reason })
@@ -155,6 +172,6 @@ export const useMessageStore = defineStore('message', () => {
 
   return { 
     receivedMessages, currentConversation, unreadCount, isLoading, dailyStatus,
-    fetchMessageRooms, fetchReceivedMessages, fetchConversation, sendMessage, markAsRead, reportMessage, blockUser, unblockUser, fetchBlockedUsers, fetchDailyStatus, deleteConversation, deleteMessage, editMessage
+    fetchMessageRooms, fetchReceivedMessages, fetchConversation, sendMessage, markAsRead, markRoomAsRead, reportMessage, blockUser, unblockUser, fetchBlockedUsers, fetchDailyStatus, deleteConversation, deleteMessage, editMessage
   }
 })

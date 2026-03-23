@@ -6,6 +6,7 @@ import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
 import io.jsonwebtoken.security.Keys;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
@@ -20,6 +21,7 @@ import java.util.Collection;
 import java.util.Date;
 import java.util.stream.Collectors;
 
+@Slf4j
 @Component
 public class JwtTokenProvider {
 
@@ -45,10 +47,10 @@ public class JwtTokenProvider {
         Date validity = new Date(now + this.accessTokenValidityInMilliseconds);
 
         return Jwts.builder()
-                .setSubject(userPrincipal.getEmail()) // subject를 email로 설정
+                .setSubject(userPrincipal.getEmail())
                 .claim("auth", authorities)
-                .claim("id", userPrincipal.getId()) // 유저 ID 추가
-                .claim("status", userPrincipal.getStatus().name()) // 유저 상태 추가
+                .claim("id", userPrincipal.getId())
+                .claim("status", userPrincipal.getStatus().name())
                 .setIssuedAt(new Date(now))
                 .setExpiration(validity)
                 .signWith(key, SignatureAlgorithm.HS256)
@@ -61,7 +63,7 @@ public class JwtTokenProvider {
         Date validity = new Date(now + this.refreshTokenValidityInMilliseconds);
 
         return Jwts.builder()
-                .setSubject(userPrincipal.getEmail()) // Refresh Token에도 email 추가
+                .setSubject(userPrincipal.getEmail())
                 .setIssuedAt(new Date(now))
                 .setExpiration(validity)
                 .signWith(key, SignatureAlgorithm.HS256)
@@ -69,22 +71,12 @@ public class JwtTokenProvider {
     }
 
     public Authentication getAuthentication(String token) {
-        Claims claims = Jwts.parserBuilder()
-                .setSigningKey(key)
-                .build()
-                .parseClaimsJws(token)
-                .getBody();
-
-        Collection<? extends GrantedAuthority> authorities =
-                Arrays.stream(claims.get("auth").toString().split(","))
-                        .map(SimpleGrantedAuthority::new)
-                        .collect(Collectors.toList());
-
+        Claims claims = Jwts.parserBuilder().setSigningKey(key).build().parseClaimsJws(token).getBody();
+        Collection<? extends GrantedAuthority> authorities = Arrays.stream(claims.get("auth").toString().split(",")).map(SimpleGrantedAuthority::new).collect(Collectors.toList());
         Long id = claims.get("id", Long.class);
         String email = claims.getSubject();
         String statusStr = claims.get("status", String.class);
         UserStatus status = statusStr != null ? UserStatus.valueOf(statusStr) : UserStatus.ACTIVE;
-        
         UserPrincipal principal = new UserPrincipal(id, email, status, authorities);
         return new UsernamePasswordAuthenticationToken(principal, token, authorities);
     }
@@ -93,14 +85,20 @@ public class JwtTokenProvider {
         try {
             Jwts.parserBuilder().setSigningKey(key).build().parseClaimsJws(token);
             return true;
-        } catch (io.jsonwebtoken.ExpiredJwtException e) {
-            throw e; // 만료된 토큰
         } catch (Exception e) {
-            return false; // 그 외 유효하지 않은 토큰 (서명 오류 등)
+            log.debug("JWT Token validation failed: {}", e.getMessage());
+            return false; // 모든 에러에 대해 false 반환 (서버 500 방지)
         }
     }
 
-    public SecretKey getKey() {
-        return key;
+    public Long getUserId(String token) {
+        try {
+            Claims claims = Jwts.parserBuilder().setSigningKey(key).build().parseClaimsJws(token).getBody();
+            return claims.get("id", Long.class);
+        } catch (Exception e) {
+            return null;
+        }
     }
+
+    public SecretKey getKey() { return key; }
 }

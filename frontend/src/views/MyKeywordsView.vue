@@ -196,26 +196,43 @@
                     </div>
                   </div>
 
-                  <!-- [시니어] 활동 신뢰 점수 가이드 (순서 하향 조정) -->
+                  <!-- [시니어] 활동 신뢰 점수 가이드 (구체적 수치 및 제한 기준 추가) -->
                   <div class="karma-guide-card">
                     <h4 class="guide-title">💡 활동 신뢰 점수 가이드</h4>
                     <div class="guide-grid">
                       <div class="guide-item plus">
                         <span class="g-icon">✅</span>
                         <div class="g-text">
-                          <span class="g-title">점수 상승 요인</span>
-                          <p>유익한 게시글 및 댓글 작성으로 좋아요 획득, 꾸준하고 건전한 커뮤니티 활동 등</p>
+                          <span class="g-title">신뢰 점수 얻는 법 (UP)</span>
+                          <ul class="guide-sub-list">
+                            <li><strong>좋아요 획득 (+0.1P):</strong> 게시글/댓글이 공감을 받으면 점수가 오릅니다. (게시물당 최대 1.0P)</li>
+                            <li><strong>모범 활동:</strong> 신고 없이 꾸준히 활동하면 신뢰 등급이 안전하게 유지됩니다.</li>
+                            <li><strong>제재 복구:</strong> 억울한 신고로 깎인 점수는 관리자 검토 후 즉시 전액 복구됩니다.</li>
+                          </ul>
                         </div>
                       </div>
                       <div class="guide-item minus">
                         <span class="g-icon">⚠️</span>
                         <div class="g-text">
-                          <span class="g-title">점수 하락 요인</span>
-                          <p>게시글/댓글 신고 승인(비방, 스팸, 부적절한 콘텐츠), 운영 정책 위반 및 제재 등</p>
+                          <span class="g-title">점수가 깎이는 경우 (DOWN)</span>
+                          <ul class="guide-sub-list">
+                            <li><strong>운영원칙 위반 (-10P ~ -70P):</strong> 비방, 욕설, 광고 등 신고 승인 시 크게 감점됩니다.</li>
+                            <li><strong>쪽지 발송 소모 (-0.1P):</strong> 매너 있는 소통을 위해 발송 시 소량의 점수가 사용됩니다.</li>
+                            <li><strong>허위 신고:</strong> 타인을 방해할 목적으로 거짓 신고를 할 경우 운영 정책에 따라 감점됩니다.</li>
+                          </ul>
                         </div>
                       </div>
                     </div>
-                    <p class="guide-footer">* 점수가 일정 수준(50.0P 미만) 이하로 떨어지면 글쓰기 제한 등 서비스 이용에 제약이 생길 수 있으니 유의해 주세요.</p>
+                    
+                    <div class="karma-penalty-table">
+                      <div class="penalty-header">🚫 점수별 서비스 이용 제한</div>
+                      <div class="penalty-body">
+                        <div class="p-row"><span class="p-range">80.0P 미만</span><span class="p-effect">쪽지 발송 불가</span></div>
+                        <div class="p-row"><span class="p-range">50.0P 미만</span><span class="p-effect">24시간 커뮤니티 이용 정지</span></div>
+                        <div class="p-row"><span class="p-range">30.0P 미만</span><span class="p-effect">7일간 커뮤니티 이용 정지</span></div>
+                        <div class="p-row"><span class="p-range">10.0P 미만</span><span class="p-effect">계정 영구 활동 제한</span></div>
+                      </div>
+                    </div>
                   </div>
 
                   <div v-if="karmaHistory.length > 0" class="karma-history-list">
@@ -1534,9 +1551,21 @@ onMounted(() => {
 
 .g-icon { font-size: 1.2rem; flex-shrink: 0; padding-top: 2px; }
 
-.g-text { display: flex; flex-direction: column; gap: 4px; }
-.g-title { font-size: 0.85rem; font-weight: 800; color: var(--text-primary); }
-.g-text p { font-size: 0.78rem; color: var(--text-secondary); line-height: 1.5; margin: 0; word-break: keep-all; }
+.g-text { display: flex; flex-direction: column; flex: 1; }
+.g-title { font-size: 0.9rem; font-weight: 900; color: var(--text-primary); display: block; margin-bottom: 10px; }
+.guide-sub-list { list-style: none; padding: 0; margin: 0; }
+.guide-sub-list li { font-size: 0.8rem; color: var(--text-secondary); line-height: 1.6; margin-bottom: 6px; position: relative; padding-left: 14px; word-break: keep-all; }
+.guide-sub-list li::before { content: "•"; position: absolute; left: 0; color: var(--link-color); font-weight: bold; }
+.guide-sub-list li strong { color: var(--text-primary); font-weight: 700; }
+
+.karma-penalty-table { margin-top: 20px; background: var(--card-bg); border-radius: 12px; border: 1.5px solid var(--border-color); overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.02); }
+.penalty-header { background: rgba(231, 76, 60, 0.05); padding: 12px 15px; font-size: 0.85rem; font-weight: 950; color: #e74c3c; border-bottom: 1px solid var(--border-color); }
+.penalty-body { padding: 5px 0; }
+.p-row { display: flex; justify-content: space-between; padding: 10px 15px; border-bottom: 1px solid var(--divider-color); transition: background 0.2s; }
+.p-row:last-child { border-bottom: none; }
+.p-row:hover { background: var(--hover-bg); }
+.p-range { font-size: 0.8rem; font-weight: 900; color: var(--text-primary); }
+.p-effect { font-size: 0.8rem; font-weight: 700; color: #ed4956; }
 
 .guide-footer {
   font-size: 0.75rem;

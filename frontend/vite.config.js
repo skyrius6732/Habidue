@@ -11,10 +11,12 @@ export default defineConfig({
     vueDevTools(),
   ],
   server: {
-    proxy: {  //lvh.me
+    proxy: {
       '/api': {
         target: 'http://localhost:8081',
-        changeOrigin: true
+        changeOrigin: true,
+        // [시니어 조치] SSE 안정성을 위해 최소한의 설정만 유지
+        ws: true
       },
       '/uploads': {
         target: 'http://localhost:8081',

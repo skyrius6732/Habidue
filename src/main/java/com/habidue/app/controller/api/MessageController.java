@@ -6,6 +6,7 @@ import com.habidue.app.dto.ApiResponse;
 import com.habidue.app.dto.message.MessageRequestDto;
 import com.habidue.app.service.message.MessageService;
 import com.habidue.app.service.user.UserService;
+import com.habidue.app.config.oauth.UserPrincipal;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -13,7 +14,6 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.multipart.MultipartHttpServletRequest;
@@ -29,74 +29,56 @@ public class MessageController {
 
     private final MessageService messageService;
     private final UserService userService;
-    private final com.habidue.app.service.board.BoardReportService boardReportService; // 추가
+    private final com.habidue.app.service.board.BoardReportService boardReportService;
 
-    /**
-     * 쪽지 발송 (ID가 있거나 없는 경우를 모두 매핑하여 404 방지)
-     */
+    // [시니어 조치] UserPrincipal에서 User 엔티티를 안전하게 가져오는 헬퍼 메서드
+    private User getAuthenticatedUser(UserPrincipal principal) {
+        if (principal.getUser() != null) return principal.getUser();
+        return userService.getUserById(principal.getId()); // ID로 조회 (JWT 인증 시 대응)
+    }
+
     @PostMapping({"", "/{receiverId}"})
     public ResponseEntity<ApiResponse<Void>> sendMessage(
-            @AuthenticationPrincipal UserDetails userDetails,
+            @AuthenticationPrincipal UserPrincipal userPrincipal,
             @PathVariable(value = "receiverId", required = false) Long receiverId,
             @ModelAttribute MessageRequestDto requestDto,
             HttpServletRequest request) {
         
-        log.info("==== [ 쪽지 발송 디버깅 ] ====");
-        
         if (receiverId == null) {
             String paramId = request.getParameter("receiverId");
-            if (paramId != null && !paramId.isEmpty()) {
-                receiverId = Long.valueOf(paramId);
-            }
+            if (paramId != null && !paramId.isEmpty()) receiverId = Long.valueOf(paramId);
         }
 
-        if (receiverId == null) {
-            log.error("🚨 수신자 ID 추출 실패!");
-            throw new IllegalArgumentException("수신자 정보를 확인할 수 없습니다. 다시 시도해 주세요.");
-        }
+        if (receiverId == null) throw new IllegalArgumentException("수신자 정보를 확인할 수 없습니다.");
         
         String content = requestDto.getContent();
         List<MultipartFile> files = requestDto.getFiles();
 
-        if (content == null || content.trim().isEmpty()) {
-            content = request.getParameter("content");
-        }
-        
+        if (content == null || content.trim().isEmpty()) content = request.getParameter("content");
         if (files == null || files.isEmpty()) {
-            if (request instanceof MultipartHttpServletRequest) {
-                files = ((MultipartHttpServletRequest) request).getFiles("files");
-            }
+            if (request instanceof MultipartHttpServletRequest) files = ((MultipartHttpServletRequest) request).getFiles("files");
         }
-
-        log.info("Sender: {}, Target: {}, Content: {}", userDetails.getUsername(), receiverId, content);
 
         if ((content == null || content.trim().isEmpty()) && (files == null || files.isEmpty())) {
-            log.error("🚨 최종 데이터 추출 실패: Content와 File 모두 없음");
             throw new IllegalArgumentException("메시지 내용 또는 파일을 입력해주세요.");
         }
         
-        User sender = userService.getUserByUsername(userDetails.getUsername());
-        messageService.sendMessage(sender.getId(), receiverId, content, files);
-        
+        messageService.sendMessage(userPrincipal.getId(), receiverId, content, files);
         return ApiResponse.success(null);
     }
 
     @GetMapping("/status")
     public ResponseEntity<ApiResponse<Map<String, Object>>> getDailyStatus(
-            @AuthenticationPrincipal UserDetails userDetails) {
-        User user = userService.getUserByUsername(userDetails.getUsername());
-        return ApiResponse.success(messageService.getDailyMessageStatus(user.getId()));
+            @AuthenticationPrincipal UserPrincipal userPrincipal) {
+        return ApiResponse.success(messageService.getDailyMessageStatus(userPrincipal.getId()));
     }
 
     @GetMapping("/rooms")
     public ResponseEntity<ApiResponse<Page<com.habidue.app.dto.message.MessageResponseDto>>> getMessageRooms(
-            @AuthenticationPrincipal UserDetails userDetails,
+            @AuthenticationPrincipal UserPrincipal userPrincipal,
             Pageable pageable) {
-        User user = userService.getUserByUsername(userDetails.getUsername());
-
-        // 접속 상태 갱신 (메서드명 수정: setUserOnline -> updateUserOnlineStatus)
+        User user = getAuthenticatedUser(userPrincipal);
         userService.updateUserOnlineStatus(user.getId());
-
         Page<Message> messages = messageService.getLatestMessagesGroupedByPartner(user, pageable);
 
         return ApiResponse.success(messages.map(m -> {
@@ -109,13 +91,10 @@ public class MessageController {
 
     @GetMapping("/conversation/{partnerId}")
     public ResponseEntity<ApiResponse<java.util.List<com.habidue.app.dto.message.MessageResponseDto>>> getConversation(
-            @AuthenticationPrincipal UserDetails userDetails,
+            @AuthenticationPrincipal UserPrincipal userPrincipal,
             @PathVariable Long partnerId) {
-        User user = userService.getUserByUsername(userDetails.getUsername());
-
-        // 접속 상태 갱신 (메서드명 수정: setUserOnline -> updateUserOnlineStatus)
+        User user = getAuthenticatedUser(userPrincipal);
         userService.updateUserOnlineStatus(user.getId());
-
         java.util.List<Message> conversation = messageService.getConversation(user, partnerId);
         boolean isPartnerOnline = userService.isUserOnline(partnerId);
 
@@ -124,115 +103,91 @@ public class MessageController {
                 .collect(java.util.stream.Collectors.toList()));
     }
 
+    @PatchMapping("/conversation/{partnerId}/read")
+    public ResponseEntity<ApiResponse<Void>> markConversationAsRead(
+            @AuthenticationPrincipal UserPrincipal userPrincipal,
+            @PathVariable Long partnerId) {
+        messageService.markConversationAsRead(getAuthenticatedUser(userPrincipal), partnerId);
+        return ApiResponse.success(null);
+    }
+
     @PostMapping("/active")
     public ResponseEntity<ApiResponse<Void>> updateActiveStatus(
-            @AuthenticationPrincipal UserDetails userDetails) {
-        User user = userService.getUserByUsername(userDetails.getUsername());
-        // 접속 상태 갱신 (메서드명 수정: setUserOnline -> updateUserOnlineStatus)
-        userService.updateUserOnlineStatus(user.getId());
+            @AuthenticationPrincipal UserPrincipal userPrincipal) {
+        userService.updateUserOnlineStatus(userPrincipal.getId());
         return ApiResponse.success(null);
     }
 
     @DeleteMapping("/conversation/{partnerId}")
     public ResponseEntity<ApiResponse<Void>> deleteConversation(
-            @AuthenticationPrincipal UserDetails userDetails,
+            @AuthenticationPrincipal UserPrincipal userPrincipal,
             @PathVariable Long partnerId) {
-        User user = userService.getUserByUsername(userDetails.getUsername());
-        messageService.deleteConversation(user, partnerId);
+        messageService.deleteConversation(getAuthenticatedUser(userPrincipal), partnerId);
         return ApiResponse.success(null);
     }
 
     @DeleteMapping("/{messageId}")
     public ResponseEntity<ApiResponse<Void>> deleteMessage(
-            @AuthenticationPrincipal UserDetails userDetails,
+            @AuthenticationPrincipal UserPrincipal userPrincipal,
             @PathVariable Long messageId) {
-        User user = userService.getUserByUsername(userDetails.getUsername());
-        messageService.deleteMessage(messageId, user);
+        messageService.deleteMessage(messageId, getAuthenticatedUser(userPrincipal));
         return ApiResponse.success(null);
     }
 
     @PatchMapping("/{messageId}/edit")
     public ResponseEntity<ApiResponse<Void>> editMessage(
-            @AuthenticationPrincipal UserDetails userDetails,
+            @AuthenticationPrincipal UserPrincipal userPrincipal,
             @PathVariable Long messageId,
             @RequestBody java.util.Map<String, String> body) {
-        
         String content = body.get("content");
-        if (content == null || content.trim().isEmpty()) {
-            throw new IllegalArgumentException("수정할 내용을 입력해주세요.");
-        }
-
-        User user = userService.getUserByUsername(userDetails.getUsername());
-        messageService.editMessage(messageId, user, content);
+        if (content == null || content.trim().isEmpty()) throw new IllegalArgumentException("수정할 내용을 입력해주세요.");
+        messageService.editMessage(messageId, getAuthenticatedUser(userPrincipal), content);
         return ApiResponse.success(null);
     }
 
     @PatchMapping("/{messageId}/read")
     public ResponseEntity<ApiResponse<Void>> readMessage(
-            @AuthenticationPrincipal UserDetails userDetails,
+            @AuthenticationPrincipal UserPrincipal userPrincipal,
             @PathVariable Long messageId) {
-        User user = userService.getUserByUsername(userDetails.getUsername());
-        messageService.readMessage(messageId, user);
+        messageService.readMessage(messageId, getAuthenticatedUser(userPrincipal));
         return ApiResponse.success(null);
     }
 
-    /**
-     * 쪽지 신고 (통합 신고 시스템 연동)
-     */
     @PostMapping("/{messageId}/report")
     public ResponseEntity<ApiResponse<Void>> reportMessage(
-            @AuthenticationPrincipal UserDetails userDetails,
+            @AuthenticationPrincipal UserPrincipal userPrincipal,
             @PathVariable Long messageId,
             @RequestBody(required = false) java.util.Map<String, String> body) {
-
         String reason = (body != null && body.containsKey("reason")) ? body.get("reason") : "부적절한 내용의 쪽지";
-
-        // 1. 기존 메시지 엔티티의 신고 플래그 업데이트
-        User user = userService.getUserByUsername(userDetails.getUsername());
-        messageService.reportMessage(messageId, user);
-
-        // 2. 통합 신고 테이블(Reports)에 기록
+        messageService.reportMessage(messageId, getAuthenticatedUser(userPrincipal));
         com.habidue.app.dto.board.ReportRequestDto reportDto = new com.habidue.app.dto.board.ReportRequestDto();
         reportDto.setTargetId(messageId);
         reportDto.setTargetType(com.habidue.app.domain.board.ReportTargetType.MESSAGE);
         reportDto.setReason(reason);
-
         boardReportService.report(reportDto);
-
         return ApiResponse.success(null);
     }
-
 
     @PostMapping("/block/{blockedId}")
     public ResponseEntity<ApiResponse<Void>> blockUser(
-            @AuthenticationPrincipal UserDetails userDetails,
+            @AuthenticationPrincipal UserPrincipal userPrincipal,
             @PathVariable Long blockedId) {
-        User user = userService.getUserByUsername(userDetails.getUsername());
-        messageService.blockUser(user, blockedId);
+        messageService.blockUser(getAuthenticatedUser(userPrincipal), blockedId);
         return ApiResponse.success(null);
     }
 
-    /**
-     * 유저 차단 해제
-     */
     @DeleteMapping("/block/{blockedId}")
     public ResponseEntity<ApiResponse<Void>> unblockUser(
-            @AuthenticationPrincipal UserDetails userDetails,
+            @AuthenticationPrincipal UserPrincipal userPrincipal,
             @PathVariable Long blockedId) {
-        User user = userService.getUserByUsername(userDetails.getUsername());
-        messageService.unblockUser(user, blockedId);
+        messageService.unblockUser(getAuthenticatedUser(userPrincipal), blockedId);
         return ApiResponse.success(null);
     }
 
-    /**
-     * 차단한 유저 목록 조회
-     */
     @GetMapping("/block/list")
     public ResponseEntity<ApiResponse<List<Map<String, Object>>>> getBlockedUsers(
-            @AuthenticationPrincipal UserDetails userDetails) {
-        User user = userService.getUserByUsername(userDetails.getUsername());
-        List<com.habidue.app.domain.message.UserBlock> blockedList = messageService.getBlockedUsers(user);
-        
+            @AuthenticationPrincipal UserPrincipal userPrincipal) {
+        List<com.habidue.app.domain.message.UserBlock> blockedList = messageService.getBlockedUsers(getAuthenticatedUser(userPrincipal));
         List<Map<String, Object>> response = blockedList.stream().map(b -> {
             Map<String, Object> map = new java.util.HashMap<>();
             map.put("id", b.getBlocked().getId());
@@ -241,7 +196,6 @@ public class MessageController {
             map.put("isSystemBlock", b.isSystemBlock());
             return map;
         }).collect(java.util.stream.Collectors.toList());
-        
         return ApiResponse.success(response);
     }
 }

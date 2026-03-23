@@ -29,6 +29,10 @@ public interface MessageRepository extends JpaRepository<Message, Long> {
            "AND m.isRoomRestricted = true AND m.isDeleted = false")
     boolean existsRestrictedMessageBetweenUsers(@Param("user") User user, @Param("partner") User partner);
 
+    @Query("SELECT m FROM Message m WHERE ((m.sender = :user AND m.receiver = :partner) OR (m.sender = :partner AND m.receiver = :user)) " +
+           "AND m.receiver = :user AND m.isRead = false AND m.isDeleted = false")
+    List<Message> findUnreadMessagesWithPartner(@Param("user") User user, @Param("partner") User partner);
+
     // [시니어 조치] 차단 해제 시 해당 대화방의 모든 영구 제한 메시지 해제 (Undo 기능)
     @org.springframework.data.jpa.repository.Modifying
     @Query("UPDATE Message m SET m.isRoomRestricted = false " +

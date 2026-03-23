@@ -13,6 +13,8 @@ import com.habidue.app.repository.user.UserRepository;
 import com.habidue.app.repository.user.UserActivityStatsRepository;
 import com.habidue.app.repository.badge.UserBadgeRepository;
 import com.habidue.app.service.badge.BadgeService;
+import com.habidue.app.service.notification.NotificationService;
+import com.habidue.app.domain.notification.NotificationType;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -41,6 +43,7 @@ public class CommentService {
     private final ExpService expService; // [시니어 조치] EXP 연동
     private final KarmaService karmaService; // [시니어 조치] 카르마 시스템 연동
     private final com.habidue.app.repository.board.CommentLikeRepository commentLikeRepository; // [시니어] 댓글 좋아요 레포지토리 추가
+    private final NotificationService notificationService; // [시니어 조치] 알림 서비스 추가
 
     private User getCurrentUser() {
         UserPrincipal principal = (UserPrincipal) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
@@ -57,7 +60,6 @@ public class CommentService {
             java.time.LocalDateTime until = author.getRestrictedUntil();
             String message;
             
-            // 50년 이상 제한이면 사실상 영구 제재로 간주
             if (until != null && until.isAfter(java.time.LocalDateTime.now().plusYears(50))) {
                 message = "카르마 점수가 너무 낮아 커뮤니티에서 영구 활동이 제한되었습니다.\n상세 내용은 고객센터로 문의해 주세요.";
             } else {
@@ -70,7 +72,6 @@ public class CommentService {
         Post post = postRepository.findById(postId)
                 .orElseThrow(() -> new NoSuchElementException("게시글을 찾을 수 없습니다."));
 
-        // [시니어 조치] 관리자에 의해 블라인드 처리된 게시글은 댓글 작성 차단
         if ("BLINDED".equalsIgnoreCase(post.getStatus())) {
             throw new IllegalArgumentException("관리자에 의해 차단된 게시글의 댓글은 등록, 수정, 삭제할 수 없습니다.");
         }
@@ -88,44 +89,71 @@ public class CommentService {
                 .parent(parent)
                 .build();
 
-        // 1. 댓글수 원자적 증가 (Atomic counting)
         postRepository.incrementCommentCount(postId);
 
-        // [시니어 조치] 유저 활동 통계 업데이트 (지연 초기화 적용)
         UserActivityStats stats = userActivityStatsRepository.findById(author.getId())
                 .orElseGet(() -> userActivityStatsRepository.save(UserActivityStats.createEmpty(author)));
         
         stats.incrementCommentCount();
         userActivityStatsRepository.save(stats);
-        badgeService.checkAndAwardBadges(stats); // [시니어 조치] 배지 획득 조건 체크
+        badgeService.checkAndAwardBadges(stats);
 
         Comment savedComment = commentRepository.save(comment);
 
-        // [시니어 조치] 댓글 작성 EXP 부여
         expService.grantExp(author.getId(), ExpReason.COMMENT_CREATED, "댓글 작성: " + savedComment.getId());
 
+        // [시니어 조치] 알림 발송
+        sendCommentNotification(savedComment, author);
+
         return convertToDtoWithBadges(savedComment);
+    }
+
+    /**
+     * 댓글/답글 알림 발송 로직
+     */
+    private void sendCommentNotification(Comment comment, User author) {
+        Post post = comment.getPost();
+        
+        if (comment.getParent() != null) {
+            // 1. 답글 알림: 부모 댓글 작성자에게 전송
+            User parentAuthor = comment.getParent().getAuthor();
+            if (!parentAuthor.getId().equals(author.getId())) {
+                String content = String.format("↪️ 회원님의 댓글에 새로운 답글이 달렸습니다: \"%s\"", 
+                        truncateContent(comment.getContent()));
+                notificationService.send(parentAuthor, NotificationType.REPLY, content, post.getId());
+            }
+        } else {
+            // 2. 일반 댓글 알림: 게시글 작성자에게 전송
+            User postAuthor = post.getAuthor();
+            if (!postAuthor.getId().equals(author.getId())) {
+                String content = String.format("💬 회원님의 게시글에 새로운 댓글이 달렸습니다: \"%s\"", 
+                        truncateContent(comment.getContent()));
+                notificationService.send(postAuthor, NotificationType.COMMENT, content, post.getId());
+            }
+        }
+    }
+
+    private String truncateContent(String content) {
+        if (content == null) return "";
+        return content.length() > 20 ? content.substring(0, 20) + "..." : content;
     }
 
     public Page<CommentResponseDto> getComments(Long postId, Pageable pageable) {
         Page<Comment> comments = commentRepository.findByPostIdAndParentIsNull(postId, pageable);
         return comments.map(this::convertToDtoWithBadges);
     }
-/**
- * [시니어 조치] 댓글 DTO 변환 시 작성자 배지 정보를 포함함 (재귀 처리 및 관리자 권한 확인)
- */
-private CommentResponseDto convertToDtoWithBadges(Comment comment) {
-    boolean isAdmin = false;
-    Long currentUserId = null;
-    try {
-        User currentUser = getCurrentUser();
-        isAdmin = currentUser.getRole() == com.habidue.app.domain.user.Role.ADMIN;
-        currentUserId = currentUser.getId();
-    } catch (Exception e) { /* 비로그인 상태 등 */ }
 
-    CommentResponseDto dto = CommentResponseDto.from(comment, isAdmin, currentUserId, commentLikeRepository);
+    private CommentResponseDto convertToDtoWithBadges(Comment comment) {
+        boolean isAdmin = false;
+        Long currentUserId = null;
+        try {
+            User currentUser = getCurrentUser();
+            isAdmin = currentUser.getRole() == com.habidue.app.domain.user.Role.ADMIN;
+            currentUserId = currentUser.getId();
+        } catch (Exception e) {}
 
-        // 1. 본문 댓글 작성자 배지 주입
+        CommentResponseDto dto = CommentResponseDto.from(comment, isAdmin, currentUserId, commentLikeRepository);
+
         dto.setAuthorBadges(userBadgeRepository.findByUserOrderByAcquiredAtDesc(comment.getAuthor()).stream()
                 .map(ub -> {
                     String badgeType = ub.getBadge().getCode().replace("_BASE", "");
@@ -135,7 +163,6 @@ private CommentResponseDto convertToDtoWithBadges(Comment comment) {
                 })
                 .collect(java.util.stream.Collectors.toList()));
 
-        // 2. 대댓글들에 대해서도 재귀적으로 배지 주입
         if (dto.getChildren() != null) {
             for (int i = 0; i < comment.getChildren().size(); i++) {
                 Comment childEntity = comment.getChildren().get(i);
@@ -165,22 +192,17 @@ private CommentResponseDto convertToDtoWithBadges(Comment comment) {
             throw new IllegalArgumentException("삭제 권한이 없습니다.");
         }
 
-        // [시니어 조치] 관리자에 의해 블라인드 처리된 게시글은 댓글 삭제 차단
         if ("BLINDED".equalsIgnoreCase(comment.getPost().getStatus())) {
             throw new IllegalArgumentException("관리자에 의해 차단된 게시글의 댓글은 등록, 수정, 삭제할 수 없습니다.");
         }
 
-        // [시니어 조치] 관리자에 의해 블라인드 또는 영구 삭제 처리된 댓글은 작성자가 조작할 수 없음
         if ("BLINDED".equals(comment.getStatus()) || "DELETED".equals(comment.getStatus())) {
             throw new IllegalStateException("관리자에 의해 조치된 댓글은 수정 또는 삭제할 수 없습니다.");
         }
 
-        // 1. 댓글수 원자적 감소
         postRepository.decrementCommentCount(comment.getPost().getId());
-        
         commentRepository.delete(comment);
 
-        // [시니어 조치] 유저 활동 통계 업데이트 (댓글 삭제)
         userActivityStatsRepository.findById(currentUser.getId()).ifPresent(stats -> {
             stats.decrementCommentCount();
             userActivityStatsRepository.save(stats);
@@ -197,12 +219,10 @@ private CommentResponseDto convertToDtoWithBadges(Comment comment) {
             throw new IllegalArgumentException("수정 권한이 없습니다.");
         }
 
-        // [시니어 조치] 관리자에 의해 블라인드 처리된 게시글은 댓글 수정 차단
         if ("BLINDED".equalsIgnoreCase(comment.getPost().getStatus())) {
             throw new IllegalArgumentException("관리자에 의해 차단된 게시글의 댓글은 등록, 수정, 삭제할 수 없습니다.");
         }
 
-        // [시니어 조치] 관리자에 의해 블라인드 또는 영구 삭제 처리된 댓글은 작성자가 조작할 수 없음
         if ("BLINDED".equals(comment.getStatus()) || "DELETED".equals(comment.getStatus())) {
             throw new IllegalStateException("관리자에 의해 조치된 댓글은 수정 또는 삭제할 수 없습니다.");
         }
@@ -211,16 +231,12 @@ private CommentResponseDto convertToDtoWithBadges(Comment comment) {
         return convertToDtoWithBadges(comment);
     }
 
-    /**
-     * [시니어] 댓글 좋아요/취소 토글 로직
-     */
     @Transactional
     public void toggleCommentLike(Long commentId) {
         User currentUser = getCurrentUser();
         Comment comment = commentRepository.findById(commentId)
                 .orElseThrow(() -> new NoSuchElementException("댓글을 찾을 수 없습니다."));
 
-        // 1. 자기 댓글 좋아요 방지 (운영 정책)
         if (comment.getAuthor().getId().equals(currentUser.getId())) {
             throw new IllegalArgumentException("본인의 댓글에는 좋아요를 누를 수 없습니다.");
         }
@@ -228,21 +244,16 @@ private CommentResponseDto convertToDtoWithBadges(Comment comment) {
         java.util.Optional<com.habidue.app.domain.board.CommentLike> existingLike = 
                 commentLikeRepository.findByCommentAndUser(comment, currentUser);
 
-        // [시니어 조치] 통계 업데이트를 위한 준비
         User author = comment.getAuthor();
         UserActivityStats stats = userActivityStatsRepository.findById(author.getId())
                 .orElseGet(() -> userActivityStatsRepository.save(UserActivityStats.createEmpty(author)));
 
         if (existingLike.isPresent()) {
-            // 좋아요 취소
             commentLikeRepository.delete(existingLike.get());
             comment.decrementLikeCount();
             stats.decrementCommentLikeReceivedCount();
-
-            // [운영 정책 반영] 댓글 좋아요 취소 시 부여됐던 카르마 회수 (-0.1P = 1포인트 차감)
             karmaService.manualAdjustKarmaRaw(comment.getAuthor().getId(), -1, com.habidue.app.domain.user.KarmaReason.LIKE_RECEIVED, "댓글 좋아요 취소 (ID: " + comment.getId() + ")", null, false);
         } else {
-            // 좋아요 추가
             com.habidue.app.domain.board.CommentLike newLike = com.habidue.app.domain.board.CommentLike.builder()
                     .comment(comment)
                     .user(currentUser)
@@ -251,8 +262,6 @@ private CommentResponseDto convertToDtoWithBadges(Comment comment) {
             comment.incrementLikeCount();
             stats.incrementCommentLikeReceivedCount();
 
-            // [운영 정책 반영] 댓글 좋아요 획득 시 작성자 카르마 +1포인트(0.1점) 부여
-            // 댓글 하나당 최대 1.0점(10포인트)까지만 획득 가능하도록 설정
             String postKey = "COMMENT_ID: " + comment.getId();
             karmaService.restoreKarma(comment.getAuthor().getId(), 1, postKey, null, 10, com.habidue.app.domain.user.KarmaReason.LIKE_RECEIVED);
         }

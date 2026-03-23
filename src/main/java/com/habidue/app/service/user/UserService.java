@@ -10,6 +10,8 @@ import com.habidue.app.repository.user.UserRepository;
 import com.habidue.app.repository.user.UserActivityStatsRepository;
 import com.habidue.app.repository.badge.UserBadgeRepository;
 import com.habidue.app.service.badge.BadgeService;
+import com.habidue.app.service.notification.NotificationService;
+import com.habidue.app.domain.notification.NotificationType;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.core.StringRedisTemplate;
@@ -31,11 +33,12 @@ public class UserService {
     private final UserRepository userRepository;
     private final UserActivityStatsRepository userActivityStatsRepository;
     private final UserBadgeRepository userBadgeRepository;
-    private final com.habidue.app.repository.badge.BadgeLevelRuleRepository badgeLevelRuleRepository; // [시니어 조치] 규칙 저장소 추가
+    private final com.habidue.app.repository.badge.BadgeLevelRuleRepository badgeLevelRuleRepository;
     private final BadgeService badgeService;
     private final PasswordEncoder passwordEncoder;
     private final StringRedisTemplate redisTemplate;
     private final com.fasterxml.jackson.databind.ObjectMapper objectMapper;
+    private final NotificationService notificationService; // [시니어 조치] 알림 서비스 추가
 
     private static final String BADGE_RULES_CACHE_KEY = "badge:rules:all";
 
@@ -60,8 +63,6 @@ public class UserService {
         user.setStatus(UserStatus.ACTIVE);
 
         User savedUser = userRepository.save(user);
-
-        // [시니어 조치] 유저 통계 엔티티 생성 (배지 시스템용)
         userActivityStatsRepository.save(UserActivityStats.createEmpty(savedUser));
 
         return savedUser;
@@ -75,10 +76,8 @@ public class UserService {
         UserActivityStats stats = userActivityStatsRepository.findById(userId)
                 .orElseGet(() -> userActivityStatsRepository.save(UserActivityStats.createEmpty(user)));
 
-        // [시니어 조치] BadgeService의 공통 로직을 사용하여 실시간 이름 및 진행도 포함된 배지 리스트 조회
         List<com.habidue.app.dto.badge.BadgeResponseDto> badges = badgeService.getMyBadgeDtos(user);
 
-        // [시니어 조치] 모든 배지 레벨 규칙 조회 (Redis 캐싱 적용으로 성능 극대화)
         List<com.habidue.app.dto.badge.BadgeLevelRuleResponseDto> badgeRules = null;
         try {
             String cachedRules = redisTemplate.opsForValue().get(BADGE_RULES_CACHE_KEY);
@@ -94,7 +93,6 @@ public class UserService {
                     .map(com.habidue.app.dto.badge.BadgeLevelRuleResponseDto::from)
                     .collect(Collectors.toList());
             
-            // 캐시 저장 (1시간 유효)
             try {
                 redisTemplate.opsForValue().set(BADGE_RULES_CACHE_KEY, objectMapper.writeValueAsString(badgeRules), 1, java.util.concurrent.TimeUnit.HOURS);
             } catch (Exception e) {
@@ -102,27 +100,30 @@ public class UserService {
             }
         }
 
-        // [신규] 순위 정보 계산
         long totalRank = userRepository.calculateRankByTotalExp(user.getTotalExp());
         long totalUserCount = userRepository.count();
 
         return UserActivityResponseDto.of(stats, badges, badgeRules, totalRank, totalUserCount);
     }
-@Transactional
-public void syncUserActivity(Long userId) {
-    UserActivityStats stats = userActivityStatsRepository.findById(userId)
-            .orElseThrow(() -> new NoSuchElementException("활동 통계 정보가 없습니다."));
 
-    // [시니어 조치] 주입된 배지 서비스를 통해 현재 통계 기반으로 배지 재검고 및 수여
-    badgeService.checkAndAwardBadges(stats);
-}
+    @Transactional
+    public void syncUserActivity(Long userId) {
+        UserActivityStats stats = userActivityStatsRepository.findById(userId)
+                .orElseThrow(() -> new NoSuchElementException("활동 통계 정보가 없습니다."));
+        badgeService.checkAndAwardBadges(stats);
+    }
 
     @Transactional(readOnly = true)
     public User getUserByUsername(String identifier) {
-        // 이메일로 먼저 찾고, 없으면 유저네임으로 찾음
         return userRepository.findByEmail(identifier)
                 .or(() -> userRepository.findByUsername(identifier))
                 .orElseThrow(() -> new NoSuchElementException("사용자를 찾을 수 없습니다: " + identifier));
+    }
+
+    @Transactional(readOnly = true)
+    public User getUserById(Long userId) {
+        return userRepository.findById(userId)
+                .orElseThrow(() -> new NoSuchElementException("사용자를 찾을 수 없습니다. ID: " + userId));
     }
 
     @Transactional
@@ -151,16 +152,12 @@ public void syncUserActivity(Long userId) {
         userRepository.delete(user);
     }
 
-    /**
-     * [시니어 조치] 대표 배지(칭호) 장착/해제
-     */
     @Transactional
     public User updateEquippedBadge(Long userId, Long badgeId) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new NoSuchElementException("사용자를 찾을 수 없습니다."));
         
         if (badgeId != null) {
-            // 해당 유저가 실제로 해당 배지를 보유하고 있는지 검증
             boolean hasBadge = userBadgeRepository.existsByUserIdAndBadgeId(userId, badgeId);
             if (!hasBadge) {
                 throw new IllegalArgumentException("보유하지 않은 배지는 장착할 수 없습니다.");
@@ -170,8 +167,6 @@ public void syncUserActivity(Long userId) {
         user.setEquippedBadgeId(badgeId);
         return userRepository.save(user);
     }
-
-    // --- [관리자 전용 기능] ---
 
     @Transactional(readOnly = true)
     public List<User> getAllUsers() {
@@ -192,22 +187,30 @@ public void syncUserActivity(Long userId) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new NoSuchElementException("사용자를 찾을 수 없습니다. ID: " + userId));
         
+        UserStatus oldStatus = user.getStatus();
         user.setStatus(status);
+
         if (status == UserStatus.BLOCKED) {
             String finalReason = (reason != null && !reason.trim().isEmpty()) ? reason : "관리자에 의해 계정이 차단되었습니다.";
             user.setBlockedReason(finalReason);
             user.setBlockedAt(LocalDateTime.now());
             redisTemplate.opsForValue().set(BLOCKED_USER_PREFIX + userId, finalReason);
+            
+            // [시니어 조치] 차단 알림 발송 (기록용)
+            notificationService.send(user, NotificationType.SYSTEM, "🚫 운영 정책 위반으로 인해 계정이 차단되었습니다. (사유: " + finalReason + ")", null);
         } else {
             user.setBlockedReason(null);
             user.setBlockedAt(null);
             redisTemplate.delete(BLOCKED_USER_PREFIX + userId);
+
+            // [시니어 조치] 복구 알림 발송
+            if (oldStatus == UserStatus.BLOCKED && status == UserStatus.ACTIVE) {
+                notificationService.send(user, NotificationType.SYSTEM, "📢 관리자에 의해 계정 제한이 해제되었습니다. 다시 정상적인 이용이 가능합니다.", null);
+            }
         }
         
         return userRepository.save(user);
     }
-
-    // --- [실시간 접속 관리 (Redis)] ---
 
     public boolean isUserOnline(Long userId) {
         return Boolean.TRUE.equals(redisTemplate.hasKey(ONLINE_USER_PREFIX + userId));

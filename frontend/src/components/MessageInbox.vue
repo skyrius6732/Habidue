@@ -67,6 +67,9 @@ const selectRoom = async (room) => {
   const partnerId = getPartnerId(room)
   
   if (partnerId) {
+    // [시니어 조치] 대화방 진입 시 읽음 처리 즉시 수행 (배지 제거)
+    await messageStore.markRoomAsRead(partnerId)
+    
     conversationList.value = await messageStore.fetchConversation(partnerId)
     currentMobileView.value = 'CHAT'
     scrollToBottom()
