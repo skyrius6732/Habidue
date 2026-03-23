@@ -46,6 +46,18 @@ public class Message {
     @Column(nullable = false)
     private boolean isEdited = false; // [시니어 조치] 수정 여부
 
+    @Builder.Default
+    @Column(nullable = false)
+    private boolean isRestoredByAdmin = false; // [시니어 조치] 관리자에 의한 복구 여부
+
+    private Long visibleToUserId; // [시니어 조치] 특정 유저에게만 보이는 메시지 (null이면 전체 공개)
+
+    @Builder.Default
+    @Column(nullable = false)
+    private boolean isRoomRestricted = false; // [시니어 조치] 해당 대화방의 발송 제한 여부
+
+    private Long relatedTargetId; // [시니어 조치] 시스템 메시지와 연관된 원본 메시지 ID (이동용)
+
     private LocalDateTime readAt;
 
     @Builder.Default
@@ -56,7 +68,9 @@ public class Message {
 
     // AI 분석 결과
     private Double aiScore; // 0.0 ~ 1.0 (위험도)
-    private String aiAnalysis; // AI의 간단한 판별 근거
+    
+    @Column(columnDefinition = "TEXT")
+    private String aiAnalysis; // AI의 상세 분석 결과 (JSON)
 
     @Builder.Default
     @com.fasterxml.jackson.annotation.JsonProperty("isReported")
@@ -87,9 +101,19 @@ public class Message {
     
     // [시니어 조치] 추가 메서드
     public void softDelete() { this.isDeleted = true; }
+    public void restore() { 
+        this.isDeleted = false; 
+        this.isRestoredByAdmin = true; 
+    }
     public void updateContent(String content) { 
         this.content = content; 
         this.isEdited = true; 
+    }
+
+    public void updateSystemMessage(String content, boolean isRoomRestricted) {
+        this.content = content;
+        this.isRoomRestricted = isRoomRestricted;
+        this.isDeleted = false; // 복구 시 다시 보이게 설정
     }
 
     public void updateAiResult(Double score, String analysis) {

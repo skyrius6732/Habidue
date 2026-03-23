@@ -32,6 +32,15 @@ public class MessageResponseDto {
     @JsonProperty("isEdited")
     private boolean isEdited; // [시니어 조치]
 
+    @JsonProperty("isRestoredByAdmin")
+    private boolean isRestoredByAdmin; // [시니어 조치]
+
+    @JsonProperty("isRoomRestricted")
+    private boolean isRoomRestricted; // [시니어 조치]
+
+    private Long visibleToUserId; // [시니어 조치]
+    private Long relatedTargetId; // [시니어 조치]
+
     @JsonProperty("isReported")
     private boolean isReported;
 
@@ -104,6 +113,10 @@ public class MessageResponseDto {
                 .isSystem(message.isSystem())
                 .isDeleted(message.isDeleted())
                 .isEdited(message.isEdited())
+                .isRestoredByAdmin(message.isRestoredByAdmin())
+                .isRoomRestricted(message.isRoomRestricted())
+                .visibleToUserId(message.getVisibleToUserId())
+                .relatedTargetId(message.getRelatedTargetId())
                 .isReported(message.isReported())
                 .createdAt(message.getCreatedAt())
                 .readAt(message.getReadAt())

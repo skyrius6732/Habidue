@@ -34,6 +34,13 @@ public class GlobalExceptionHandler {
         return ApiResponse.error(HttpStatus.CONFLICT, e.getMessage(), e.getClass().getSimpleName());
     }
 
+    // 상태 오류 (예: 차단됨, 발송 횟수 초과 등)
+    @ExceptionHandler(IllegalStateException.class)
+    protected ResponseEntity<ApiResponse<Void>> handleIllegalStateException(IllegalStateException e) {
+        log.error("handleIllegalStateException", e);
+        return ApiResponse.error(HttpStatus.BAD_REQUEST, e.getMessage(), e.getClass().getSimpleName());
+    }
+
     // 리소스(데이터)를 찾을 수 없을 때
     @ExceptionHandler(NoSuchElementException.class)
     protected ResponseEntity<ApiResponse<Void>> handleNoSuchElementException(NoSuchElementException e) {

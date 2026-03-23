@@ -32,4 +32,12 @@ public class UserBlock {
     @CreationTimestamp
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;
+
+    // [시니어 조치] 차단 사유 및 시스템 자동 차단 여부 필드 추가
+    @Column(length = 255)
+    private String reason; // 차단 사유 (예: "심각한 운영원칙 위반으로 인한 자동 차단")
+
+    @Builder.Default
+    @Column(nullable = false)
+    private boolean isSystemBlock = false; // 시스템에 의한 강제 차단 여부
 }

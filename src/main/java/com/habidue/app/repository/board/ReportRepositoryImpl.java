@@ -1,6 +1,7 @@
 package com.habidue.app.repository.board;
 
 import com.habidue.app.domain.board.*;
+import com.habidue.app.domain.message.QMessage; // 추가
 import com.habidue.app.dto.admin.ReportAdminResponseDto;
 import com.querydsl.core.BooleanBuilder;
 import com.querydsl.jpa.impl.JPAQueryFactory;
@@ -40,15 +41,19 @@ public class ReportRepositoryImpl implements ReportRepositoryCustom {
             builder.and(report.reason.containsIgnoreCase(keyword));
         }
 
-        List<Long> latestReportIds = queryFactory
+        com.querydsl.jpa.impl.JPAQuery<Long> query = queryFactory
                 .select(report.id.max())
                 .from(report)
                 .where(builder)
                 .groupBy(report.targetId, report.targetType)
-                .orderBy(report.id.max().desc())
-                .offset(pageable.getOffset())
-                .limit(pageable.getPageSize())
-                .fetch();
+                .orderBy(report.id.max().desc());
+
+        if (pageable.isPaged()) {
+            query.offset(pageable.getOffset())
+                 .limit(pageable.getPageSize());
+        }
+
+        List<Long> latestReportIds = query.fetch();
 
         if (latestReportIds.isEmpty()) {
             return new PageImpl<>(Collections.emptyList(), pageable, 0);
@@ -88,7 +93,7 @@ public class ReportRepositoryImpl implements ReportRepositoryCustom {
             ).collect(Collectors.toList()));
             dto.setReportCount((long) allReportsForTarget.size());
 
-            // 대상 상세 정보 (게시글/댓글) 매핑
+            // 대상 상세 정보 (게시글/댓글/쪽지 분기 처리)
             if (r.getTargetType() == ReportTargetType.POST) {
                 Post p = queryFactory.selectFrom(post).where(post.id.eq(r.getTargetId())).fetchOne();
                 if (p != null) {
@@ -97,13 +102,23 @@ public class ReportRepositoryImpl implements ReportRepositoryCustom {
                     dto.setTargetStatus(p.getStatus());
                     dto.setParentPostId(p.getId());
                 }
-            } else {
+            } else if (r.getTargetType() == ReportTargetType.COMMENT) {
                 Comment c = queryFactory.selectFrom(comment).where(comment.id.eq(r.getTargetId())).fetchOne();
                 if (c != null) {
                     dto.setTargetTitle(c.getContent());
                     dto.setAuthorName(c.getAuthor().getNickname() != null ? c.getAuthor().getNickname() : c.getAuthor().getUsername());
                     dto.setTargetStatus(c.getStatus());
                     dto.setParentPostId(c.getPost().getId());
+                }
+            } else if (r.getTargetType() == ReportTargetType.MESSAGE) {
+                // [시니어 조치] MESSAGE 타입 매핑 추가
+                QMessage message = QMessage.message;
+                com.habidue.app.domain.message.Message m = queryFactory.selectFrom(message).where(message.id.eq(r.getTargetId())).fetchOne();
+                if (m != null) {
+                    dto.setTargetTitle(m.getContent());
+                    dto.setAuthorName(m.getSender().getNickname() != null ? m.getSender().getNickname() : m.getSender().getUsername());
+                    dto.setTargetStatus(m.isDeleted() ? "DELETED" : "ACTIVE");
+                    dto.setParentPostId(null);
                 }
             }
 

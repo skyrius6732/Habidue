@@ -17,6 +17,10 @@ const chatScrollRef = ref(null)
 const isSendingReply = ref(false)
 const showMenu = ref(false)
 
+// 차단 관리 관련 상태
+const showBlockedListModal = ref(false)
+const blockedUsers = ref([])
+
 // 접속 상태 갱신 인터벌
 let activeStatusInterval = null
 
@@ -24,10 +28,17 @@ let activeStatusInterval = null
 const editingMessage = ref(null)
 
 const currentMobileView = ref('LIST')
-
 onMounted(async () => {
-  await messageStore.fetchMessageRooms()
-  await messageStore.fetchDailyStatus()
+  // [시니어 조치] 쪽지함 진입 시 사용자 프로필, 대화 목록 및 발송 상태 최신화
+  try {
+    await Promise.all([
+      authStore.fetchUserProfile(),
+      messageStore.fetchMessageRooms(),
+      messageStore.fetchDailyStatus()
+    ]);
+  } catch (e) {
+    console.error('초기 데이터 로드 실패', e);
+  }
   
   activeStatusInterval = setInterval(async () => {
     try {
@@ -41,10 +52,12 @@ onUnmounted(() => {
 })
 
 const getPartnerId = (room) => {
-  if (!room || room.isSystem) return null
+  if (!room) return null
+  if (room.isSystem && !room.sender && !room.receiverId) return null
   const myId = String(authStore.user?.id)
   const senderId = room.sender ? String(room.sender.id) : null
-  return senderId === myId ? room.receiverId : room.sender?.id
+  if (senderId === myId) return room.receiverId
+  return room.sender?.id || room.receiverId
 }
 
 const selectRoom = async (room) => {
@@ -58,7 +71,7 @@ const selectRoom = async (room) => {
     currentMobileView.value = 'CHAT'
     scrollToBottom()
     await messageStore.fetchMessageRooms()
-  } else if (room.isSystem) {
+  } else {
     conversationList.value = [room]
     currentMobileView.value = 'CHAT'
     if (!room.isRead) {
@@ -74,18 +87,61 @@ const goBackToList = () => {
   cancelEdit()
 }
 
+// [시니어 조치] 특정 메시지로 스크롤 이동 및 하이라이트
+const scrollToMessage = (msgId) => {
+  if (!msgId) return
+  nextTick(() => {
+    const rowEl = document.getElementById(`msg-${msgId}`)
+    if (rowEl) {
+      rowEl.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      const bubbleEl = rowEl.querySelector('.msg-bubble')
+      if (bubbleEl) {
+        bubbleEl.classList.add('highlight-flash')
+        setTimeout(() => bubbleEl.classList.remove('highlight-flash'), 2000)
+      }
+    } else {
+      alert('해당 메시지를 찾을 수 없습니다.')
+    }
+  })
+}
+
+// [시니어 조치] 대화방의 발송 제한 여부 계산 (가장 최신 시스템 메시지 기준)
+const isRoomRestricted = computed(() => {
+  if (conversationList.value.length === 0) return false
+  const restrictionMsgs = conversationList.value.filter(m => m.isSystem && m.isRoomRestricted !== undefined)
+  if (restrictionMsgs.length === 0) return false
+  // 마지막 시스템 메시지가 제한 상태인지 확인
+  return restrictionMsgs[restrictionMsgs.length - 1].isRoomRestricted
+})
+
+// [시니어 조치] 날짜 헤더 표시 및 권한 필터링 로직 (시간순 정렬 복구)
 const processedConversation = computed(() => {
   if (conversationList.value.length === 0) return []
+  
+  const currentUserId = String(authStore.user?.id)
+
+  // 1. 가시성 필터링 및 시간순 정렬 (과거순 ASC)
+  const visibleMessages = [...conversationList.value]
+    .filter(msg => {
+      if (!msg.visibleToUserId) return true
+      return String(msg.visibleToUserId) === currentUserId
+    })
+    .sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt)) // 과거순 정렬 복구
+
   const result = []
-  if (selectedRoom.value && !selectedRoom.value.isSystem) {
+  
+  // 2. 맨 처음에 시스템 환영 안내 메시지 삽입 (방이 제한되지 않았을 때만)
+  if (selectedRoom.value && !selectedRoom.value.isSystem && !isRoomRestricted.value) {
     result.push({
       id: 'system-welcome',
       isSystem: true,
       content: `상대방에게 보내는 정중한 쪽지 한 통은 신뢰의 시작입니다.\n\nhabiDue는 건강한 소통을 위해 쪽지 발송 시 신뢰점수 0.1P를 사용하며, 하루 최대 20회까지 발송 가능합니다.\n당신의 따뜻한 한마디가 누군가에게는 큰 힘이 됩니다. 😊`
     })
   }
+
+  // 3. 날짜 구분선 및 실제 메시지 삽입 (시간순 정렬에 맞춤)
   let lastDate = null
-  conversationList.value.forEach((msg) => {
+  visibleMessages.forEach((msg) => {
     const msgDate = new Date(msg.createdAt)
     if (!lastDate || !isSameDay(lastDate, msgDate)) {
       result.push({
@@ -97,6 +153,7 @@ const processedConversation = computed(() => {
     }
     result.push(msg)
   })
+  
   return result
 })
 
@@ -121,7 +178,14 @@ const removeFile = (idx) => { replyFiles.value.splice(idx, 1) }
 
 const handleSendReply = async () => {
   if (!replyContent.value.trim() && replyFiles.value.length === 0) return
-  if (!selectedRoom.value) return
+  if (!selectedRoom.value || isRoomRestricted.value) return
+
+  // [시니어 조치] 신뢰 점수 부족 시 메시지 발송 차단 (구체적인 점수 명시)
+  const userKarma = authStore.user?.karmaPoint || 1000
+  if (userKarma <= 800) {
+    alert('⚠️ 신뢰 점수(Karma)가 80.0점 미만이라 쪽지 발송이 제한되었습니다.\n건전한 활동을 통해 80.0점 이상으로 회복해 주세요.')
+    return
+  }
   
   const partnerId = getPartnerId(selectedRoom.value)
   isSendingReply.value = true
@@ -147,7 +211,7 @@ const handleSendReply = async () => {
 }
 
 const startEdit = (msg) => {
-  if (msg.isDeleted) return
+  if (msg.isDeleted || isRoomRestricted.value) return
   editingMessage.value = msg
   replyContent.value = msg.content
 }
@@ -166,25 +230,52 @@ const handleDeleteMessage = async (msgId) => {
   }
 }
 
+const handleReportMsg = async (msg) => {
+  const reason = prompt('이 메시지를 신고하는 사유를 입력해 주세요:', '부적절한 내용');
+  if (reason === null) return;
+  if (confirm('이 메시지를 신고하시겠습니까?')) {
+    const result = await messageStore.reportMessage(msg.id, reason)
+    if (result.success) alert('신고가 정상적으로 접수되었습니다.')
+    else alert(result.message)
+  }
+}
+
 const handleBlock = async () => {
   const partnerId = getPartnerId(selectedRoom.value)
-  if (partnerId && confirm('이 사용자를 차단하시겠습니까?')) {
-    const success = await messageStore.blockUser(partnerId)
-    if (success) { alert('사용자가 차단되었습니다.'); showMenu.value = false }
+  if (!partnerId) return
+  if (confirm('사용자를 차단하시겠습니까?\n차단 시 기존 대화방 목록에서 사라지며, 더 이상 메시지를 주고받을 수 없습니다.')) {
+    const blockSuccess = await messageStore.blockUser(partnerId)
+    if (blockSuccess) {
+      await messageStore.deleteConversation(partnerId)
+      alert('사용자가 차단되었습니다.')
+      showMenu.value = false
+      selectedRoom.value = null
+      conversationList.value = []
+      await messageStore.fetchMessageRooms()
+      currentMobileView.value = 'LIST'
+    }
   }
 }
 
-const handleReportRoom = async () => {
-  if (confirm('이 대화방 상대를 신고하시겠습니까?')) {
-    alert('신고가 접수되었습니다.'); showMenu.value = false
+const handleUnblock = async (user) => {
+  const userId = user.id || user; // u.id 객체와 단순 ID 모두 대응
+  let msg = '차단을 해제하시겠습니까?';
+  if (user.isSystemBlock) {
+    msg = '⚠️ 잠깐! 이 사용자는 과거 심각한 운영 정책 위반으로 인해 시스템에서 자동차단한 대상입니다.\n\n차단을 해제하면 상대방이 다시 메시지를 보낼 수 있게 됩니다. 정말 해제하시겠습니까?';
+  }
+
+  if (confirm(msg)) {
+    const success = await messageStore.unblockUser(userId)
+    if (success) {
+      blockedUsers.value = blockedUsers.value.filter(u => u.id !== userId)
+      alert('차단이 해제되었습니다.')
+    }
   }
 }
 
-const handleReportMsg = async (msg) => {
-  if (confirm('이 메시지를 신고하시겠습니까?')) {
-    const success = await messageStore.reportMessage(msg.id)
-    if (success) { alert('신고가 접수되었습니다.') }
-  }
+const openBlockedList = async () => {
+  blockedUsers.value = await messageStore.fetchBlockedUsers()
+  showBlockedListModal.value = true
 }
 
 const handleDeleteChat = async () => {
@@ -198,6 +289,15 @@ const handleDeleteChat = async () => {
       currentMobileView.value = 'LIST'
     }
   }
+}
+
+// [시니어 조치] 시스템 메시지 유형별 클래스 반환
+const getSystemMessageClass = (content) => {
+  if (!content) return ''
+  if (content.includes('[주의]')) return 'is-caution'
+  if (content.includes('[안내]')) return 'is-info'
+  if (content.includes('[경고]')) return 'is-warning'
+  return ''
 }
 
 const formatDate = (dateStr) => {
@@ -240,11 +340,14 @@ const vClickOutside = {
     <!-- 왼쪽: 사이드바 -->
     <div class="dm-sidebar" :class="{ 'mobile-hide': currentMobileView === 'CHAT' }">
       <div class="sidebar-header">
-        <div class="sidebar-title-row">
-          <h2 class="sidebar-title">Direct Message</h2>
-          <div class="karma-badge-mini">
-            <span class="karma-value">{{ displayKarma }} P</span>
+        <div class="sidebar-top-row">
+          <div class="sidebar-title-row">
+            <h2 class="sidebar-title">Direct Message</h2>
+            <div class="karma-badge-mini">
+              <span class="karma-value">{{ displayKarma }} P</span>
+            </div>
           </div>
+          <button class="manage-block-btn" @click="openBlockedList" title="차단 목록 관리">🚫</button>
         </div>
       </div>
       
@@ -266,7 +369,7 @@ const vClickOutside = {
           @click="selectRoom(room)"
         >
           <div class="item-avatar">
-            <span v-if="room.isSystem" class="system-icon">📢</span>
+            <span v-if="room.isSystem && !room.sender && !room.receiverId" class="system-icon">📢</span>
             <div v-else class="user-avatar-wrap">
               <div class="user-avatar-small">
                 {{ (String(room.sender?.id) === String(authStore.user?.id) ? room.receiverNickname : room.sender?.nickname)?.[0] }}
@@ -277,7 +380,9 @@ const vClickOutside = {
           <div class="item-main">
             <div class="item-top">
               <div class="item-name-group">
-                <span class="item-name">{{ room.isSystem ? '시스템' : (String(room.sender?.id) === String(authStore.user?.id) ? room.receiverNickname : room.sender?.nickname) }}</span>
+                <span class="item-name">
+                  {{ (room.isSystem && !room.sender && !room.receiverId) ? '시스템' : (String(room.sender?.id) === String(authStore.user?.id) ? room.receiverNickname : room.sender?.nickname) }}
+                </span>
                 <div v-if="room.unreadCount > 0" class="unread-badge-circle">{{ room.unreadCount }}</div>
               </div>
               <span class="item-date">{{ formatDate(room.createdAt) }}</span>
@@ -299,11 +404,11 @@ const vClickOutside = {
           <div class="partner-meta">
             <button class="mobile-back-btn" @click="goBackToList">←</button>
             <div class="avatar-circle">
-              {{ (selectedRoom.isSystem ? 'S' : (String(selectedRoom.sender?.id) === String(authStore.user?.id) ? selectedRoom.receiverNickname : selectedRoom.sender?.nickname)?.[0]) }}
+              {{ (selectedRoom.isSystem && !selectedRoom.sender ? 'S' : (String(selectedRoom.sender?.id) === String(authStore.user?.id) ? selectedRoom.receiverNickname : selectedRoom.sender?.nickname)?.[0]) }}
             </div>
             <div class="name-box">
-              <span class="partner-name">{{ selectedRoom.isSystem ? '시스템 메시지' : (String(selectedRoom.sender?.id) === String(authStore.user?.id) ? selectedRoom.receiverNickname : selectedRoom.sender?.nickname) }}</span>
-              <span class="partner-status" :class="{ 'is-offline': !selectedRoom.isPartnerOnline }" v-if="!selectedRoom.isSystem">
+              <span class="partner-name">{{ selectedRoom.isSystem && !selectedRoom.sender ? '시스템 메시지' : (String(selectedRoom.sender?.id) === String(authStore.user?.id) ? selectedRoom.receiverNickname : selectedRoom.sender?.nickname) }}</span>
+              <span class="partner-status" :class="{ 'is-offline': !selectedRoom.isPartnerOnline }" v-if="!selectedRoom.isSystem || selectedRoom.sender">
                 {{ selectedRoom.isPartnerOnline ? '활동 중' : '오프라인' }}
               </span>
             </div>
@@ -312,26 +417,38 @@ const vClickOutside = {
             <div class="menu-container" v-click-outside="() => showMenu = false">
               <button class="icon-btn" @click="showMenu = !showMenu">ⓘ</button>
               <div v-if="showMenu" class="dropdown-menu">
-                <button v-if="!selectedRoom.isSystem" @click="handleDeleteChat" class="menu-item delete">대화방 삭제</button>
-                <button v-if="!selectedRoom.isSystem" @click="handleBlock" class="menu-item block">사용자 차단</button>
-                <button v-if="!selectedRoom.isSystem" @click="handleReportRoom" class="menu-item report">대화 상대 신고</button>
+                <button v-if="getPartnerId(selectedRoom)" @click="handleDeleteChat" class="menu-item delete">대화방 삭제</button>
+                <button v-if="getPartnerId(selectedRoom)" @click="handleBlock" class="menu-item block">사용자 차단</button>
               </div>
             </div>
           </div>
         </div>
 
         <div class="chat-area thin-scrollbar" ref="chatScrollRef">
-          <div v-for="msg in processedConversation" :key="msg.id" class="msg-row-container">
+          <div v-for="msg in processedConversation" :key="msg.id" class="msg-row-container" :id="'msg-' + msg.id">
             <div v-if="msg.isDateHeader" class="date-header"><span>{{ msg.content }}</span></div>
-            <div v-else-if="msg.isSystem" class="system-guide-row"><div class="system-guide-bubble"><p>{{ msg.content }}</p></div></div>
-            <div v-else-if="msg.isDeleted" class="deleted-msg-row"><div class="deleted-bubble">메시지가 삭제 되었습니다.</div></div>
+            
+            <!-- 시스템 가이드 (클릭 시 이동 로직 포함) -->
+            <div v-else-if="msg.isSystem" class="system-guide-row">
+              <div class="system-guide-bubble" 
+                   :class="[getSystemMessageClass(msg.content), { 'clickable': msg.relatedTargetId }]"
+                   @click="scrollToMessage(msg.relatedTargetId)">
+                <p>{{ msg.content }}</p>
+                <small v-if="msg.relatedTargetId" class="click-info-text">클릭하여 해당 메시지 보기</small>
+              </div>
+            </div>
+
+            <div v-else-if="msg.isDeleted" class="deleted-msg-row">
+              <div class="deleted-bubble">메시지가 삭제 되었습니다.</div>
+            </div>
 
             <div v-else class="msg-row" :class="{ 'msg-me': String(msg.sender?.id) === String(authStore.user?.id) }">
               <div class="msg-bubble-wrap">
                 <div class="msg-bubble-group">
                   <div v-if="String(msg.sender?.id) === String(authStore.user?.id)" class="msg-side-meta">
                     <span class="msg-time-inline">{{ formatTimeOnly(msg.createdAt) }}</span>
-                    <div class="msg-side-actions">
+                    <!-- 제한된 방이 아닐 때만 수정/삭제 노출 -->
+                    <div v-if="!isRoomRestricted" class="msg-side-actions">
                       <button class="msg-action-btn" @click="startEdit(msg)" title="수정">✏️</button>
                       <button class="msg-action-btn" @click="handleDeleteMessage(msg.id)" title="삭제">✕</button>
                     </div>
@@ -355,6 +472,10 @@ const vClickOutside = {
 
                   <div v-if="String(msg.sender?.id) !== String(authStore.user?.id)" class="msg-side-meta">
                     <span class="msg-time-inline">{{ formatTimeOnly(msg.createdAt) }}</span>
+                    <!-- 제한된 방이 아닐 때만 신고 노출 -->
+                    <div v-if="!isRoomRestricted" class="msg-side-actions">
+                      <button class="msg-action-btn report" @click="handleReportMsg(msg)" title="신고">🚩</button>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -362,8 +483,8 @@ const vClickOutside = {
           </div>
         </div>
 
-        <!-- 하단 입력 영역 -->
-        <div class="input-container" v-if="!selectedRoom.isSystem">
+        <!-- 하단 입력 영역 (1:1 대화방인 경우 항상 표시, 영구 제한 시 비활성화) -->
+        <div class="input-container" v-if="getPartnerId(selectedRoom)">
           <div v-if="editingMessage" class="edit-preview-bar">
             <div class="edit-info">
               <span class="edit-label">메시지 수정 중</span>
@@ -384,13 +505,19 @@ const vClickOutside = {
             </div>
           </div>
 
-          <div class="input-form-wrapper" :class="{ 'editing-active': editingMessage }">
+          <div class="input-form-wrapper" :class="{ 'editing-active': editingMessage, 'is-restricted': isRoomRestricted }">
             <div class="input-field-container">
-              <label v-if="!editingMessage" class="attach-trigger"><input type="file" multiple @change="handleFileChange" style="display: none;">📎</label>
-              <textarea v-model="replyContent" :placeholder="editingMessage ? '메시지 수정...' : '메시지 보내기...'" @keydown.enter.exact.prevent="handleSendReply" :disabled="isSendingReply" rows="3"></textarea>
+              <label v-if="!editingMessage && !isRoomRestricted" class="attach-trigger"><input type="file" multiple @change="handleFileChange" style="display: none;">📎</label>
+              <textarea 
+                v-model="replyContent" 
+                :placeholder="isRoomRestricted ? '제재로 인해 메시지 발송이 제한되었습니다.' : (editingMessage ? '메시지 수정...' : '메시지 보내기...')" 
+                @keydown.enter.exact.prevent="handleSendReply" 
+                :disabled="isSendingReply || isRoomRestricted" 
+                rows="3"
+              ></textarea>
             </div>
             <div class="input-footer-actions">
-              <button class="real-send-btn" @click="handleSendReply" :disabled="isSendingReply || (!replyContent.trim() && replyFiles.length === 0)" :class="{ 'active': replyContent.trim() || replyFiles.length > 0 }">
+              <button class="real-send-btn" @click="handleSendReply" :disabled="isSendingReply || isRoomRestricted || (!replyContent.trim() && replyFiles.length === 0)" :class="{ 'active': (replyContent.trim() || replyFiles.length > 0) && !isRoomRestricted }">
                 {{ editingMessage ? '수정 완료' : '전송' }}
               </button>
             </div>
@@ -404,6 +531,31 @@ const vClickOutside = {
         <button class="primary-btn" @click="messageStore.fetchMessageRooms()">새 메시지 확인</button>
       </div>
     </div>
+
+    <!-- 차단 목록 관리 모달 -->
+    <Teleport to="body">
+      <div v-if="showBlockedListModal" class="block-modal-overlay" @click.self="showBlockedListModal = false">
+        <div class="block-modal-content">
+          <div class="block-modal-header">
+            <h3>🚫 차단된 사용자 관리</h3>
+            <button class="close-btn" @click="showBlockedListModal = false">&times;</button>
+          </div>
+          <div class="blocked-list">
+            <div v-if="blockedUsers.length === 0" class="empty-block-msg">차단된 사용자가 없습니다.</div>
+            <div v-for="u in blockedUsers" :key="u.id" class="blocked-item">
+              <div class="blocked-info">
+                <div class="blocked-nickname-row">
+                  <span class="blocked-nickname">{{ u.nickname }}</span>
+                  <span v-if="u.isSystemBlock" class="system-block-badge">⚠️ 운영원칙 위반</span>
+                </div>
+                <div v-if="u.reason" class="blocked-reason">{{ u.reason }}</div>
+              </div>
+              <button class="unblock-btn" :class="{ 'is-system': u.isSystemBlock }" @click="handleUnblock(u)">차단 해제</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </Teleport>
   </div>
 </template>
 
@@ -412,13 +564,16 @@ const vClickOutside = {
 .thin-scrollbar::-webkit-scrollbar { width: 4px; height: 4px; }
 .thin-scrollbar::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.1); border-radius: 10px; }
 
-/* 사이드바 헤더 & 신뢰점수 위치 */
+/* 사이드바 */
 .dm-sidebar { width: 350px; flex-shrink: 0; border-right: 1px solid var(--border-color); display: flex; flex-direction: column; background: var(--bg-primary); }
 .sidebar-header { padding: 24px 20px; border-bottom: 1px solid var(--border-color); }
-.sidebar-title-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.sidebar-top-row { display: flex; justify-content: space-between; align-items: center; }
+.sidebar-title-row { display: flex; align-items: center; gap: 10px; }
 .sidebar-title { font-size: 1.2rem; font-weight: 950; margin: 0; letter-spacing: -0.8px; white-space: nowrap; }
 .karma-badge-mini { background: rgba(168, 85, 247, 0.1); padding: 2px 8px; border-radius: 12px; border: 1px solid rgba(168, 85, 247, 0.2); }
 .karma-value { font-size: 0.75rem; font-weight: 900; color: #a855f7; }
+.manage-block-btn { background: none; border: none; font-size: 1.2rem; cursor: pointer; opacity: 0.6; transition: 0.2s; padding: 5px; }
+.manage-block-btn:hover { opacity: 1; transform: scale(1.1); }
 
 .dm-list { flex: 1; overflow-y: auto; }
 .dm-item { padding: 16px 20px; display: flex; align-items: center; gap: 14px; cursor: pointer; transition: 0.2s; position: relative; }
@@ -426,13 +581,11 @@ const vClickOutside = {
 .dm-item.active { background: var(--hover-bg); }
 .dm-item.active::after { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: #a855f7; }
 
-/* 아바타 및 온라인 표시 */
 .user-avatar-wrap { position: relative; }
 .user-avatar-small { width: 52px; height: 52px; border-radius: 50%; background: linear-gradient(135deg, #c084fc, #6366f1); color: white; display: flex; align-items: center; justify-content: center; font-weight: 900; font-size: 1.3rem; }
 .online-indicator-dot { position: absolute; bottom: 2px; right: 2px; width: 14px; height: 14px; border-radius: 50%; background: #94a3b8; border: 2px solid var(--bg-primary); }
 .online-indicator-dot.is-online { background: #10b981; }
 
-/* 리스트 아이템 텍스트 */
 .item-main { flex: 1; min-width: 0; }
 .item-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
 .item-name-group { display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0; }
@@ -442,7 +595,6 @@ const vClickOutside = {
 .item-preview { font-size: 0.85rem; color: var(--text-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin: 0; }
 .unread-text { color: var(--text-primary); font-weight: 700; }
 
-/* 메인 채팅창 */
 .dm-main { flex: 1; min-width: 0; display: flex; flex-direction: column; background: var(--card-bg); position: relative; }
 .main-header { padding: 15px 20px; border-bottom: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center; background: var(--card-bg); backdrop-filter: blur(15px); z-index: 50; }
 .partner-meta { display: flex; align-items: center; gap: 12px; }
@@ -452,32 +604,58 @@ const vClickOutside = {
 .partner-status { font-size: 0.75rem; color: #10b981; font-weight: 700; margin-top: 2px; display: block; }
 .partner-status.is-offline { color: var(--text-muted); }
 
-/* 메뉴 */
 .icon-btn { background: none; border: none; font-size: 1.4rem; cursor: pointer; color: var(--text-muted); transition: 0.2s; padding: 5px; }
 .dropdown-menu { position: absolute; right: 0; top: 100%; width: 170px; background: var(--card-bg); border: 1.5px solid var(--border-color); border-radius: 12px; box-shadow: 0 10px 25px rgba(0,0,0,0.15); z-index: 100; overflow: hidden; }
 .menu-item { width: 100%; padding: 12px 16px; border: none; background: none; text-align: left; font-size: 0.9rem; font-weight: 700; cursor: pointer; color: var(--text-primary); transition: 0.2s; }
 .menu-item:hover { background: var(--hover-bg); }
 .menu-item.delete { border-bottom: 1px solid var(--border-color); }
 .menu-item.block { color: #e67e22; }
-.menu-item.report { color: #ef4444; }
 
-/* 채팅 영역 */
 .chat-area { flex: 1; padding: 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 15px; }
 .date-header { display: flex; justify-content: center; margin: 25px 0; position: relative; }
 .date-header span { background: var(--card-bg); padding: 5px 15px; border-radius: 20px; font-size: 0.7rem; color: var(--text-muted); font-weight: 800; border: 1px solid var(--border-color); z-index: 1; }
-.system-guide-bubble { max-width: 85%; background: var(--bg-primary); border: 1px dashed var(--border-color); padding: 15px; border-radius: 15px; margin: 0 auto 20px; }
+
+.system-guide-bubble { max-width: 85%; background: var(--bg-primary); border: 1px dashed var(--border-color); padding: 15px; border-radius: 15px; margin: 0 auto 20px; transition: all 0.3s; position: relative; }
+.system-guide-bubble.clickable { cursor: pointer; border-style: solid; border-color: #a855f7; }
+.system-guide-bubble.clickable:hover { background: var(--hover-bg); transform: translateY(-2px); }
 .system-guide-bubble p { font-size: 0.8rem; color: var(--text-secondary); line-height: 1.6; margin: 0; white-space: pre-wrap; text-align: center; }
+
+/* [시니어 조치] 시스템 메시지 유형별 색상 적용 */
+.system-guide-bubble.is-caution { border-color: #ef4444; background: rgba(239, 68, 68, 0.05); }
+.system-guide-bubble.is-caution p { color: #ef4444; font-weight: 700; }
+.system-guide-bubble.is-caution .click-info-text { color: #ef4444; }
+
+.system-guide-bubble.is-info { border-color: #a855f7; background: rgba(168, 85, 247, 0.05); }
+.system-guide-bubble.is-info p { color: #a855f7; font-weight: 700; }
+.system-guide-bubble.is-info .click-info-text { color: #a855f7; }
+
+.system-guide-bubble.is-warning { border-color: #f59e0b; background: rgba(245, 158, 11, 0.05); }
+.system-guide-bubble.is-warning p { color: #f59e0b; font-weight: 700; }
+.system-guide-bubble.is-warning .click-info-text { color: #f59e0b; }
+
+.click-info-text { display: block; font-size: 0.65rem; color: #a855f7; margin-top: 8px; font-weight: 700; opacity: 0.8; }
+
 .deleted-msg-row { display: flex; justify-content: center; margin: 15px 0; width: 100%; }
 .deleted-bubble { background: var(--bg-primary); color: var(--text-muted); font-size: 0.8rem; padding: 10px 30px; border-radius: 25px; border: 1.5px dashed var(--border-color); font-weight: 600; font-style: italic; }
 
-/* 말풍선 & 시간/액션 */
+/* 하이라이트 애니메이션 (말풍선 중심) */
+@keyframes bubble-flash { 
+  0% { box-shadow: 0 0 0 0 rgba(168, 85, 247, 0); }
+  30% { box-shadow: 0 0 0 10px rgba(168, 85, 247, 0.3); background-color: rgba(168, 85, 247, 0.1); }
+  100% { box-shadow: 0 0 0 0 rgba(168, 85, 247, 0); }
+}
+.highlight-flash { animation: bubble-flash 2s ease-out; }
+
 .msg-row { display: flex; width: 100%; }
 .msg-me { justify-content: flex-end; }
 .msg-bubble-wrap { max-width: 75%; display: flex; flex-direction: column; gap: 4px; }
 .msg-bubble-group { display: flex; align-items: flex-end; gap: 12px; }
+
 .msg-bubble { padding: 12px 16px; border-radius: 20px; position: relative; box-shadow: 0 2px 8px rgba(0,0,0,0.03); min-width: 40px; }
 .msg-me .msg-bubble { background: linear-gradient(135deg, #a855f7, #6366f1); color: white; border-bottom-right-radius: 4px; }
 .msg-row:not(.msg-me) .msg-bubble { background: var(--hover-bg); color: var(--text-primary); border: 1px solid var(--border-color); border-bottom-left-radius: 4px; }
+
+.edited-tag { font-size: 0.6rem; opacity: 0.7; margin-left: 4px; font-weight: 400; }
 
 .msg-side-meta { display: flex; flex-direction: column; justify-content: flex-end; min-width: 50px; height: 100%; padding-bottom: 4px; }
 .msg-me .msg-side-meta { align-items: flex-end; }
@@ -485,112 +663,85 @@ const vClickOutside = {
 .msg-side-actions { display: none; gap: 6px; }
 .msg-action-btn { background: var(--bg-primary); border: 1px solid var(--border-color); width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 0.7rem; cursor: pointer; transition: 0.2s; }
 .msg-action-btn:hover { background: var(--hover-bg); transform: scale(1.1); color: #a855f7; }
+.msg-action-btn.report:hover { color: #ef4444; }
+.msg-row:hover .msg-time-inline { display: none; }
 .msg-row:hover .msg-side-actions { display: flex; }
-.edited-tag { font-size: 0.6rem; opacity: 0.7; margin-left: 4px; font-weight: 400; }
 
-/* 수정 프리뷰 바 */
-.edit-preview-bar { 
-  background: var(--bg-primary); 
-  border: 1.5px solid #a855f7;
-  border-bottom: none;
-  padding: 10px 15px; 
-  display: flex; 
-  justify-content: space-between; 
-  align-items: center; 
-  border-radius: 20px 20px 0 0;
-  margin-bottom: 0;
-}
+.edit-preview-bar { background: var(--bg-primary); border: 1.5px solid #a855f7; border-bottom: none; padding: 10px 15px; display: flex; justify-content: space-between; align-items: center; border-radius: 20px 20px 0 0; }
 .edit-info { flex: 1; min-width: 0; }
 .edit-label { font-size: 0.65rem; font-weight: 800; color: #a855f7; display: block; margin-bottom: 2px; }
 .edit-text-preview { font-size: 0.8rem; color: var(--text-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin: 0; }
 .cancel-edit-btn { background: none; border: none; font-size: 1rem; color: var(--text-muted); cursor: pointer; padding: 5px; display: flex; align-items: center; justify-content: center; }
 .cancel-edit-btn:hover { color: #ef4444; }
 
-/* 입력 폼 & 파일 칩 */
-
 .input-container { padding: 15px 20px; border-top: 1px solid var(--border-color); }
 .input-info-bar { display: flex; justify-content: space-between; align-items: center; font-size: 0.75rem; color: var(--text-secondary); margin-bottom: 12px; padding: 0 5px; }
 .limit-text strong { color: #a855f7; font-weight: 900; }
 .cost-text { background: rgba(168, 85, 247, 0.1); color: #a855f7; padding: 3px 10px; border-radius: 6px; font-weight: 800; font-size: 0.7rem; }
 
-.f-previews { display: flex; gap: 8px; margin-bottom: 12px; overflow-x: auto; padding-bottom: 5px; }
-.f-chip { background: var(--hover-bg); border: 1px solid var(--border-color); padding: 6px 12px; border-radius: 20px; display: flex; align-items: center; gap: 8px; flex-shrink: 0; box-shadow: 0 2px 5px rgba(0,0,0,0.03); }
-.f-name { font-size: 0.75rem; font-weight: 600; color: var(--text-primary); max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.f-remove { background: var(--border-color); border: none; color: var(--text-muted); width: 18px; height: 18px; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 0.8rem; transition: 0.2s; }
-.f-remove:hover { background: #ef4444; color: white; }
-
-.input-form-wrapper { background: var(--hover-bg); border-radius: 20px; border: 1px solid var(--border-color); padding: 10px 16px; display: flex; flex-direction: column; }
+.input-form-wrapper { background: var(--hover-bg); border-radius: 20px; border: 1px solid var(--border-color); padding: 10px 16px; display: flex; flex-direction: column; transition: all 0.3s; }
 .input-form-wrapper.editing-active { border-radius: 0 0 20px 20px; border-top: none; background: var(--card-bg); border-color: #a855f7; }
+.input-form-wrapper.is-restricted { background: #f8f9fa; opacity: 0.8; border-style: dashed; }
 .input-form-wrapper:focus-within { border-color: #a855f7; background: var(--card-bg); }
+
 .input-field-container { display: flex; gap: 12px; align-items: flex-start; width: 100%; }
 .attach-trigger { font-size: 1.4rem; cursor: pointer; padding-top: 8px; filter: grayscale(1); opacity: 0.6; }
 textarea { flex: 1; width: 100%; border: none; background: transparent; padding: 8px 0; resize: none; font-size: 0.95rem; color: var(--text-primary); outline: none; min-height: 45px; }
+textarea:disabled { cursor: not-allowed; color: var(--text-muted); }
 textarea::-webkit-scrollbar { width: 3px; }
 textarea::-webkit-scrollbar-thumb { background: rgba(168, 85, 247, 0.2); border-radius: 10px; }
 
-.input-footer-actions { 
-  display: flex; 
-  justify-content: flex-end; 
-  width: 100%; 
-  margin-top: 4px;
-}
-.real-send-btn { 
-  background: none; 
-  border: none; 
-  color: #a855f7; 
-  font-weight: 950; 
-  cursor: pointer; 
-  opacity: 0.3; 
-  transition: 0.2s; 
-  padding: 5px 10px; 
-}
+.input-footer-actions { display: flex; justify-content: flex-end; width: 100%; margin-top: 4px; }
+.real-send-btn { background: none; border: none; color: #a855f7; font-weight: 950; cursor: pointer; opacity: 0.3; transition: 0.2s; padding: 5px 10px; }
 .real-send-btn.active { opacity: 1; transform: scale(1.05); }
+.real-send-btn:disabled { cursor: not-allowed; opacity: 0.2; }
 
-/* 이미지 썸네일 */
 .dm-img-thumb { max-width: 200px; max-height: 200px; border-radius: 12px; margin-top: 8px; cursor: pointer; object-fit: cover; border: 1px solid var(--border-color); box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
 
-/* 엠프티 상태 */
 .empty-list-sidebar { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 40px 20px; text-align: center; color: var(--text-muted); }
 .empty-icon-mini { font-size: 2.5rem; margin-bottom: 15px; opacity: 0.6; }
+.empty-list-sidebar p { font-size: 0.9rem; font-weight: 600; margin: 0; }
+
 .main-empty { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 40px; background: var(--card-bg); }
 .dm-large-icon { font-size: 5rem; margin-bottom: 25px; background: var(--hover-bg); width: 120px; height: 120px; display: flex; align-items: center; justify-content: center; border-radius: 50%; border: 1px solid var(--border-color); }
-.primary-btn { background: linear-gradient(135deg, #a855f7, #6366f1); color: white; border: none; padding: 12px 28px; border-radius: 10px; font-weight: 800; cursor: pointer; box-shadow: 0 4px 15px rgba(168, 85, 247, 0.25); }
+.main-empty h2 { font-size: 1.6rem; font-weight: 900; margin: 0 0 12px; color: var(--text-primary); }
+.main-empty p { font-size: 1rem; color: var(--text-secondary); margin: 0 0 30px; font-weight: 500; }
+.primary-btn { background: linear-gradient(135deg, #a855f7, #6366f1); color: white; border: none; padding: 12px 28px; border-radius: 10px; font-weight: 800; font-size: 0.95rem; cursor: pointer; transition: 0.3s; box-shadow: 0 4px 15px rgba(168, 85, 247, 0.25); }
+
+/* 차단 관리 모달 스타일 */
+.block-modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); display: flex; align-items: center; justify-content: center; z-index: 10000; backdrop-filter: blur(4px); }
+.block-modal-content { background: var(--card-bg); width: 90%; max-width: 420px; border-radius: 20px; padding: 25px; border: 1.5px solid var(--border-color); box-shadow: 0 20px 50px rgba(0,0,0,0.3); }
+.block-modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+.block-modal-header h3 { margin: 0; font-size: 1.1rem; font-weight: 900; }
+.close-btn { background: none; border: none; font-size: 1.8rem; color: var(--text-muted); cursor: pointer; line-height: 1; transition: color 0.2s; padding: 0; display: flex; align-items: center; justify-content: center; }
+.close-btn:hover { color: var(--text-primary); }
+.blocked-list { max-height: 350px; overflow-y: auto; padding-right: 5px; }
+.empty-block-msg { text-align: center; padding: 30px; color: var(--text-muted); font-size: 0.9rem; }
+
+.blocked-item { display: flex; justify-content: space-between; align-items: center; padding: 15px; background: var(--bg-primary); border-radius: 12px; margin-bottom: 10px; border: 1px solid var(--border-color); transition: all 0.2s; }
+.blocked-item:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
+
+.blocked-info { flex: 1; display: flex; flex-direction: column; gap: 4px; padding-right: 10px; }
+.blocked-nickname-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.blocked-nickname { font-weight: 800; color: var(--text-primary); font-size: 0.95rem; }
+.system-block-badge { background: #fff0f0; color: #ff4d4d; font-size: 10px; font-weight: 900; padding: 2px 6px; border-radius: 4px; border: 1px solid rgba(255, 77, 77, 0.2); white-space: nowrap; }
+.blocked-reason { font-size: 11px; color: var(--text-muted); font-style: italic; line-height: 1.3; }
+
+.unblock-btn { background: var(--hover-bg); color: var(--text-secondary); border: 1px solid var(--border-color); padding: 8px 12px; border-radius: 8px; font-size: 0.75rem; font-weight: 800; cursor: pointer; transition: 0.2s; white-space: nowrap; }
+.unblock-btn:hover { background: var(--divider-color); color: var(--text-primary); }
+.unblock-btn.is-system { background: #fff0f0; color: #ff4d4d; border-color: rgba(255, 77, 77, 0.1); }
+.unblock-btn.is-system:hover { background: #ff4d4d; color: white; }
 
 @media (max-width: 768px) {
   .dm-container { height: 85vh; border-radius: 0; border: none; }
-  .dm-sidebar { width: 100%; border-right: none; } /* 우측 선 제거 */
+  .dm-sidebar { width: 100%; border-right: none; }
   .dm-sidebar.mobile-hide { display: none; }
   .dm-main { display: none; width: 100%; }
   .dm-main.mobile-show { display: flex; }
   .mobile-back-btn { display: block; background: none; border: none; font-size: 1.5rem; margin-right: 10px; color: var(--text-primary); }
-
-  /* 모바일 대화 목록 아이템 축소 */
   .dm-item { padding: 10px 12px; gap: 10px; }
   .user-avatar-small { width: 38px; height: 38px; font-size: 1rem; }
-  .online-indicator-dot { width: 10px; height: 10px; bottom: 1px; right: 1px; border-width: 1.5px; }
-  
-  .item-name { font-size: 0.85rem; }
-  .unread-badge-circle { width: 15px; height: 18px; font-size: 0.6rem; min-width: 15px; }
-  .item-date { font-size: 0.65rem; margin-left: 6px; }
-  .item-preview { font-size: 0.75rem; }
-  
-  .sidebar-header { padding: 15px; }
-  .sidebar-title { font-size: 1.1rem; }
-  .karma-badge-mini { padding: 1px 6px; }
-  .karma-value { font-size: 0.65rem; }
-
-  /* 모바일 채팅창 내부 요소 최적화 */
-  .msg-bubble { padding: 8px 12px; border-radius: 14px; }
-  .msg-text { font-size: 0.8rem; line-height: 1.4; } /* 텍스트 크기 축소 */
-  .msg-time-inline { font-size: 0.5rem; }
-  .msg-side-meta { min-width: 35px; }
-  
-  .dm-img-thumb { max-width: 100px; max-height: 130px; } /* 초소형 화면 대응: 100px로 축소 */
-  
-  .avatar-circle { width: 32px; height: 32px; font-size: 0.8rem; }
-  .partner-name { font-size: 0.95rem; }
-  
-  .system-guide-bubble { padding: 10px; max-width: 90%; }
-  .system-guide-bubble p { font-size: 0.7rem; }
+  .msg-text { font-size: 0.8rem; }
+  .dm-img-thumb { max-width: 100px; max-height: 100px; }
 }
 </style>

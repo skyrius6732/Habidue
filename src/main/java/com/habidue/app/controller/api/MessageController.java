@@ -29,6 +29,7 @@ public class MessageController {
 
     private final MessageService messageService;
     private final UserService userService;
+    private final com.habidue.app.service.board.BoardReportService boardReportService; // 추가
 
     /**
      * 쪽지 발송 (ID가 있거나 없는 경우를 모두 매핑하여 404 방지)
@@ -175,14 +176,32 @@ public class MessageController {
         return ApiResponse.success(null);
     }
 
+    /**
+     * 쪽지 신고 (통합 신고 시스템 연동)
+     */
     @PostMapping("/{messageId}/report")
     public ResponseEntity<ApiResponse<Void>> reportMessage(
             @AuthenticationPrincipal UserDetails userDetails,
-            @PathVariable Long messageId) {
+            @PathVariable Long messageId,
+            @RequestBody(required = false) java.util.Map<String, String> body) {
+
+        String reason = (body != null && body.containsKey("reason")) ? body.get("reason") : "부적절한 내용의 쪽지";
+
+        // 1. 기존 메시지 엔티티의 신고 플래그 업데이트
         User user = userService.getUserByUsername(userDetails.getUsername());
         messageService.reportMessage(messageId, user);
+
+        // 2. 통합 신고 테이블(Reports)에 기록
+        com.habidue.app.dto.board.ReportRequestDto reportDto = new com.habidue.app.dto.board.ReportRequestDto();
+        reportDto.setTargetId(messageId);
+        reportDto.setTargetType(com.habidue.app.domain.board.ReportTargetType.MESSAGE);
+        reportDto.setReason(reason);
+
+        boardReportService.report(reportDto);
+
         return ApiResponse.success(null);
     }
+
 
     @PostMapping("/block/{blockedId}")
     public ResponseEntity<ApiResponse<Void>> blockUser(
@@ -191,5 +210,38 @@ public class MessageController {
         User user = userService.getUserByUsername(userDetails.getUsername());
         messageService.blockUser(user, blockedId);
         return ApiResponse.success(null);
+    }
+
+    /**
+     * 유저 차단 해제
+     */
+    @DeleteMapping("/block/{blockedId}")
+    public ResponseEntity<ApiResponse<Void>> unblockUser(
+            @AuthenticationPrincipal UserDetails userDetails,
+            @PathVariable Long blockedId) {
+        User user = userService.getUserByUsername(userDetails.getUsername());
+        messageService.unblockUser(user, blockedId);
+        return ApiResponse.success(null);
+    }
+
+    /**
+     * 차단한 유저 목록 조회
+     */
+    @GetMapping("/block/list")
+    public ResponseEntity<ApiResponse<List<Map<String, Object>>>> getBlockedUsers(
+            @AuthenticationPrincipal UserDetails userDetails) {
+        User user = userService.getUserByUsername(userDetails.getUsername());
+        List<com.habidue.app.domain.message.UserBlock> blockedList = messageService.getBlockedUsers(user);
+        
+        List<Map<String, Object>> response = blockedList.stream().map(b -> {
+            Map<String, Object> map = new java.util.HashMap<>();
+            map.put("id", b.getBlocked().getId());
+            map.put("nickname", b.getBlocked().getNickname() != null ? b.getBlocked().getNickname() : b.getBlocked().getUsername());
+            map.put("reason", b.getReason());
+            map.put("isSystemBlock", b.isSystemBlock());
+            return map;
+        }).collect(java.util.stream.Collectors.toList());
+        
+        return ApiResponse.success(response);
     }
 }

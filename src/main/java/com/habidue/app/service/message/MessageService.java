@@ -50,7 +50,7 @@ public class MessageService {
     private String uploadDir;
 
     /**
-     * 유저 간 쪽지 발송 (파일 첨부 지원, 카르마 소모, 일일 제한 적용, AI 검열 제거)
+     * 유저 간 쪽지 발송 (발송 제한 체크 추가)
      */
     @Transactional
     public void sendMessage(Long senderId, Long receiverId, String content, List<MultipartFile> files) {
@@ -62,6 +62,13 @@ public class MessageService {
                 .orElseThrow(() -> new NoSuchElementException("발신자를 찾을 수 없습니다."));
         User receiver = userRepository.findById(receiverId)
                 .orElseThrow(() -> new NoSuchElementException("수신자를 찾을 수 없습니다."));
+
+        // [시니어 조치] 해당 대화방이 관리자에 의해 영구 제한되었는지 확인
+        // 대화방 식별을 위해 두 사람 간의 최신 메시지 중 isRoomRestricted가 true인 것이 있는지 확인
+        boolean isRestricted = messageRepository.existsRestrictedMessageBetweenUsers(sender, receiver);
+        if (isRestricted) {
+            throw new IllegalStateException("해당 대화방은 운영원칙 위반으로 인해 메시지 발송이 영구 제한되었습니다.");
+        }
 
         // [시니어 조치] 일일 쪽지 발송 횟수 제한 (20회)
         String todayKey = DAILY_MESSAGE_COUNT_KEY + senderId + ":" + LocalDateTime.now().toLocalDate();
@@ -78,7 +85,7 @@ public class MessageService {
         }
 
         if (userBlockRepository.existsByBlockerAndBlocked(receiver, sender)) {
-            throw new IllegalStateException("상대방이 쪽지 수신을 원하지 않습니다.");
+            throw new IllegalStateException("현재 쪽지를 보낼 수 없는 상대입니다.");
         }
 
         // [사용자 요청] AI 분석 로직 제거 (자유로운 소통 허용)
@@ -136,6 +143,59 @@ public class MessageService {
                 .build();
         
         messageRepository.save(message);
+    }
+
+    /**
+     * 관리자 신고 처리 결과 시스템 메시지 발송 (특수 플래그 및 연관 ID 포함)
+     */
+    @Transactional
+    public void sendAdminResultSystemMessage(User sender, User receiver, String content, Long visibleToUserId, boolean isRoomRestricted, Long relatedTargetId) {
+        // [시니어 조치] 같은 타겟(신고건)에 대해 이미 해당 유저에게 보낸 시스템 메시지가 있는지 확인
+        if (relatedTargetId != null && visibleToUserId != null) {
+            java.util.Optional<Message> existingMsg = messageRepository.findByIsSystemTrueAndRelatedTargetIdAndVisibleToUserId(relatedTargetId, visibleToUserId);
+            if (existingMsg.isPresent()) {
+                // 이미 존재하면 내용과 제한 플래그만 업데이트 (Upsert 방식)
+                existingMsg.get().updateSystemMessage(content, isRoomRestricted);
+                return; // 저장 없이 종료 (JPA 영속성 컨텍스트에 의해 변경 감지)
+            }
+        }
+
+        // 존재하지 않을 경우에만 새로 생성
+        Message message = Message.builder()
+                .sender(sender) 
+                .receiver(receiver)
+                .content(content)
+                .isSystem(true)
+                .visibleToUserId(visibleToUserId)
+                .isRoomRestricted(isRoomRestricted)
+                .relatedTargetId(relatedTargetId)
+                .build();
+        
+        messageRepository.save(message);
+    }
+
+    /**
+     * [시니어 조치] 특정 신고 건(relatedTargetId)으로 인해 발생한 모든 시스템 메시지를 일괄 삭제 (복구/Undo 용도)
+     */
+    @Transactional
+    public void clearSystemMessages(Long relatedTargetId) {
+        if (relatedTargetId == null) return;
+        List<Message> oldSystemMessages = messageRepository.findAllByIsSystemTrueAndRelatedTargetId(relatedTargetId);
+        for (Message oldMsg : oldSystemMessages) {
+            oldMsg.softDelete();
+        }
+    }
+
+    /**
+     * 관리자에 의한 메시지 복구
+     */
+    @Transactional
+    public void restoreMessage(Long messageId) {
+        Message message = messageRepository.findById(messageId)
+                .orElseThrow(() -> new NoSuchElementException("쪽지를 찾을 수 없습니다."));
+        
+        // isDeleted 플래그 해제 및 복구 표식 설정
+        message.restore(); // 엔티티에 메서드 추가 필요
     }
 
     private void saveFiles(Message message, List<MultipartFile> files) {
@@ -266,18 +326,22 @@ public class MessageService {
         Message message = messageRepository.findById(messageId)
                 .orElseThrow(() -> new NoSuchElementException("쪽지를 찾을 수 없습니다."));
         
-        if (!message.getReceiver().getId().equals(user.getId())) {
-            throw new SecurityException("권한이 없습니다.");
+        // 해당 대화의 참여자인지 확인
+        boolean isParticipant = message.getSender().getId().equals(user.getId()) || 
+                                message.getReceiver().getId().equals(user.getId());
+        
+        if (!isParticipant) {
+            throw new SecurityException("해당 메시지에 대한 신고 권한이 없습니다.");
         }
         
         message.report();
     }
 
     @Transactional
-    public void blockUser(User blocker, Long blockedId) {
+    public void blockUser(User blocker, Long blockedId, String reason, boolean isSystemBlock) {
         User blocked = userRepository.findById(blockedId)
                 .orElseThrow(() -> new NoSuchElementException("차단할 유저를 찾을 수 없습니다."));
-        
+
         if (userBlockRepository.existsByBlockerAndBlocked(blocker, blocked)) {
             return;
         }
@@ -285,6 +349,33 @@ public class MessageService {
         userBlockRepository.save(UserBlock.builder()
                 .blocker(blocker)
                 .blocked(blocked)
+                .reason(reason)
+                .isSystemBlock(isSystemBlock)
                 .build());
+    }
+
+    @Transactional
+    public void blockUser(User blocker, Long blockedId) {
+        blockUser(blocker, blockedId, "사용자 수동 차단", false);
+    }
+    /**
+     * 차단 해제
+     */
+    @Transactional
+    public void unblockUser(User blocker, Long blockedId) {
+        User blocked = userRepository.findById(blockedId)
+                .orElseThrow(() -> new NoSuchElementException("유저를 찾을 수 없습니다."));
+
+        userBlockRepository.deleteByBlockerAndBlocked(blocker, blocked);
+
+        // [시니어 조치] 차단 해제 시 해당 유저와의 대화방에 걸린 영구 제한도 함께 해제
+        messageRepository.clearRestrictionBetweenUsers(blocker, blocked);
+    }
+    /**
+     * 차단한 유저 목록 조회
+     */
+    @Transactional(readOnly = true)
+    public List<UserBlock> getBlockedUsers(User blocker) {
+        return userBlockRepository.findAllByBlocker(blocker);
     }
 }

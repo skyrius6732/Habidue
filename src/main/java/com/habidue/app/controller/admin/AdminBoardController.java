@@ -3,6 +3,7 @@ package com.habidue.app.controller.admin;
 import com.habidue.app.domain.board.ReportStatus;
 import com.habidue.app.domain.board.ReportTargetType;
 import com.habidue.app.dto.ApiResponse;
+import com.habidue.app.dto.admin.ConversationReportGroupDto;
 import com.habidue.app.dto.admin.ReportAdminResponseDto;
 import com.habidue.app.dto.board.CommentResponseDto;
 import com.habidue.app.dto.board.PostResponseDto;
@@ -99,13 +100,24 @@ public class AdminBoardController {
      * [시니어 조치] 신고 목록 조회
      */
     @GetMapping("/reports")
-    public ResponseEntity<ApiResponse<Page<ReportAdminResponseDto>>> getReports(
+    public ResponseEntity<ApiResponse<Page<ReportAdminResponseDto>>> getAdminReports(
             @RequestParam(required = false) ReportTargetType targetType,
             @RequestParam(required = false) String status,
             @RequestParam(required = false) String keyword,
-            @PageableDefault(size = 20) Pageable pageable) {
+            Pageable pageable) {
         return ApiResponse.success(adminBoardService.getAdminReports(targetType, status, keyword, pageable));
     }
+
+    /**
+     * [시니어 조치] 쪽지 신고 그룹화 조회 (Split Card UI 전용)
+     */
+    @GetMapping("/reports/grouped-messages")
+    public ResponseEntity<ApiResponse<List<ConversationReportGroupDto>>> getGroupedMessageReports(
+            @RequestParam(required = false) String status,
+            @RequestParam(required = false) String keyword) {
+        return ApiResponse.success(adminBoardService.getGroupedMessageReports(status, keyword));
+    }
+
 
     /**
      * [시니어 조치] 신고 단건 처리

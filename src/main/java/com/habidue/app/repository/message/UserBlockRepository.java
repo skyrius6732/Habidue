@@ -13,8 +13,8 @@ public interface UserBlockRepository extends JpaRepository<UserBlock, Long> {
     boolean existsByBlockerAndBlocked(User blocker, User blocked);
 
     // 차단 목록 조회
-    List<UserBlock> findByBlocker(User blocker);
+    List<UserBlock> findAllByBlocker(User blocker);
 
     // 차단 해제용
-    Optional<UserBlock> findByBlockerAndBlocked(User blocker, User blocked);
+    void deleteByBlockerAndBlocked(User blocker, User blocked);
 }

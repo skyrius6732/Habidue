@@ -492,7 +492,6 @@ const hasMoreFlattenedReplies = (comment) => {
 
 const loadMoreReplies = (commentId) => { visibleRepliesMap[commentId] = (visibleRepliesMap[commentId] || 3) + 3 }
 const loadMore = () => { visibleCount.value += 3 }
-
 const fetchPostDetail = async () => {
   const currentId = route.params.postId
   if (!currentId) return
@@ -501,8 +500,23 @@ const fetchPostDetail = async () => {
     const res = await axios.get(`/api/posts/${currentId}`)
     post.value = res.data.data
     console.log("[DEBUG] 게시글 상세 데이터:", post.value);
+
+    // [시니어 조치] 게시글 타입에 맞춰 사이드바 메뉴 자동 포커싱
+    if (post.value.type) {
+      activeMenu.value = post.value.type;
+
+      // 서브 카테고리 매칭 로직
+      if (post.value.type === 'NOTICE') {
+        activeSubCategory.value = 'ACTIVE'; // 공고방 상세글은 보통 활성화된 방이므로
+      } else if (post.value.category) {
+        activeSubCategory.value = post.value.category; // 일반/후기/파트너는 카테고리값 사용
+      } else {
+        activeSubCategory.value = 'ALL';
+      }
+    }
+
     fetchComments(currentId)
-    
+
     // [시니어 최적화] 데이터 로드 후 공지 바 위치로 자동 스크롤
     nextTick(() => {
       const noticeBar = document.querySelector('.system-notice-bar-soft');
