@@ -70,9 +70,14 @@ const handleNotiClick = async (noti) => {
   isNotiOpen.value = false
   showToast.value = false
   
-  if (noti.type === 'COMMENT' || noti.type === 'REPLY') router.push(`/board/post/${noti.relatedTargetId}`)
-  else if (noti.type === 'MESSAGE') router.push('/messages')
-  else if (noti.type === 'KARMA_CHANGE' || noti.type === 'SYSTEM') router.push('/keywords')
+  if (noti.type === 'COMMENT' || noti.type === 'REPLY') {
+    // [시니어 조치] 상세 페이지로 이동하며 댓글 ID를 쿼리로 전달
+    router.push(`/board/post/${noti.postId}?commentId=${noti.relatedTargetId}`)
+  } else if (noti.type === 'MESSAGE') {
+    router.push('/keywords?tab=messages')
+  } else if (noti.type === 'KARMA_CHANGE' || noti.type === 'SYSTEM') {
+    router.push('/keywords?tab=activity')
+  }
 }
 
 const timeAgo = (date) => formatDistanceToNow(new Date(date), { addSuffix: true, locale: ko })

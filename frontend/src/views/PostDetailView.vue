@@ -434,6 +434,11 @@ const isBoardClosed = computed(() => {
 })
 
 const isPostBlinded = computed(() => post.value?.status === 'BLINDED')
+const boardTypeLabel = computed(() => {
+  if (!post.value?.type) return '커뮤니티'
+  const labels = { 'GENERAL': '통합광장', 'NOTICE': '공고소통방', 'REVIEW': '당첨후기', 'PARTNER': '파트너스' }
+  return labels[post.value.type] || '커뮤니티'
+})
 
 const isAuthor = computed(() => post.value && authStore.user?.id && Number(post.value.authorId) === Number(authStore.user.id))
 const isAdmin = computed(() => authStore.user?.role === 'ADMIN')
@@ -543,6 +548,11 @@ const fetchComments = async (id) => {
     comments.value = rawData.sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt))
     
     comments.value.forEach(c => { if (!visibleRepliesMap[c.id]) visibleRepliesMap[c.id] = 3 })
+    
+    // [시니어 조치] 데이터 로드 후 즉시 스크롤 시도 (알림 이동 대응)
+    if (route.query.commentId) {
+      scrollToComment(route.query.commentId)
+    }
   } catch (e) {}
 }
 
@@ -665,14 +675,41 @@ const submitReport = async () => {
   } catch (e) { alert(e.response?.data?.message || '신고 실패') }
 }
 
+// [시니어 조치] 특정 댓글로 스크롤 및 하이라이트 효과 (답글 자동 펼침 & 재시도 로직 포함)
 const scrollToComment = (targetId) => {
   if (!targetId) return
-  const element = document.getElementById(`comment-${targetId}`)
-  if (element) {
-    window.scrollTo({ top: element.getBoundingClientRect().top + window.pageYOffset - 150, behavior: 'smooth' })
-    highlightedCommentId.value = targetId
-    setTimeout(() => { highlightedCommentId.value = null }, 2000)
+  
+  // 1. 답글일 경우 부모 펼치기
+  const expandParent = () => {
+    for (const comment of comments.value) {
+      if (comment.children && comment.children.some(r => String(r.id) === String(targetId))) {
+        visibleRepliesMap[comment.id] = 999
+        return true
+      }
+    }
+    return false
   }
+  expandParent()
+
+  // 2. 요소 찾기 및 스크롤 (최대 10번 재시도)
+  let attempts = 0
+  const tryScroll = () => {
+    const element = document.getElementById(`comment-${targetId}`)
+    if (element) {
+      const y = element.getBoundingClientRect().top + window.pageYOffset - 150
+      window.scrollTo({ top: y, behavior: 'smooth' })
+      
+      highlightedCommentId.value = Number(targetId)
+      setTimeout(() => { highlightedCommentId.value = null }, 3000)
+      
+      element.classList.add('highlight-flash')
+      setTimeout(() => element.classList.remove('highlight-flash'), 3000)
+    } else if (attempts < 10) {
+      attempts++
+      setTimeout(tryScroll, 200)
+    }
+  }
+  nextTick(tryScroll)
 }
 
 const handleSliderScroll = () => { if (sliderRef.value) currentImgIdx.value = Math.round(sliderRef.value.scrollLeft / sliderRef.value.clientWidth) }
@@ -1028,5 +1065,17 @@ watch(() => route.params.postId, fetchPostDetail)
   .blinded-author-banner .b-icon { font-size: 1.2rem; }
   .blinded-author-banner strong { font-size: 0.85rem; }
   .blinded-author-banner p { font-size: 0.75rem; }
+}
+
+/* [시니어 조치] 특정 댓글 강조 애니메이션 */
+@keyframes highlight-fade {
+  0% { background-color: rgba(52, 152, 219, 0.2); box-shadow: 0 0 20px rgba(52, 152, 219, 0.3); }
+  100% { background-color: transparent; box-shadow: none; }
+}
+.highlight-flash { 
+  animation: highlight-fade 3s ease-out !important; 
+  border-radius: 12px;
+  position: relative;
+  z-index: 10;
 }
 </style>

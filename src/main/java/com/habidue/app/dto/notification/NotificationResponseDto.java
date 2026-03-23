@@ -15,7 +15,11 @@ public class NotificationResponseDto {
     private String icon;
     private String content;
     private Long relatedTargetId;
+    private Long postId; // [시니어 조치] 추가
+    
+    @com.fasterxml.jackson.annotation.JsonProperty("isRead")
     private boolean isRead;
+    
     private LocalDateTime createdAt;
 
     public static NotificationResponseDto from(Notification n) {
@@ -25,6 +29,7 @@ public class NotificationResponseDto {
                 .icon(n.getType().getIcon())
                 .content(n.getContent())
                 .relatedTargetId(n.getRelatedTargetId())
+                .postId(n.getPostId())
                 .isRead(n.isRead())
                 .createdAt(n.getCreatedAt())
                 .build();

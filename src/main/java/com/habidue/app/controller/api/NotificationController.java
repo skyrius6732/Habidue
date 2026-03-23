@@ -7,6 +7,7 @@ import com.habidue.app.service.notification.NotificationService;
 import com.habidue.app.config.jwt.JwtTokenProvider;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -27,33 +28,41 @@ public class NotificationController {
 
     /**
      * 알림 구독 (SSE)
-     * [시니어 조치] EventSource의 헤더 미지원 문제를 해결하기 위해 쿼리 파라미터로 토큰을 받음
+     * [시니어 조치] 로그 폭주 방지를 위해 WARN 로그 제거 및 401 반환 방식 최적화
      */
     @GetMapping(value = "/subscribe", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
-    public SseEmitter subscribe(@RequestParam("token") String token) {
-        if (token != null && tokenProvider.validateToken(token)) {
+    public ResponseEntity<SseEmitter> subscribe(@RequestParam(value = "token", required = false) String token) {
+        if (token != null && !token.isEmpty() && tokenProvider.validateToken(token)) {
             Long userId = tokenProvider.getUserId(token);
-            log.info("[SSE] User {} subscribed with token", userId);
-            return notificationService.subscribe(userId);
+            if (userId != null) {
+                return ResponseEntity.ok(notificationService.subscribe(userId));
+            }
         }
-        throw new IllegalArgumentException("유효하지 않은 인증 토큰입니다.");
+        
+        // 인증 실패 시 로그를 남기지 않고 401을 즉시 반환하여 브라우저 재시도를 제어
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
     }
 
     /**
-     * 내 알림 목록 조회
+     * 내 알림 목록 조회 (캐시 방지를 위해 매번 최신화)
      */
     @GetMapping
     public ResponseEntity<ApiResponse<List<NotificationResponseDto>>> getNotifications(
             @AuthenticationPrincipal UserPrincipal userPrincipal) {
-        return ApiResponse.success(notificationService.getNotificationsByUserId(userPrincipal.getId())
+        if (userPrincipal == null) return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        
+        List<NotificationResponseDto> list = notificationService.getNotificationsByUserId(userPrincipal.getId())
                 .stream()
                 .map(NotificationResponseDto::from)
-                .collect(Collectors.toList()));
+                .collect(Collectors.toList());
+                
+        return ApiResponse.success(list);
     }
 
     @GetMapping("/unread-count")
     public ResponseEntity<ApiResponse<Long>> getUnreadCount(
             @AuthenticationPrincipal UserPrincipal userPrincipal) {
+        if (userPrincipal == null) return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
         return ApiResponse.success(notificationService.getUnreadCountByUserId(userPrincipal.getId()));
     }
 
@@ -66,6 +75,9 @@ public class NotificationController {
     @PatchMapping("/read-all")
     public ResponseEntity<ApiResponse<Void>> markAllAsRead(
             @AuthenticationPrincipal UserPrincipal userPrincipal) {
+        if (userPrincipal == null) return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        
+        // [시니어 조치] NullPointerException 방지를 위해 ID 전달 방식으로 복구
         notificationService.markAllAsReadByUserId(userPrincipal.getId());
         return ApiResponse.success(null);
     }

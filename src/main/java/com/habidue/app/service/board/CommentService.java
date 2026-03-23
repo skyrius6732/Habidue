@@ -109,7 +109,7 @@ public class CommentService {
     }
 
     /**
-     * 댓글/답글 알림 발송 로직
+     * 댓글/답글 알림 발송 로직 (게시글 ID와 댓글 ID 모두 전달)
      */
     private void sendCommentNotification(Comment comment, User author) {
         Post post = comment.getPost();
@@ -120,7 +120,8 @@ public class CommentService {
             if (!parentAuthor.getId().equals(author.getId())) {
                 String content = String.format("↪️ 회원님의 댓글에 새로운 답글이 달렸습니다: \"%s\"", 
                         truncateContent(comment.getContent()));
-                notificationService.send(parentAuthor, NotificationType.REPLY, content, post.getId());
+                // relatedTargetId: 댓글 ID, postId: 게시글 ID
+                notificationService.send(parentAuthor, NotificationType.REPLY, content, comment.getId(), post.getId());
             }
         } else {
             // 2. 일반 댓글 알림: 게시글 작성자에게 전송
@@ -128,7 +129,8 @@ public class CommentService {
             if (!postAuthor.getId().equals(author.getId())) {
                 String content = String.format("💬 회원님의 게시글에 새로운 댓글이 달렸습니다: \"%s\"", 
                         truncateContent(comment.getContent()));
-                notificationService.send(postAuthor, NotificationType.COMMENT, content, post.getId());
+                // relatedTargetId: 댓글 ID, postId: 게시글 ID
+                notificationService.send(postAuthor, NotificationType.COMMENT, content, comment.getId(), post.getId());
             }
         }
     }
