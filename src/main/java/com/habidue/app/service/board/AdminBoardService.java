@@ -54,9 +54,7 @@ public class AdminBoardService {
         Post post = postRepository.findById(postId).orElseThrow(() -> new NoSuchElementException("게시글을 찾을 수 없습니다."));
         String oldStatus = post.getStatus();
         User author = post.getAuthor();
-        
         post.changeStatus(status);
-        
         if ("BLINDED".equalsIgnoreCase(status) && !"BLINDED".equalsIgnoreCase(oldStatus)) {
             syncReportStatus(postId, ReportTargetType.POST, ReportStatus.BLIND_COMPLETE);
             karmaService.deductKarma(author.getId(), 20, KarmaReason.REPORT_POST_APPROVED, "관리자에 의한 게시글 블라인드 (ID: " + postId + ")", null, true);
@@ -93,10 +91,8 @@ public class AdminBoardService {
         Comment comment = commentRepository.findById(commentId).orElseThrow(() -> new NoSuchElementException("댓글을 찾을 수 없습니다."));
         String oldStatus = comment.getStatus();
         User author = comment.getAuthor();
-        
         comment.changeStatus(status);
         String preview = comment.getContent().length() > 25 ? comment.getContent().substring(0, 25) + "..." : comment.getContent();
-
         if ("BLINDED".equalsIgnoreCase(status) && !"BLINDED".equalsIgnoreCase(oldStatus)) {
             syncReportStatus(commentId, ReportTargetType.COMMENT, ReportStatus.BLIND_COMPLETE);
             karmaService.deductKarma(author.getId(), 10, KarmaReason.REPORT_COMMENT_APPROVED, "관리자에 의한 댓글 블라인드 (ID: " + commentId + ")", null, true);
@@ -128,24 +124,20 @@ public class AdminBoardService {
     public List<ConversationReportGroupDto> getGroupedMessageReports(String status, String keyword) {
         Page<ReportAdminResponseDto> allReports = reportRepository.findGroupedReports(ReportTargetType.MESSAGE, status, keyword, Pageable.unpaged());
         java.util.Map<String, ConversationReportGroupDto> groupedMap = new java.util.LinkedHashMap<>();
-
         for (ReportAdminResponseDto report : allReports.getContent()) {
             com.habidue.app.domain.message.Message m = messageRepository.findById(report.getTargetId()).orElse(null);
             if (m == null || report.getReporters().isEmpty()) continue;
-
             User sender = m.getSender();
             User receiver = m.getReceiver();
             Long u1Id = Math.min(sender.getId(), receiver.getId());
             Long u2Id = Math.max(sender.getId(), receiver.getId());
             String convKey = u1Id + "-" + u2Id;
-
             ConversationReportGroupDto group = groupedMap.getOrDefault(convKey, ConversationReportGroupDto.builder().conversationId(convKey).build());
             if (group.getUser1Name() == null) {
                 User u1 = sender.getId().equals(u1Id) ? sender : receiver;
                 group.setUser1Name(u1.getNickname());
                 group.setUser2Name((sender.getId().equals(u2Id) ? sender : receiver).getNickname());
             }
-
             Long reporterId = report.getReporters().get(0).getReporterId();
             if (reporterId.equals(u1Id)) {
                 if (group.getUser1Report() == null || group.getUser1Report().getReportStatus().equals("REJECTED")) group.setUser1Report(report);
@@ -161,14 +153,9 @@ public class AdminBoardService {
     public void handleReport(Long targetId, ReportTargetType targetType, ReportStatus status) {
         List<Report> existingReports = reportRepository.findAllByTargetIdAndTargetType(targetId, targetType);
         ReportStatus oldStatus = existingReports.isEmpty() ? ReportStatus.WAITING : existingReports.get(0).getStatus();
-        
-        if (targetType == ReportTargetType.POST) {
-            handlePostSanction(targetId, status, oldStatus);
-        } else if (targetType == ReportTargetType.COMMENT) {
-            handleCommentSanction(targetId, status, oldStatus);
-        } else if (targetType == ReportTargetType.MESSAGE) {
-            handleMessageSanction(targetId, status, oldStatus);
-        }
+        if (targetType == ReportTargetType.POST) handlePostSanction(targetId, status, oldStatus);
+        else if (targetType == ReportTargetType.COMMENT) handleCommentSanction(targetId, status, oldStatus);
+        else if (targetType == ReportTargetType.MESSAGE) handleMessageSanction(targetId, status, oldStatus);
     }
 
     private void handlePostSanction(Long targetId, ReportStatus status, ReportStatus oldStatus) {
@@ -219,6 +206,10 @@ public class AdminBoardService {
         messageService.clearSystemMessages(targetId);
         messageRepository.findById(targetId).ifPresent(m -> {
             User suspect = m.getSender();
+            User partner = m.getReceiver();
+            List<Report> reports = reportRepository.findAllByTargetIdAndTargetType(targetId, ReportTargetType.MESSAGE);
+            List<User> reporters = reports.stream().map(Report::getReporter).distinct().collect(Collectors.toList());
+            
             String violation = "운영원칙 위반";
             if (m.getAiAnalysis() != null && !m.getAiAnalysis().isEmpty()) {
                 try {
@@ -231,14 +222,33 @@ public class AdminBoardService {
 
             if (status == ReportStatus.BLIND_COMPLETE) {
                 karmaService.deductKarma(suspect.getId(), 30, KarmaReason.REPORT_MESSAGE_APPROVED, "신고 승인에 따른 제재 (ID: " + targetId + ")", null, true);
-                notificationService.send(suspect, NotificationType.SYSTEM, "⚠️ 보내신 쪽지가 운영 정책 위반('" + violation + "')으로 블라인드 처리되었습니다: \"" + preview + "\"", suspect.getId(), null);
-                messageService.sendAdminResultSystemMessage(m.getSender(), m.getReceiver(), "⚠️ [경고] 운영 정책 위반('" + violation + "') 표현 사용으로 제재가 적용되었습니다.", suspect.getId(), false, targetId);
+                notificationService.send(suspect, NotificationType.SYSTEM, "⚠️ 보내신 쪽지가 운영 정책 위반으로 블라인드 처리되었습니다: \"" + preview + "\"", suspect.getId(), null);
+                
+                // [시니어 조치] 가해자에게 메시지 발송 시 receiver를 suspect로 지정하여 배지 활성화
+                messageService.sendAdminResultSystemMessage(partner, suspect, "⚠️ [경고] 운영 정책 위반 표현 사용으로 제재가 적용되었습니다. ('" + violation + "')", suspect.getId(), false, targetId);
+                
+                for (User reporter : reporters) {
+                    messageService.sendAdminResultSystemMessage(suspect, reporter, "📢 [안내] 신고하신 내용에 대해 조치가 완료되었습니다. ('" + violation + "')", reporter.getId(), false, targetId);
+                }
             } else if (status == ReportStatus.DELETE_COMPLETE) {
                 karmaService.deductKarma(suspect.getId(), 70, KarmaReason.REPORT_MESSAGE_APPROVED, "심각한 위반으로 인한 영구 제한 (ID: " + targetId + ")", null, true);
                 notificationService.send(suspect, NotificationType.SYSTEM, "🚫 보내신 쪽지가 심각한 운영 정책 위반으로 영구 제한되었습니다: \"" + preview + "\"", null, null);
-                messageService.sendAdminResultSystemMessage(m.getSender(), m.getReceiver(), "🚫 [주의] 심각한 위반('" + violation + "') 정황이 확인되어 본 대화방 이용이 영구 제한됩니다.", suspect.getId(), true, targetId);
+                
+                // 가해자에게 영구 제한 메시지
+                messageService.sendAdminResultSystemMessage(partner, suspect, "🚫 [주의] 심각한 위반('" + violation + "') 정황이 확인되어 본 대화방 이용이 영구 제한됩니다.", suspect.getId(), true, targetId);
+                
+                for (User reporter : reporters) {
+                    // [시니어 조치] 실제 차단 목록 추가 및 방 폭파 연동
+                    messageService.blockUser(reporter, suspect.getId(), "심각한 운영원칙 위반('" + violation + "')으로 인한 자동 격리", true);
+                    messageService.sendAdminResultSystemMessage(suspect, reporter, "📢 [안내] 심각한 운영 위반 확인으로 대상자 차단 및 영구 조치가 완료되었습니다.", reporter.getId(), true, targetId);
+                }
             } else if (status == ReportStatus.REJECTED || status == ReportStatus.WAITING) {
                 messageService.restoreMessage(targetId);
+                if (status == ReportStatus.REJECTED) {
+                    for (User reporter : reporters) {
+                        messageService.sendAdminResultSystemMessage(suspect, reporter, "📢 [안내] 신고하신 내용을 검토했으나 위반 사항이 확인되지 않아 반려되었습니다.", reporter.getId(), false, targetId);
+                    }
+                }
                 if (oldStatus == ReportStatus.BLIND_COMPLETE) karmaService.manualAdjustKarma(suspect.getId(), 30, KarmaReason.ADMIN_REVERSAL, "조치 번복 점수 복구", null, false);
                 else if (oldStatus == ReportStatus.DELETE_COMPLETE) karmaService.manualAdjustKarma(suspect.getId(), 70, KarmaReason.ADMIN_REVERSAL, "조치 번복 점수 복구", null, false);
             }
@@ -253,6 +263,10 @@ public class AdminBoardService {
         reports.stream().map(Report::getReporter).distinct().forEach(reporter -> {
             notificationService.send(reporter, NotificationType.SYSTEM, "📢 신고하신 " + targetName + "에 대한 검토 결과, " + resultMsg, targetId, null);
         });
+    }
+
+    private User findReporterForTarget(Long targetId, ReportTargetType type) {
+        return reportRepository.findAllByTargetIdAndTargetType(targetId, type).stream().findFirst().map(Report::getReporter).orElse(null);
     }
 
     @Transactional

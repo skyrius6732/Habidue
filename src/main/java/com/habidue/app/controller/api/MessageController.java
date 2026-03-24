@@ -14,6 +14,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.multipart.MultipartHttpServletRequest;
@@ -185,13 +186,15 @@ public class MessageController {
     }
 
     @GetMapping("/block/list")
+    @Transactional(readOnly = true) // [시니어 조치] LazyLoading 에러 방지
     public ResponseEntity<ApiResponse<List<Map<String, Object>>>> getBlockedUsers(
             @AuthenticationPrincipal UserPrincipal userPrincipal) {
         List<com.habidue.app.domain.message.UserBlock> blockedList = messageService.getBlockedUsers(getAuthenticatedUser(userPrincipal));
         List<Map<String, Object>> response = blockedList.stream().map(b -> {
             Map<String, Object> map = new java.util.HashMap<>();
-            map.put("id", b.getBlocked().getId());
-            map.put("nickname", b.getBlocked().getNickname() != null ? b.getBlocked().getNickname() : b.getBlocked().getUsername());
+            User blocked = b.getBlocked(); // 강제 초기화 유도
+            map.put("id", blocked.getId());
+            map.put("nickname", blocked.getNickname() != null ? blocked.getNickname() : blocked.getUsername());
             map.put("reason", b.getReason());
             map.put("isSystemBlock", b.isSystemBlock());
             return map;

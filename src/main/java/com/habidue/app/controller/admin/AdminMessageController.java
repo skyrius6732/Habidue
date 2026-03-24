@@ -40,6 +40,7 @@ public class AdminMessageController {
 
         List<Message> logList = messageRepository.findConversationWithPartner(reportedMsg.getSender(), reportedMsg.getReceiver());
         List<MessageResponseDto> messagesDto = logList.stream()
+                .sorted(java.util.Comparator.comparing(Message::getCreatedAt)) // [시니어 조치] 시간순 정렬 추가
                 .map(m -> MessageResponseDto.from(m, null, false))
                 .collect(Collectors.toList());
 

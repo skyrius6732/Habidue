@@ -142,7 +142,18 @@ public class MessageService {
 
     @Transactional
     public void sendAdminResultSystemMessage(User sender, User receiver, String content, Long visibleToUserId, boolean isRoomRestricted, Long relatedTargetId) {
-        messageRepository.save(Message.builder().sender(sender).receiver(receiver).content(content).isSystem(true).visibleToUserId(visibleToUserId).isRoomRestricted(isRoomRestricted).relatedTargetId(relatedTargetId).build());
+        Message msg = Message.builder()
+                .sender(sender)
+                .receiver(receiver)
+                .content(content)
+                .isSystem(true)
+                .isRead(false) // [시니어 조치] 명시적으로 미읽음 처리하여 배지 활성화
+                .visibleToUserId(visibleToUserId)
+                .isRoomRestricted(isRoomRestricted)
+                .relatedTargetId(relatedTargetId)
+                .build();
+        
+        messageRepository.save(msg);
     }
 
     @Transactional
