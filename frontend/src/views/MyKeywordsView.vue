@@ -763,13 +763,45 @@ const resetEmailVerification = () => { if (confirm('이메일 주소를 변경�
 const sendTestReport = async () => { try { const res = await axios.post('/api/users/me/email-report/test'); alert(res.data.data) } catch (e) { alert('발송 실패.') } }
 
 const handleSearch = async () => {
-  if (searchQuery.value.trim().length < 1) { searchResults.value = []; return }
+  if (searchQuery.value.trim().length < 1) { searchResults.value = []; selectedIndex.value = -1; return }
   try {
     const res = await axios.get('/api/user-tags/search', { params: { name: searchQuery.value } })
     searchResults.value = res.data.data.filter(r => !userTags.value.some(my => my.tagId === r.tagId))
+    selectedIndex.value = -1 // 검색할 때마다 선택 인덱스 초기화
   } catch (e) {}
 }
-const addTag = async (tag) => { try { await axios.post(`/api/user-tags/${tag.tagId}`); searchQuery.value = ''; searchResults.value = []; fetchMyTags() } catch (e) { alert('이미 등록된 태그입니다.') } }
+
+const moveSelection = (direction) => {
+  if (searchResults.value.length === 0) return
+  const nextIndex = selectedIndex.value + direction
+  if (nextIndex >= 0 && nextIndex < searchResults.value.length) {
+    selectedIndex.value = nextIndex
+    // 스크롤 동기화
+    nextTick(() => {
+      const activeEl = dropdownRef.value?.querySelector('.is-selected')
+      if (activeEl) {
+        activeEl.scrollIntoView({ block: 'nearest' })
+      }
+    })
+  }
+}
+
+const selectCurrentItem = () => {
+  if (selectedIndex.value >= 0 && selectedIndex.value < searchResults.value.length) {
+    addTag(searchResults.value[selectedIndex.value])
+  } else if (searchQuery.value.trim().length > 0 && searchResults.value.length > 0) {
+    // 선택된 게 없는데 엔터 치면 첫 번째 항목 추가
+    addTag(searchResults.value[0])
+  }
+}
+
+const closeSearch = () => {
+  searchQuery.value = ''
+  searchResults.value = []
+  selectedIndex.value = -1
+}
+
+const addTag = async (tag) => { try { await axios.post(`/api/user-tags/${tag.tagId}`); closeSearch(); fetchMyTags() } catch (e) { alert('이미 등록된 태그입니다.') } }
 const removeTag = async (id) => { try { await axios.delete(`/api/user-tags/${id}`); fetchMyTags() } catch (e) {} }
 const formatDate = (dateStr) => { if (!dateStr) return ''; return dateStr.split('T')[0].replace(/-/g, '.') }
 const handleExport = async () => { /* 엑셀 추출 기존 로직 */ }
@@ -1338,7 +1370,11 @@ onMounted(() => {
 .tag-search-input:focus { border-color: var(--link-color); }
 .search-results-dropdown { position: absolute; top: 100%; left: 0; right: 0; background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 12px; margin-top: 8px; z-index: 100; box-shadow: 0 10px 30px rgba(0,0,0,0.15); max-height: 250px; overflow-y: auto; padding: 8px 0; }
 .result-item { padding: 12px 20px; display: flex; align-items: center; gap: 12px; cursor: pointer; transition: background 0.2s; }
-.result-item:hover { background: var(--hover-bg); }
+.result-item:hover, .result-item.is-selected { 
+  background-color: rgba(0, 149, 246, 0.1); 
+  border-left: 4px solid var(--link-color); 
+  padding-left: 16px; 
+}
 .type-badge { font-size: 0.65rem; font-weight: 800; padding: 2px 6px; border-radius: 4px; background: var(--tag-bg); color: var(--text-secondary); }
 
 .keyword-list-horizontal { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 20px; }

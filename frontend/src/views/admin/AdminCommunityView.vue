@@ -553,7 +553,26 @@ onMounted(() => { if (route.query.userId) postsState.value.userId = route.query.
 .modal-content { background: var(--card-bg); width: 95%; max-width: 650px; border-radius: 20px; display: flex; flex-direction: column; box-shadow: 0 30px 60px rgba(0,0,0,0.3); border: 1px solid var(--border-color); max-height: 85vh; }
 .modal-head { padding: 25px 30px 15px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--divider-color); }
 .modal-head h3 { margin: 0; font-size: 1.2rem; font-weight: 800; color: var(--text-primary); }
-.modal-form-body, .modal-body { flex: 1; min-height: 0; overflow-y: auto; padding: 20px 30px; }
+.modal-form-body { flex: 1; min-height: 0; overflow-y: auto; padding: 20px 30px; }
+
+/* [시니어 조치] 수정 모달 내 폼 요소 스타일 명시적 복구 */
+.form-group { margin-bottom: 20px; display: flex; flex-direction: column; gap: 8px; }
+.form-group label { font-size: 0.85rem; font-weight: 800; color: var(--text-secondary); }
+.form-input, .form-textarea { 
+  width: 100% !important; 
+  box-sizing: border-box !important; 
+  padding: 12px 15px; 
+  border: 1.5px solid var(--border-color); 
+  border-radius: 10px; 
+  background: var(--header-bg); 
+  color: var(--text-primary); 
+  font-size: 0.95rem; 
+  outline: none;
+  transition: all 0.2s;
+}
+.form-input:focus, .form-textarea:focus { border-color: var(--link-color); background: var(--card-bg); }
+.form-textarea { resize: vertical; min-height: 200px; line-height: 1.6; }
+
 .modal-actions-footer { padding: 15px 30px 25px; display: flex; gap: 12px; justify-content: center; }
 .btn-save { flex: 2; padding: 14px; background: var(--link-color); color: white; border: none; border-radius: 10px; font-size: 1rem; font-weight: 800; cursor: pointer; }
 .btn-cancel { flex: 1; padding: 14px; background: var(--hover-bg); color: var(--text-primary); border: 1px solid var(--border-color); border-radius: 10px; font-size: 1rem; font-weight: 700; cursor: pointer; }
@@ -601,6 +620,21 @@ onMounted(() => { if (route.query.userId) postsState.value.userId = route.query.
 
 /* 기존 모바일 대응 스타일 하단에 추가 */
 @media (max-width: 768px) {
+  /* [시니어 조치] 모달 깨짐 방지 및 가독성 최적화 */
+  .modal-overlay { padding: 15px; }
+  .modal-content {
+    width: 95% !important;
+    max-width: 100%;
+    border-radius: 16px;
+    max-height: 90vh;
+  }
+  .modal-head { padding: 15px 20px; }
+  .modal-head h3 { font-size: 1rem; }
+  .modal-form-body { padding: 15px 20px; }
+  .form-input, .form-textarea { font-size: 0.9rem; padding: 10px; }
+  .modal-actions-footer { padding: 15px 20px; gap: 8px; }
+  .btn-save, .btn-cancel { padding: 12px; font-size: 0.9rem; }
+
   .reporter-table, .reporter-table thead, .reporter-table tbody, .reporter-table th, .reporter-table td, .reporter-table tr { display: block; }
   .reporter-table thead { display: none; }
   .reporter-table tr { border: 1px solid var(--border-color); border-radius: 6px; margin-bottom: 6px; padding: 8px 10px; background: var(--header-bg); }

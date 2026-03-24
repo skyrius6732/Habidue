@@ -532,6 +532,55 @@ onMounted(fetchNotices)
 
 /* ★ 모바일 카드형 레이아웃 대전환 ★ */
 @media (max-width: 768px) {
+  .modal-overlay { 
+    padding: 20px; /* 상하좌우 여백 추가 */
+    align-items: center; /* 중앙 정렬로 변경 */
+  }
+  .modal-content {
+    width: 100% !important;
+    height: auto !important;
+    max-height: 85vh !important; /* 화면의 85%만 차지 */
+    border-radius: 16px !important; /* 부드러운 라운드 */
+    box-shadow: 0 20px 50px rgba(0,0,0,0.3) !important;
+    display: flex;
+    flex-direction: column;
+    border: 1px solid var(--border-color);
+    overflow: hidden;
+  }
+  .modal-content h3 { 
+    padding: 12px 18px; 
+    font-size: 0.95rem; 
+    font-weight: 800;
+    text-align: center;
+  }
+  .form-grid { 
+    padding: 12px 18px;
+    gap: 10px;
+  }
+  .form-group { margin-bottom: 10px; }
+  .form-group label { font-size: 0.7rem; margin-bottom: 2px; opacity: 0.8; }
+  .form-input, .form-select { 
+    height: 36px; /* 높이 축소 */
+    padding: 0 10px; 
+    font-size: 0.82rem; 
+    border-radius: 8px;
+  }
+  .form-textarea { 
+    min-height: 100px; 
+    height: 120px; 
+    font-size: 0.82rem;
+    border-radius: 8px;
+  } 
+  .modal-footer { 
+    padding: 12px 18px; 
+    gap: 8px;
+  }
+  .btn-save, .btn-cancel { 
+    height: 40px; /* 버튼 높이 축소 */
+    font-size: 0.85rem; 
+    border-radius: 8px;
+  }
+  
   .table-outer-wrapper { background: none; border: none; overflow-y: visible; }
   .notice-table, .notice-table thead, .notice-table tr, .notice-table td {
     display: block;

@@ -146,9 +146,21 @@
           @toggle-keyword="toggleAlertKeyword"
         />
       </div>
-      <div ref="infiniteScrollTrigger" class="infinite-scroll-status">
-        <div v-if="loading" class="spinner"></div>
-        <p v-else-if="isLastPage">모든 공고를 불러왔습니다.</p>
+      <div ref="infiniteScrollTrigger" class="scroll-status-container">
+        <div v-if="loading" class="loading-spinner-v2">
+          <div class="spinner-dot"></div>
+          <span>공고를 불러오는 중...</span>
+        </div>
+        <div v-else-if="isLastPage && notices.length > 0" class="no-more-data-v2">
+          <div class="end-content">
+            <div class="end-check-icon">
+              <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="20 6 9 17 4 12"></polyline>
+              </svg>
+            </div>
+            <p class="end-text">모든 공고를 불러왔습니다.</p>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -235,7 +247,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onUnmounted, nextTick, computed } from 'vue'
+import { ref, onMounted, onUnmounted, nextTick, computed, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import axios from '@/plugins/axios'
 import NoticeCard from '@/components/NoticeCard.vue'
@@ -376,6 +388,28 @@ const nextBlock = () => { if (!isLastPage.value) changePage((Math.floor(currentP
 
 const handleKeyDown = (e) => { if (e.key === 'Escape' && selectedNotice.value) { closeDetail(); } }
 
+// [시니어 조치] URL 파라미터 변경 실시간 감시 (이미 페이지에 있을 때 알림 클릭 대응)
+watch(() => route.query.openId, async (newOpenId) => {
+  if (newOpenId) {
+    try {
+      const res = await axios.get(`/api/notices/${newOpenId}`);
+      selectedNotice.value = res.data.data;
+      activeTab.value = 'info';
+    } catch (e) {
+      console.warn('알림 대상 공고 조회 실패:', e);
+    }
+  } else {
+    selectedNotice.value = null;
+  }
+});
+
+watch(() => route.query.keyword, (newKeyword) => {
+  if (newKeyword !== undefined) {
+    searchKeyword.value = newKeyword;
+    handleSearch();
+  }
+});
+
 onMounted(async () => {
   window.addEventListener('keydown', handleKeyDown);
   mediaQuery = window.matchMedia('(max-width: 768px)'); isMobile.value = mediaQuery.matches;
@@ -504,6 +538,75 @@ onUnmounted(() => { window.removeEventListener('keydown', handleKeyDown); if (me
   margin: 0;
 }
 .main-apply-btn:hover { transform: translateY(-1px); filter: brightness(1.1); }
+
+/* [시니어 조치] 무한 스크롤 상태 안내 스타일 고도화 */
+.scroll-status-container {
+  padding: 40px 0 80px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+}
+
+.loading-spinner-v2 {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.spinner-dot {
+  width: 24px;
+  height: 24px;
+  border: 3px solid var(--border-color);
+  border-top-color: var(--link-color);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.no-more-data-v2 {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  max-width: 400px;
+}
+
+.end-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  opacity: 0.8;
+}
+
+.end-check-icon {
+  width: 44px;
+  height: 44px;
+  background-color: var(--hover-bg);
+  border: 2px solid var(--border-color);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--link-color);
+  box-shadow: 0 4px 10px rgba(0,0,0,0.05);
+}
+
+.end-text {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--text-secondary);
+  margin: 0;
+}
 
 @media (max-width: 768px) { 
   .search-sort-row { gap: 8px; padding: 0 15px; } 
