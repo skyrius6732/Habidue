@@ -43,9 +43,10 @@ public class NoticeAdminController {
             @RequestParam(required = false) String keyword,
             @RequestParam(required = false) List<String> sources,
             @RequestParam(required = false) List<String> statuses,
+            @RequestParam(required = false) Boolean isNew, // 추가
             Pageable pageable) {
         // Let's use searchNotices but pass null for user to see all
-        Page<Notice> notices = noticeService.searchNotices(keyword, sources, statuses, "LATEST", null, null, false, null, pageable);
+        Page<Notice> notices = noticeService.searchNotices(keyword, sources, statuses, "LATEST", null, null, false, null, isNew, pageable);
         return ApiResponse.success(notices.map(notice -> new NoticeResponseDto(notice)));
     }
 
@@ -75,8 +76,10 @@ public class NoticeAdminController {
     public ResponseEntity<ApiResponse<NoticeResponseDto>> updateNoticeStatus(@PathVariable Long id, @RequestParam NoticeStatus status) {
         Notice notice = noticeService.getNotice(id);
         notice.setStatus(status);
-        // Save notice (assuming noticeService has a save or we add it)
-        // For now, let's assume updateNotice can handle it or add a specific method
+        
+        // [시니어 조치] 상태 변경 시 태그 재분류 및 알림 발송 (TagService 내부에서 이벤트 발행)
+        tagService.autoClassifyAndAddTags(notice, true);
+        
         return ApiResponse.success(new NoticeResponseDto(noticeService.save(notice)));
     }
 }

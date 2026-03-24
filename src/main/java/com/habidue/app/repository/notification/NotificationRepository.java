@@ -21,6 +21,11 @@ public interface NotificationRepository extends JpaRepository<Notification, Long
     long countUnreadByUserId(@Param("userId") Long userId);
 
     /**
+     * 특정 공고에 대해 특정 유저에게 이미 동일한 타입의 알림을 보냈는지 확인
+     */
+    boolean existsByUserIdAndTypeAndRelatedTargetId(Long userId, com.habidue.app.domain.notification.NotificationType type, Long relatedTargetId);
+
+    /**
      * [시니어 조치] 무조건적인 벌크 업데이트
      * 안 읽은 것만 골라서 하다가 매핑 문제로 누락되는 것을 방지하기 위해
      * 해당 유저의 모든 알림을 그냥 1(읽음)로 업데이트함.

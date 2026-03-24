@@ -6,9 +6,11 @@ import com.habidue.app.domain.notice.Notice;
 import com.habidue.app.domain.tag.TagType;
 import com.habidue.app.repository.notice.NoticeRepository;
 import com.habidue.app.service.tag.TagService;
+import com.habidue.app.service.notice.event.NoticeCreatedEvent;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.jsoup.Jsoup;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
@@ -37,6 +39,7 @@ public class PrivateNoticeCrawlerService {
 
     private final NoticeRepository noticeRepository;
     private final TagService tagService;
+    private final ApplicationEventPublisher eventPublisher;
     private final ObjectMapper objectMapper = new ObjectMapper();
     private final RestTemplate restTemplate = new RestTemplate();
 
@@ -118,7 +121,7 @@ public class PrivateNoticeCrawlerService {
         tagService.addTagsToNotice(notice, List.of("민간임대", "청년안심주택", "서울시"), TagType.PROVIDER);
         
         // [핵심] 제목 및 본문 기반의 복합 분석(역 이름, 지역구 매핑, 상태 판별 등)을 중앙 엔진에 위임
-        tagService.autoClassifyAndAddTags(notice);
+        tagService.autoClassifyAndAddTags(notice, true);
     }
 
     private LocalDateTime extractDeadline(String html, String hint) {

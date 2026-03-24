@@ -91,10 +91,18 @@ const calculateDDay = (notice) => {
   const diff = Math.ceil((target - today) / 86400000);
   return diff === 0 ? 'D-Day' : diff < 0 ? `D+${Math.abs(diff)}` : `D-${diff}`;
 }
+
+const isNew = computed(() => {
+  if (!props.notice.createdAt) return false;
+  const created = new Date(props.notice.createdAt);
+  const now = new Date();
+  return (now - created) < (48 * 60 * 60 * 1000); // 48시간 이내
+});
 </script>
 
 <template>
   <div class="card-item" :style="{ borderLeftColor: sourceColor }" @click="$emit('open-detail', notice)">
+    <div v-if="isNew" class="new-badge">NEW</div>
     <div class="card-header">
       <div class="header-left-group">
         <div class="source-badge" :class="notice.source">{{ notice.source === 'PRIVATE' ? '민간' : notice.source }}</div>
@@ -164,6 +172,20 @@ const calculateDDay = (notice) => {
   cursor: pointer;
   position: relative;
   overflow: visible;
+}
+
+.new-badge {
+  position: absolute;
+  top: -8px;
+  left: -8px;
+  background-color: #ed4956;
+  color: white;
+  font-size: 0.6rem;
+  font-weight: 900;
+  padding: 2px 6px;
+  border-radius: 4px;
+  box-shadow: 0 2px 8px rgba(237, 73, 86, 0.3);
+  z-index: 10;
 }
 
 .card-header { display: flex; justify-content: space-between; align-items: center; position: relative; }

@@ -75,6 +75,14 @@
                     </option>
                   </select>
                 </div>
+                <!-- [시니어 조치] 실시간 알림 전송 옵션 추가 -->
+                <div class="form-group full-width checkbox-group">
+                  <label class="checkbox-label">
+                    <input type="checkbox" v-model="form.sendNotification" />
+                    <span class="checkbox-text">저장 시 모든 유저에게 실시간 알림 발송 📢</span>
+                  </label>
+                  <p class="form-tip">※ 중요한 공지일 경우에만 체크해 주세요. 잦은 알림은 유저 피로도를 높일 수 있습니다.</p>
+                </div>
               </template>
 
               <!-- 패치노트 전용 필드 -->
@@ -134,7 +142,16 @@ const noticeTags = [
   { label: '🆕 업데이트', value: '업데이트', type: 'info' }
 ]
 
-const form = ref({ title: '', content: '', version: '', patchDate: '', date: '', tag: '안내', type: 'info' })
+const form = ref({ 
+  title: '', 
+  content: '', 
+  version: '', 
+  patchDate: '', 
+  date: '', 
+  tag: '안내', 
+  type: 'info',
+  sendNotification: false 
+})
 
 const currentList = computed(() => activeTab.value === 'NOTICE' ? notices.value : patches.value)
 
@@ -158,13 +175,15 @@ const selectItem = (item) => {
     form.value = { 
       ...item,
       tag: item.rawTag || item.tag,
-      date: item.date ? item.date.replace(/\./g, '-') : ''
+      date: item.date ? item.date.replace(/\./g, '-') : '',
+      sendNotification: false
     }
   } else {
     form.value = { 
       ...item, 
       patchDate: item.date ? item.date.split('T')[0] : '',
-      content: item.details ? item.details.join('\n') : '' 
+      content: item.details ? item.details.join('\n') : '',
+      sendNotification: false
     }
   }
 }
@@ -174,9 +193,9 @@ const createNew = () => {
   isCreating.value = true
   const today = new Date().toISOString().split('T')[0]
   if (activeTab.value === 'NOTICE') {
-    form.value = { title: '', content: '', date: today, tag: '안내', type: 'info' }
+    form.value = { title: '', content: '', date: today, tag: '안내', type: 'info', sendNotification: false }
   } else {
-    form.value = { title: '', content: '', version: '', patchDate: today }
+    form.value = { title: '', content: '', version: '', patchDate: today, sendNotification: false }
   }
 }
 
@@ -291,6 +310,40 @@ onMounted(fetchItems)
 .form-input:focus, .form-select:focus, .form-textarea:focus { border-color: var(--link-color); background: var(--card-bg); }
 .form-textarea { height: auto; min-height: 200px; padding: 12px; resize: vertical; }
 .form-textarea.large { min-height: 350px; }
+
+/* [시니어 조치] 체크박스 그룹 스타일 */
+.checkbox-group {
+  margin-top: 5px;
+  background: var(--hover-bg);
+  padding: 12px 15px;
+  border-radius: 10px;
+  border: 1px dashed var(--border-color);
+}
+.checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  user-select: none;
+}
+.checkbox-label input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  cursor: pointer;
+  accent-color: var(--link-color);
+}
+.checkbox-text {
+  font-size: 0.85rem;
+  font-weight: 800;
+  color: var(--text-primary);
+}
+.form-tip {
+  margin: 8px 0 0;
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  font-weight: 500;
+  line-height: 1.4;
+}
 
 .form-footer { margin-top: 15px; padding-top: 15px; border-top: 1px solid var(--border-color); display: flex; justify-content: flex-end; gap: 10px; flex-shrink: 0; }
 .btn-primary { background: var(--link-color); color: white; border: none; height: 38px; padding: 0 25px; border-radius: 8px; font-weight: 800; font-size: 0.85rem; cursor: pointer; }

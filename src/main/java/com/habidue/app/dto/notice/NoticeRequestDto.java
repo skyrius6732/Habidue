@@ -22,8 +22,12 @@ public class NoticeRequestDto {
 
     private String content;
 
+    private LocalDateTime announcementDate; // 추가
+
     @NotNull(message = "마감일은 필수입니다.")
     private LocalDateTime deadline;
+
+    private LocalDateTime resultDate; // 추가
 
     @NotBlank(message = "링크는 필수입니다.")
     private String link;
@@ -37,7 +41,9 @@ public class NoticeRequestDto {
         return Notice.builder()
                 .title(title)
                 .content(content)
+                .announcementDate(announcementDate)
                 .deadline(deadline)
+                .resultDate(resultDate)
                 .link(link)
                 .source(source)
                 .status(status != null ? status : NoticeStatus.INFO)

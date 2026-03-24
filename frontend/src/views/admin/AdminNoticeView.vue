@@ -157,8 +157,16 @@
                 </select>
               </div>
               <div class="form-group">
+                <label>공고일</label>
+                <input type="date" v-model="form.announcementDate" class="form-input" />
+              </div>
+              <div class="form-group">
                 <label>마감일</label>
                 <input type="date" v-model="form.deadline" class="form-input" />
+              </div>
+              <div class="form-group">
+                <label>결과 발표일</label>
+                <input type="date" v-model="form.resultDate" class="form-input" />
               </div>
               <div class="form-group full">
                 <label>원문 링크</label>
@@ -249,7 +257,9 @@ const form = ref({
   source: 'LH',
   link: '',
   content: '',
-  deadline: ''
+  announcementDate: '',
+  deadline: '',
+  resultDate: ''
 })
 
 const handleReprocessTags = async () => {
@@ -335,7 +345,7 @@ const handleDelete = async (id) => {
 
 const openCreateModal = () => {
   editingId.value = null
-  form.value = { title: '', source: 'LH', link: '', content: '', deadline: '' }
+  form.value = { title: '', source: 'LH', link: '', content: '', announcementDate: '', deadline: '', resultDate: '' }
   showModal.value = true
 }
 
@@ -343,7 +353,9 @@ const openEditModal = (notice) => {
   editingId.value = notice.id
   form.value = { 
     ...notice,
-    deadline: notice.deadline ? notice.deadline.split('T')[0] : ''
+    announcementDate: notice.announcementDate ? notice.announcementDate.split('T')[0] : '',
+    deadline: notice.deadline ? notice.deadline.split('T')[0] : '',
+    resultDate: notice.resultDate ? notice.resultDate.split('T')[0] : ''
   }
   showModal.value = true
 }
@@ -351,9 +363,10 @@ const openEditModal = (notice) => {
 const handleSave = async () => {
   try {
     const payload = { ...form.value }
-    if (payload.deadline && !payload.deadline.includes('T')) {
-      payload.deadline = payload.deadline + 'T23:59:59'
-    }
+    const suffix = 'T23:59:59';
+    if (payload.announcementDate && !payload.announcementDate.includes('T')) payload.announcementDate += suffix;
+    if (payload.deadline && !payload.deadline.includes('T')) payload.deadline += suffix;
+    if (payload.resultDate && !payload.resultDate.includes('T')) payload.resultDate += suffix;
 
     if (editingId.value) {
       await axios.put(`/api/admin/notices/${editingId.value}`, payload)

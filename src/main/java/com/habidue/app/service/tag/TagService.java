@@ -13,6 +13,8 @@ import com.habidue.app.repository.tag.TagRepository;
 import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import com.habidue.app.service.notice.event.NoticeCreatedEvent;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -32,6 +34,7 @@ public class TagService {
     private final NoticeKeywordMetadataRepository keywordMetadataRepository;
     private final com.habidue.app.repository.notice.NoticeRepository noticeRepository;
     private final jakarta.persistence.EntityManager entityManager;
+    private final ApplicationEventPublisher eventPublisher;
 
     private List<NoticeKeywordMetadata> cachedKeywords = new ArrayList<>();
 
@@ -62,7 +65,7 @@ public class TagService {
      * 공고 내용을 분석하여 자동으로 태그를 분류하고 추가합니다.
      */
     @Transactional
-    public void autoClassifyAndAddTags(Notice notice) {
+    public void autoClassifyAndAddTags(Notice notice, boolean shouldNotify) {
         String originalTitle = notice.getTitle() != null ? notice.getTitle() : "";
         String originalContent = notice.getContent() != null ? notice.getContent() : "";
         String analysisTarget = (originalTitle + " " + originalContent).toLowerCase();
@@ -131,6 +134,11 @@ public class TagService {
         linkNoticeAndTag(notice, systemTag);
         
         noticeRepository.updateStatus(notice.getId(), finalStatus);
+
+        // [시니어 조치] shouldNotify 플래그가 true일 때만 이벤트 발행
+        if (shouldNotify) {
+            eventPublisher.publishEvent(new NoticeCreatedEvent(notice));
+        }
     }
 
     /**
@@ -184,8 +192,8 @@ public class TagService {
             // [최적화] 벌크 삭제 적용 (N+1 삭제 방지)
             noticeTagRepository.deleteByNoticeBulk(notice);
             
-            // 재분석 및 태깅
-            autoClassifyAndAddTags(notice);
+            // [시니어 조치] 관리자 일괄 재설정 시에는 알림을 발송하지 않음 (shouldNotify = false)
+            autoClassifyAndAddTags(notice, false);
             
             // [전문가 최적화] 50건마다 영속성 컨텍스트 비우기 (메모리 및 속도 관리)
             if (i > 0 && i % 50 == 0) {

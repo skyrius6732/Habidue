@@ -12,4 +12,5 @@ public class AnnouncementRequestDto {
     private String date;
     private String title;
     private String content;
+    private boolean sendNotification; // [시니어 조치] 전체 알림 발송 여부
 }

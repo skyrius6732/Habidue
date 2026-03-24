@@ -25,4 +25,10 @@ public interface UserTagRepository extends JpaRepository<UserTag, Long> {
     Optional<UserTag> findByUserIdAndTagId(Long userId, Long tagId);
     
     void deleteByUserAndTag_Id(User user, Long tagId);
+
+    /**
+     * 특정 태그들을 구독 중인 사용자들을 조회함 (알림용)
+     */
+    @Query("SELECT ut FROM UserTag ut JOIN FETCH ut.user WHERE ut.tag.id IN :tagIds")
+    List<UserTag> findAllByTagIdIn(@Param("tagIds") java.util.Collection<Long> tagIds);
 }

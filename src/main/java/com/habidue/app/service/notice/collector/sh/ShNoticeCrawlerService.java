@@ -4,12 +4,14 @@ import com.habidue.app.domain.notice.Notice;
 import com.habidue.app.domain.tag.TagType;
 import com.habidue.app.repository.notice.NoticeRepository;
 import com.habidue.app.service.tag.TagService;
+import com.habidue.app.service.notice.event.NoticeCreatedEvent;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
 import org.jsoup.select.Elements;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -31,6 +33,7 @@ public class ShNoticeCrawlerService {
 
     private final NoticeRepository noticeRepository;
     private final TagService tagService;
+    private final ApplicationEventPublisher eventPublisher;
 
     private static final String SH_PORTAL_BASE_URL = "https://housing.seoul.go.kr/site/main/sh/publicLease/list";
     private static final String BASE_URL = "https://housing.seoul.go.kr";
@@ -192,7 +195,7 @@ public class ShNoticeCrawlerService {
         }
 
         tagService.addTagsToNotice(notice, List.of("SH", "서울주택도시공사", category), TagType.PROVIDER);
-        tagService.autoClassifyAndAddTags(notice);
+        tagService.autoClassifyAndAddTags(notice, true);
     }
 
     private int extractTotalPages(Document doc) {

@@ -3,9 +3,11 @@ package com.habidue.app.service.about;
 import com.habidue.app.domain.about.Announcement;
 import com.habidue.app.domain.about.PatchNote;
 import com.habidue.app.domain.about.PatchNoteDetail;
+import com.habidue.app.domain.notification.NotificationType;
 import com.habidue.app.dto.about.*;
 import com.habidue.app.repository.about.AnnouncementRepository;
 import com.habidue.app.repository.about.PatchNoteRepository;
+import com.habidue.app.service.notification.NotificationService;
 import jakarta.persistence.EntityManager;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -22,6 +24,7 @@ public class AboutService {
     private final AnnouncementRepository announcementRepository;
     private final PatchNoteRepository patchNoteRepository;
     private final EntityManager entityManager;
+    private final NotificationService notificationService;
 
     // --- 공지사항 (Announcement) ---
     public List<AnnouncementResponseDto> getAnnouncements() {
@@ -35,6 +38,18 @@ public class AboutService {
         Announcement announcement = announcementRepository.save(Announcement.builder()
                 .tag(dto.getTag()).type(dto.getType()).date(dto.getDate())
                 .title(dto.getTitle()).content(dto.getContent()).build());
+        
+        // [시니어 조치] 전체 알림 발송 옵션 처리
+        if (dto.isSendNotification()) {
+            String content = String.format("%s [공지] %s", dto.getTag(), dto.getTitle());
+            notificationService.sendToAllUsers(
+                NotificationType.SYSTEM,
+                content,
+                null, // relatedTargetId (상세 페이지 링크가 필요하다면 추가 설계 필요)
+                null  // postId
+            );
+        }
+        
         return new AnnouncementResponseDto(announcement);
     }
 

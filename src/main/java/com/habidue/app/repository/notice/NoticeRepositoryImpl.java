@@ -82,7 +82,7 @@ public class NoticeRepositoryImpl implements NoticeRepositoryCustom {
     }
 
     @Override
-    public Page<Notice> searchNotices(String keyword, List<String> sources, List<String> statuses, String sortOrder, List<String> userKeywords, User currentUser, boolean showOnlyFuture, Boolean isBoardActive, Pageable pageable) {
+    public Page<Notice> searchNotices(String keyword, List<String> sources, List<String> statuses, String sortOrder, List<String> userKeywords, User currentUser, boolean showOnlyFuture, Boolean isBoardActive, Boolean isNew, Pageable pageable) {
         QNotice notice = QNotice.notice;
         QUserNotice userNotice = QUserNotice.userNotice;
         QNoticeTag noticeTag = QNoticeTag.noticeTag;
@@ -91,6 +91,11 @@ public class NoticeRepositoryImpl implements NoticeRepositoryCustom {
         BooleanBuilder builder = new BooleanBuilder();
         LocalDateTime now = LocalDateTime.now();
         LocalDateTime activityThreshold = now.minusDays(7);
+        
+        // [시니어 조치] 최근 48시간 이내 등록 필터 (isNew=true) - 방문 주기 고려 확장
+        if (isNew != null && isNew) {
+            builder.and(notice.createdAt.goe(now.minusHours(48)));
+        }
         
         // [시니어 조치] 해금된 공고 전용 필터 적용 (필드값 OR 관심유저 10명 이상 OR 깨우기 성공 및 활동중)
         if (isBoardActive != null && isBoardActive) {
@@ -194,8 +199,10 @@ public class NoticeRepositoryImpl implements NoticeRepositoryCustom {
             orders.add(new CaseBuilder().when(notice.deadline.goe(now)).then(0).otherwise(1).asc());
             orders.add(notice.deadline.asc());
         } else {
-            orders.add(notice.announcementDate.desc().nullsLast());
+            // [시니어 조치] 최신순 정렬 시 DB 생성일(createdAt)을 최우선으로 하여 
+            // 방금 등록된 공고(관리자 수동 등록 포함)가 무조건 상단에 노출되도록 보정
             orders.add(notice.createdAt.desc());
+            orders.add(notice.announcementDate.desc().nullsLast());
         }
 
         JPAQuery<Notice> query = queryFactory

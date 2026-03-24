@@ -7,6 +7,7 @@ import org.springframework.scheduling.annotation.EnableScheduling;
 
 @EnableJpaAuditing // JPA Auditing 활성화 (createdAt, updatedAt 자동 기록)
 @EnableScheduling // 스케줄링 활성화
+@org.springframework.scheduling.annotation.EnableAsync // 비동기 처리 활성화
 @SpringBootApplication
 public class AppApplication {
 

@@ -20,6 +20,9 @@ import com.habidue.app.domain.tag.NoticeTag;
 import com.habidue.app.repository.tag.TagRepository;
 import java.util.stream.Collectors;
 
+import com.habidue.app.service.notice.event.NoticeCreatedEvent;
+import org.springframework.context.ApplicationEventPublisher;
+
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -30,6 +33,8 @@ public class NoticeService {
     private final TagRepository tagRepository;
     private final com.habidue.app.repository.notice.NoticeWakeUpRepository noticeWakeUpRepository;
     private final com.habidue.app.repository.user.UserRepository userRepository;
+    private final ApplicationEventPublisher eventPublisher;
+    private final com.habidue.app.service.tag.TagService tagService;
 
     /**
      * [시니어 조치] 매일 새벽 3시, 7일간 활동이 없는 소통방을 휴면(읽기전용) 상태로 전환
@@ -56,8 +61,8 @@ public class NoticeService {
     }
 
     // QueryDSL 통합 검색 및 정렬
-    public Page<Notice> searchNotices(String keyword, List<String> sources, List<String> statuses, String sortOrder, List<String> userKeywords, User currentUser, boolean showOnlyFuture, Boolean isBoardActive, Pageable pageable) {
-        return noticeRepository.searchNotices(keyword, sources, statuses, sortOrder, userKeywords, currentUser, showOnlyFuture, isBoardActive, pageable);
+    public Page<Notice> searchNotices(String keyword, List<String> sources, List<String> statuses, String sortOrder, List<String> userKeywords, User currentUser, boolean showOnlyFuture, Boolean isBoardActive, Boolean isNew, Pageable pageable) {
+        return noticeRepository.searchNotices(keyword, sources, statuses, sortOrder, userKeywords, currentUser, showOnlyFuture, isBoardActive, isNew, pageable);
     }
 
     @Transactional
@@ -65,7 +70,15 @@ public class NoticeService {
         noticeRepository.findByLink(noticeRequestDto.getLink()).ifPresent(notice -> {
             throw new IllegalArgumentException("이미 존재하는 공고 링크입니다: " + noticeRequestDto.getLink());
         });
-        return noticeRepository.save(noticeRequestDto.toEntity());
+
+        // toEntity() 메서드가 위에서 수정되었으므로 모든 날짜 필드가 포함됨
+        Notice notice = noticeRequestDto.toEntity();
+        Notice savedNotice = noticeRepository.save(notice);
+        
+        // [시니어 조치] 자동 태그 분류 (TagService 내부에서 알림 이벤트를 발행함)
+        tagService.autoClassifyAndAddTags(savedNotice, true);
+        
+        return savedNotice;
     }
 
     public Notice getNotice(Long id) {
@@ -84,15 +97,18 @@ public class NoticeService {
         
         existingNotice.setTitle(noticeRequestDto.getTitle());
         existingNotice.setContent(noticeRequestDto.getContent());
+        existingNotice.setAnnouncementDate(noticeRequestDto.getAnnouncementDate()); // 추가
         existingNotice.setDeadline(noticeRequestDto.getDeadline());
+        existingNotice.setResultDate(noticeRequestDto.getResultDate()); // 추가
         existingNotice.setLink(noticeRequestDto.getLink());
         existingNotice.setSource(noticeRequestDto.getSource());
 
-        // [시니어 조치] 상태 및 시스템 태그 동기화
         if (noticeRequestDto.getStatus() != null) {
             existingNotice.setStatus(noticeRequestDto.getStatus());
-            synchronizeSystemTag(existingNotice);
         }
+
+        // [시니어 조치] 수정 시에도 태그 재분류 및 알림 발송 (TagService 내부에서 이벤트 발행)
+        tagService.autoClassifyAndAddTags(existingNotice, true);
 
         return noticeRepository.save(existingNotice);
     }

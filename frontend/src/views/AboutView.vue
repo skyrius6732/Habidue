@@ -100,16 +100,23 @@
 </template>
 
 <script setup>
-import { ref, onMounted, computed } from 'vue'
+import { ref, onMounted, computed, watch } from 'vue'
+import { useRoute } from 'vue-router'
 import PageHeader from '@/components/PageHeader.vue'
 import axios from '@/plugins/axios'
 
-const activeTab = ref('intro')
+const route = useRoute()
+const activeTab = ref(route.query.tab || 'intro')
 const tabs = [
   { id: 'intro', name: '서비스 소개' },
   { id: 'news', name: '공지사항' },
   { id: 'patch', name: '패치 히스토리' }
 ]
+
+// [시니어 조치] URL 쿼리 파라미터 감시하여 탭 전환
+watch(() => route.query.tab, (newTab) => {
+  if (newTab) activeTab.value = newTab
+})
 
 const announcements = ref([])
 const patchNotes = ref([])

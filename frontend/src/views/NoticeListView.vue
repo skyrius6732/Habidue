@@ -88,7 +88,12 @@
           <tr v-for="notice in notices" :key="notice.id" @click="openDetail(notice)" class="table-row">
             <td><span class="table-source-tag" :class="notice.source">{{ getSourceLabel(notice.source) }}</span></td>
             <td><span class="region-text">{{ notice.region }}</span></td>
-            <td class="table-title-cell"><span class="title-text" :title="notice.title">{{ notice.title }}</span></td>
+            <td class="table-title-cell">
+              <div class="title-wrapper">
+                <span v-if="isReallyNew(notice.createdAt)" class="new-tag-mini">NEW</span>
+                <span class="title-text" :title="notice.title">{{ notice.title }}</span>
+              </div>
+            </td>
             <td><span class="status-badge" :class="getStatus(notice).class">{{ getStatus(notice).text }}</span></td>
             <td><span class="dday-text" :class="{ 'expired': isReallyExpired(notice.deadline) }">{{ calculateDDay(notice) }}</span></td>
             <td class="table-date-cell">
@@ -154,6 +159,7 @@
         <div class="modal-header">
           <div class="header-badges">
             <span class="modal-source-tag" :class="selectedNotice.source">{{ getSourceLabel(selectedNotice.source) }}</span>
+            <span v-if="isReallyNew(selectedNotice.createdAt)" class="new-tag-modal">NEW</span>
             <span class="status-badge" :class="getStatus(selectedNotice).class">{{ getStatus(selectedNotice).text }}</span>
           </div>
           <div class="header-actions">
@@ -255,11 +261,13 @@ const activeTab = ref('info')
 const activeSources = ref(route.query.sources ? route.query.sources.split(',') : ['ALL'])
 const activeStatuses = ref(route.query.statuses ? route.query.statuses.split(',') : (Object.keys(route.query).length === 0 ? ['RECRUITING'] : ['ALL']))
 const sortOrder = ref(route.query.sortOrder || 'alarm')
+const isNewFilter = ref(route.query.isNew === 'true') // 추가
 
 const updateUrlParams = () => {
   const query = { ...route.query }; query.sources = activeSources.value.join(','); query.statuses = activeStatuses.value.join(',');
   if (sortOrder.value !== 'alarm') query.sortOrder = sortOrder.value; else delete query.sortOrder;
   if (searchKeyword.value) query.keyword = searchKeyword.value; else delete query.keyword;
+  if (isNewFilter.value) query.isNew = 'true'; else delete query.isNew; // 추가
   router.replace({ query });
 }
 
@@ -309,7 +317,17 @@ const fetchNotices = async (page, reset = false) => {
   try {
     const sourcesParam = activeSources.value.includes('ALL') ? null : activeSources.value.join(',');
     const statusesParam = activeStatuses.value.includes('ALL') ? null : activeStatuses.value.join(',');
-    const res = await axios.get('/api/notices', { params: { page, size: isMobile.value ? 12 : 15, keyword: searchKeyword.value, sources: sourcesParam, statuses: statusesParam, sortOrder: sortOrder.value } })
+    const res = await axios.get('/api/notices', { 
+      params: { 
+        page, 
+        size: isMobile.value ? 12 : 15, 
+        keyword: searchKeyword.value, 
+        sources: sourcesParam, 
+        statuses: statusesParam, 
+        sortOrder: sortOrder.value,
+        isNew: isNewFilter.value || null
+      } 
+    })
     const data = res.data.data
     if (reset) notices.value = data.content; else notices.value = [...notices.value, ...data.content]
     currentPage.value = data.number; totalElements.value = data.totalElements; totalPages.value = data.totalPages; isLastPage.value = data.last
@@ -330,6 +348,14 @@ const getStatus = (notice) => {
 }
 const calculateDDay = (notice) => { if (notice.status === 'CLOSED' || notice.status === 'RESULT' || notice.status === 'INFO' || !notice.deadline) return '-'; const target = new Date(notice.deadline); const today = new Date(); target.setHours(0,0,0,0); today.setHours(0,0,0,0); const diff = Math.ceil((target - today) / 86400000); return diff < 0 ? '-' : (diff === 0 ? 'D-Day' : `D-${diff}`); }
 const isReallyExpired = (deadline) => { if (!deadline) return false; const now = new Date(); const end = new Date(deadline); end.setHours(23, 59, 59, 999); return now > end; }
+
+// [시니어 조치] 최근 48시간 이내 등록 여부 판별
+const isReallyNew = (createdAt) => {
+  if (!createdAt) return false;
+  const created = new Date(createdAt);
+  const now = new Date();
+  return (now - created) < (48 * 60 * 60 * 1000);
+}
 
 const getDisplayTags = (notice, limit = 4) => { if (!notice.tags || notice.tags.length === 0) return []; const systemTags = ['접수중', '마감', '결과발표', '발표완료', '안내', '이전안내']; let allFiltered = notice.tags.filter(tag => !systemTags.includes(tag.name)); allFiltered.sort((a, b) => { const aSpecial = a.type === 'SPECIAL'; const bSpecial = b.type === 'SPECIAL'; if (aSpecial && !bSpecial) return -1; if (!aSpecial && bSpecial) return 1; return 0; }); return allFiltered.slice(0, limit); }
 
@@ -355,13 +381,30 @@ onMounted(async () => {
   mediaQuery = window.matchMedia('(max-width: 768px)'); isMobile.value = mediaQuery.matches;
   mediaQuery.addEventListener('change', updateMobileStatus);
   try { const kwRes = await axios.get('/api/user-tags'); userKeywords.value = kwRes.data.data.map(k => k.name) } catch (e) {}
+  
   if (route.query.sources) activeSources.value = route.query.sources.split(',');
   if (route.query.statuses) activeStatuses.value = route.query.statuses.split(',');
-  if (route.query.keyword) searchKeyword.value = route.query.keyword;
+  
+  // [시니어 조치] URL 파라미터 기반 초기 로딩 최적화
+  if (route.query.keyword) {
+    searchKeyword.value = route.query.keyword;
+  }
+  
   await fetchNotices(0, true)
   if (isMobile.value) initInfiniteScroll()
-  const openId = route.query.openId
-  if (openId) { try { const res = await axios.get(`/api/notices/${openId}`); selectedNotice.value = res.data.data; activeTab.value = 'community' } catch (e) {} }
+  
+  // [시니어 조치] 알림 클릭 등을 통한 openId 처리 (상세 모달 자동 오픈)
+  const openId = route.query.openId;
+  if (openId) { 
+    try { 
+      const res = await axios.get(`/api/notices/${openId}`); 
+      selectedNotice.value = res.data.data; 
+      // 기본적으로 '공고 정보' 탭을 먼저 보여줌
+      activeTab.value = 'info'; 
+    } catch (e) {
+      console.warn('자동 오픈 대상 공고를 불러오지 못했습니다:', e);
+    } 
+  }
 })
 
 onUnmounted(() => { window.removeEventListener('keydown', handleKeyDown); if (mediaQuery) mediaQuery.removeEventListener('change', updateMobileStatus); if (observer) observer.disconnect(); })
@@ -369,6 +412,7 @@ onUnmounted(() => { window.removeEventListener('keydown', handleKeyDown); if (me
 
 <style scoped>
 .feed-container { width: 100%; min-height: 100vh; position: relative; }
+
 .notice-disclaimer { max-width: 1200px; margin: 0 auto 1.5rem; padding: 0 20px; }
 .disclaimer-content { background-color: var(--hover-bg); border: 1px solid var(--border-color); border-radius: 12px; padding: 12px 16px; display: flex; align-items: flex-start; gap: 10px; }
 .light-bulb { font-size: 1.1rem; line-height: 1.4; }
@@ -399,6 +443,11 @@ onUnmounted(() => { window.removeEventListener('keydown', handleKeyDown); if (me
 .table-row:hover { background-color: var(--hover-bg); }
 .col-source { width: 80px; } .col-region { width: 90px; } .col-title { width: auto; } .col-status { width: 110px; } .col-dday { width: 90px; } .col-dates { width: 200px; } .col-interest { width: 100px; } .col-tags { width: 180px; }
 .table-source-tag { padding: 4px 10px; border-radius: 20px; font-size: 0.7rem; font-weight: 800; color: white; display: inline-block; min-width: 45px; }
+
+.title-wrapper { display: flex; align-items: center; gap: 6px; }
+.new-tag-mini { background-color: #ed4956; color: white; font-size: 0.6rem; font-weight: 900; padding: 1px 4px; border-radius: 3px; flex-shrink: 0; }
+.new-tag-modal { background-color: #ed4956; color: white; font-size: 0.7rem; font-weight: 900; padding: 4px 8px; border-radius: 6px; box-shadow: 0 2px 8px rgba(237, 73, 86, 0.3); }
+
 .table-source-tag.LH { background-color: #38a169; } .table-source-tag.SH { background-color: #3182ce; } .table-source-tag.PRIVATE { background-color: #c08457; }
 .title-text { font-size: 0.95rem; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; text-align: left; }
 .status-badge { padding: 4px 12px; border-radius: 4px; font-size: 0.75rem; font-weight: 700; }

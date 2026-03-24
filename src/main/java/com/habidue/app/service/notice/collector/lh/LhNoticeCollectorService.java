@@ -4,12 +4,14 @@ import com.habidue.app.domain.notice.Notice;
 import com.habidue.app.domain.tag.TagType;
 import com.habidue.app.repository.notice.NoticeRepository;
 import com.habidue.app.service.tag.TagService;
+import com.habidue.app.service.notice.event.NoticeCreatedEvent;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
 import org.jsoup.select.Elements;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -28,6 +30,7 @@ public class LhNoticeCollectorService {
 
     private final NoticeRepository noticeRepository;
     private final TagService tagService;
+    private final ApplicationEventPublisher eventPublisher;
 
     private static final String LH_PORTAL_BASE_URL = "https://housing.seoul.go.kr/site/main/lh/publicLease/list";
     private static final String USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36";
@@ -101,7 +104,7 @@ public class LhNoticeCollectorService {
         }
 
         tagService.addTagsToNotice(notice, List.of("LH", "한국토지주택공사", category), TagType.PROVIDER);
-        tagService.autoClassifyAndAddTags(notice);
+        tagService.autoClassifyAndAddTags(notice, true);
     }
 
     private int extractTotalPages(Document doc) {

@@ -49,7 +49,8 @@ public class NoticeController {
             @RequestParam(required = false) List<String> statuses, // 다중 상태
             @RequestParam(defaultValue = "alarm") String sortOrder,
             @RequestParam(defaultValue = "false") boolean showOnlyFuture,
-            @RequestParam(required = false) Boolean isBoardActive) { // 해금된 게시판만 보기
+            @RequestParam(required = false) Boolean isBoardActive,
+            @RequestParam(required = false) Boolean isNew) { // 추가
 
         Sort sorting = Sort.by(Sort.Direction.fromString(sort[1]), sort[0]);
         Pageable pageable = PageRequest.of(page, size, sorting);
@@ -69,8 +70,8 @@ public class NoticeController {
         List<String> processedStatuses = preprocessFilterList(statuses);
 
         // QueryDSL 다중 필터 검색 호출
-        log.info("공고 검색 요청: sortOrder={}, isBoardActive={}, sources={}, statuses={}", sortOrder, isBoardActive, processedSources, processedStatuses);
-        Page<Notice> noticePage = noticeService.searchNotices(keyword, processedSources, processedStatuses, sortOrder, userKeywordsList, currentUser, showOnlyFuture, isBoardActive, pageable);
+        log.info("공고 검색 요청: sortOrder={}, isBoardActive={}, isNew={}, sources={}, statuses={}", sortOrder, isBoardActive, isNew, processedSources, processedStatuses);
+        Page<Notice> noticePage = noticeService.searchNotices(keyword, processedSources, processedStatuses, sortOrder, userKeywordsList, currentUser, showOnlyFuture, isBoardActive, isNew, pageable);
 
         // 1. 공고 ID 목록 추출 (즐겨찾기 여부 확인용)
         List<Long> noticeIds = noticePage.getContent().stream()

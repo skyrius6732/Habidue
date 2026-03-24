@@ -170,4 +170,30 @@ public class NotificationService { // [시니어 조치] 클래스 레벨 @Trans
         int updatedCount = notificationRepository.forceReadAllByUserId(userId);
         log.info("[Notification] Bulk read update completed: User {}, Count: {}", userId, updatedCount);
     }
+
+    /**
+     * [시니어 조치] 전 유저 대상 실시간 알림 발송 (비동기 처리)
+     */
+    @org.springframework.scheduling.annotation.Async
+    @Transactional
+    public void sendToAllUsers(NotificationType type, String content, Long relatedTargetId, Long postId) {
+        log.info("[SSE-DEBUG] >>> Broadcasting Notification: Type: {}", type);
+        List<User> allUsers = userRepository.findAll();
+        
+        for (User receiver : allUsers) {
+            Notification notification = Notification.builder()
+                    .user(receiver)
+                    .type(type)
+                    .content(content)
+                    .relatedTargetId(relatedTargetId)
+                    .postId(postId)
+                    .readStatus(0)
+                    .build();
+            notificationRepository.save(notification);
+            
+            // SSE 실시간 전송 시도
+            sendSseNotification(receiver.getId(), notification);
+        }
+        log.info("[SSE-DEBUG] Broadcasting completed for {} users.", allUsers.size());
+    }
 }

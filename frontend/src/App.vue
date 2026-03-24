@@ -78,6 +78,20 @@ const handleNotiClick = async (noti) => {
     })
   } else if (noti.type === 'MESSAGE') {
     router.push({ path: '/keywords', query: { tab: 'messages', t: Date.now() } })
+  } else if (noti.type === 'NOTICE_KEYWORD' || noti.type === 'NOTICE_DEADLINE' || noti.type === 'NOTICE_STATUS_CHANGE') {
+    // [시니어 조치] 공고 관련 알림 클릭 시 상세 모달 자동 오픈을 위해 openId 전달
+    // 키워드 검색창 자동 입력을 위해 keyword도 함께 전달
+    const targetQuery = { openId: noti.relatedTargetId, t: Date.now() };
+
+    // 키워드 알림인 경우 제목에서 앞의 [기관] 부분을 제외한 핵심 키워드 추출 시도
+    if (noti.type === 'NOTICE_KEYWORD') {
+      const titleMatch = noti.content.match(/등록되었습니다: (.*)/);
+      if (titleMatch && titleMatch[1]) {
+        targetQuery.keyword = titleMatch[1].substring(0, 15); // 제목 앞부분 15자 정도만 검색어로 사용
+      }
+    }
+
+    router.push({ path: '/notices', query: targetQuery })
   } else if (noti.type === 'KARMA_CHANGE' || noti.type === 'SYSTEM') {
     // [시니어 조치] SYSTEM 타입(좋아요 등)이 게시글 관련이면 해당 위치로 이동
     if (noti.postId) {
@@ -91,6 +105,9 @@ const handleNotiClick = async (noti) => {
     } else if (noti.content.includes('쪽지')) {
       // [시니어 조치] 쪽지 제재 알림인 경우 마이페이지 > 쪽지함으로 이동
       router.push({ path: '/keywords', query: { tab: 'messages', t: Date.now() } })
+    } else if (noti.content.includes('[공지]')) {
+      // [시니어 조치] 시스템 공지 알림인 경우 HabiDue 소개 > 공지사항 탭으로 이동
+      router.push({ path: '/about', query: { tab: 'news', t: Date.now() } })
     } else {
       router.push({ path: '/keywords', query: { tab: 'activity', t: Date.now() } })
     }

@@ -27,8 +27,7 @@ public class UserNoticeController {
     @PostMapping
     @Secured("ROLE_USER")
     public ResponseEntity<ApiResponse<UserNoticeResponseDto>> addUserNotice(@Valid @RequestBody UserNoticeRequestDto userNoticeRequestDto) {
-        UserNotice newUserNotice = userNoticeService.addUserNotice(userNoticeRequestDto);
-        return ApiResponse.success(HttpStatus.CREATED, new UserNoticeResponseDto(newUserNotice));
+        return ApiResponse.success(HttpStatus.CREATED, userNoticeService.addUserNotice(userNoticeRequestDto));
     }
 
     @GetMapping
