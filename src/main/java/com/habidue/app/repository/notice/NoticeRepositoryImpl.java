@@ -200,6 +200,8 @@ public class NoticeRepositoryImpl implements NoticeRepositoryCustom {
 
         JPAQuery<Notice> query = queryFactory
                 .selectFrom(notice)
+                .leftJoin(notice.noticeTags, noticeTag).fetchJoin() // [시니어 조치] 태그 페치 조인 추가
+                .leftJoin(noticeTag.tag, tag).fetchJoin() // [시니어 조치] 실제 태그 엔티티까지 페치 조인
                 .where(builder); // 불필요한 Join 및 GroupBy 제거 (정확도 및 성능 향상)
 
         for (OrderSpecifier<?> order : orders) {

@@ -5,16 +5,26 @@ import { ref } from 'vue'
 export const useBadgeStore = defineStore('badge', () => {
   const allRules = ref([])
   const isLoaded = ref(false)
+  let fetchPromise = null
 
   const fetchRules = async () => {
     if (isLoaded.value) return
-    try {
-      const res = await axios.get('/api/users/me/activity')
-      allRules.value = res.data.data.badgeRules || []
-      isLoaded.value = true
-    } catch (e) {
-      console.error('배지 규칙 로드 실패:', e)
-    }
+    if (fetchPromise) return fetchPromise
+
+    fetchPromise = (async () => {
+      try {
+        const res = await axios.get('/api/users/me/activity')
+        allRules.value = res.data.data.badgeRules || []
+        isLoaded.value = true
+      } catch (e) {
+        console.error('배지 규칙 로드 실패:', e)
+        throw e
+      } finally {
+        fetchPromise = null
+      }
+    })()
+
+    return fetchPromise
   }
 
   /**

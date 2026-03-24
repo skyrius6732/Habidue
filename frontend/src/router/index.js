@@ -48,7 +48,7 @@ const router = createRouter({
     {
       path: '/messages',
       name: 'messages',
-      component: () => import('../views/MessageView.vue'),
+      redirect: '/keywords?tab=messages',
       meta: { requiresAuth: true }
     },
     {

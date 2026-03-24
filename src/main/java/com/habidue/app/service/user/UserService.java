@@ -197,7 +197,7 @@ public class UserService {
             redisTemplate.opsForValue().set(BLOCKED_USER_PREFIX + userId, finalReason);
             
             // [시니어 조치] 차단 알림 발송 (기록용)
-            notificationService.send(user, NotificationType.SYSTEM, "🚫 운영 정책 위반으로 인해 계정이 차단되었습니다. (사유: " + finalReason + ")", null);
+            notificationService.send(user, NotificationType.SYSTEM, "🚫 운영 정책 위반으로 인해 계정이 차단되었습니다. (사유: " + finalReason + ")", null, null);
         } else {
             user.setBlockedReason(null);
             user.setBlockedAt(null);
@@ -205,7 +205,7 @@ public class UserService {
 
             // [시니어 조치] 복구 알림 발송
             if (oldStatus == UserStatus.BLOCKED && status == UserStatus.ACTIVE) {
-                notificationService.send(user, NotificationType.SYSTEM, "📢 관리자에 의해 계정 제한이 해제되었습니다. 다시 정상적인 이용이 가능합니다.", null);
+                notificationService.send(user, NotificationType.SYSTEM, "📢 관리자에 의해 계정 제한이 해제되었습니다. 다시 정상적인 이용이 가능합니다.", null, null);
             }
         }
         

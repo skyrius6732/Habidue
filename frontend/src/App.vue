@@ -69,17 +69,20 @@ const handleNotiClick = async (noti) => {
   await notificationStore.markAsRead(noti.id)
   isNotiOpen.value = false
   showToast.value = false
-  
+
   if (noti.type === 'COMMENT' || noti.type === 'REPLY') {
     // [시니어 조치] 상세 페이지로 이동하며 댓글 ID를 쿼리로 전달
-    router.push(`/board/post/${noti.postId}?commentId=${noti.relatedTargetId}`)
+    // 쿼리 파라미터를 명시적으로 다르게 주어(t=Date.now) 같은 페이지에서도 반응하게 함
+    router.push({
+      path: `/board/post/${noti.postId}`,
+      query: { commentId: noti.relatedTargetId, t: Date.now() }
+    })
   } else if (noti.type === 'MESSAGE') {
     router.push('/keywords?tab=messages')
   } else if (noti.type === 'KARMA_CHANGE' || noti.type === 'SYSTEM') {
     router.push('/keywords?tab=activity')
   }
 }
-
 const timeAgo = (date) => formatDistanceToNow(new Date(date), { addSuffix: true, locale: ko })
 
 const isFullMenuVisible = computed(() => authStore.isAuthenticated && !['home', 'withdrawalSuccess', 'blocked'].includes(route.name))

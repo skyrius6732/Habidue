@@ -10,10 +10,14 @@ spring:
     url: jdbc:mysql://172.24.96.243:3306/habidue_db?serverTimezone=Asia/Seoul&characterEncoding=UTF-8&allowPublicKeyRetrieval=true&useSSL=false
     username: habidue_user
     password: habidue123!
+    hikari:
+      maximum-pool-size: 20 # [시니어 조치] 풀 크기 확장
+      connection-timeout: 30000
   jpa:
     hibernate:
       ddl-auto: update
     show-sql: true
+    open-in-view: false # [시니어 조치] SSE 연결의 DB 커넥션 점유 방지 (필수)
   data:
     redis:
       host: 172.24.96.243
@@ -49,7 +53,7 @@ spring:
 
 # JWT 설정
 jwt:
-  secret: ${JWT_SECRET:c3FzYXE3d1E1bWp5Zzl0YzV2ZDRyM2YycDFvMGk5dWlqa2w4aDc2YjV2NGYzMnEzdWlkMW9wMjlhc2QxMml1eTBrMWw4Yzc2YjV2NGYzMnEzdWlkMW9wMjlhc2QxMml1eTBrMWw4Yzc2YjV2NGYzMnEzbWoyMGk5dTI5amtsOGg3NmI1djRm}
+  secret: ${JWT_SECRET:c3FzYXE3d1E1bWp5Zzl0YzV2ZDRyM2YycDFvMGk5dWlqa2w4aDc2YjV2NGYzMnEzdWlkMW9wMjlhc2QxMml1eTBrMWw4Yzc2YjV2NGYzMnEzbWoyMGk5dTI5amtsOGg3NmI1djRm}
   access-token-validity-in-seconds: 3600 # 1시간 (테스트 완료 후 복구)
   refresh-token-validity-in-seconds: 1209600 # 2주
 

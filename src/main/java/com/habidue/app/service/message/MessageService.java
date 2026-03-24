@@ -75,7 +75,7 @@ public class MessageService {
         if (files != null && !files.isEmpty()) saveFiles(message, files);
         messageRepository.save(message);
 
-        notificationService.send(receiver, NotificationType.MESSAGE, String.format("💌 '%s'님으로부터 새로운 쪽지가 도착했습니다.", sender.getNickname()), sender.getId());
+        notificationService.send(receiver, NotificationType.MESSAGE, String.format("💌 '%s'님으로부터 새로운 쪽지가 도착했습니다.", sender.getNickname()), sender.getId(), null);
         karmaService.manualAdjustKarmaRaw(senderId, -1, KarmaReason.MESSAGE_SENT, "쪽지 발송 비용 소모", null, true);
         redisTemplate.opsForValue().increment(todayKey);
         redisTemplate.expire(todayKey, 1, TimeUnit.DAYS);

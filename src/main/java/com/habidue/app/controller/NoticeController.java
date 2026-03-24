@@ -58,8 +58,8 @@ public class NoticeController {
         User currentUser = userRepository.findByEmail(auth.getName()).orElse(null);
         List<String> userKeywordsList = null;
         if (currentUser != null) {
-            // [중요 수정] Keyword 테이블이 아닌 UserTag 테이블에서 사용자가 선택한 태그명을 가져옴
-            userKeywordsList = userTagRepository.findAllByUser(currentUser).stream()
+            // [중요 수정] Fetch Join 메서드를 사용하여 Tag 엔티티 로딩 보장 (OSIV OFF 대응)
+            userKeywordsList = userTagRepository.findAllByUserWithTag(currentUser).stream()
                     .map(ut -> ut.getTag().getName())
                     .collect(Collectors.toList());
         }
@@ -104,7 +104,8 @@ public class NoticeController {
         User currentUser = userRepository.findByEmail(auth.getName()).orElse(null);
         List<String> userKeywordsList = null;
         if (currentUser != null) {
-            userKeywordsList = userTagRepository.findAllByUser(currentUser).stream()
+            // [중요 수정] 상세 조회 시에도 Fetch Join 메서드 사용하여 정합성 확보
+            userKeywordsList = userTagRepository.findAllByUserWithTag(currentUser).stream()
                     .map(ut -> ut.getTag().getName())
                     .collect(Collectors.toList());
         }

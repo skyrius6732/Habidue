@@ -44,7 +44,8 @@ public class UserTagService {
     // 2. 내 관심 태그 목록 조회
     public List<UserTag> getMyTags() {
         User currentUser = getCurrentUser();
-        return userTagRepository.findByUserId(currentUser.getId());
+        // [시니어 조치] Fetch Join을 사용하여 Tag 엔티티까지 한 번에 로드 (OSIV OFF 대응)
+        return userTagRepository.findAllByUserWithTag(currentUser);
     }
 
     // 3. 관심 태그 추가 (ID 기준)

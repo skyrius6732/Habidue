@@ -11,14 +11,14 @@
     <div class="settings-content-wrapper">
       <div class="settings-box">
         <div class="settings-sidebar">
-          <div class="sidebar-item" :class="{ active: activeTab === 'activity' }" @click="activeTab = 'activity'">내 활동</div>
-          <div class="sidebar-item" :class="{ active: activeTab === 'keywords' }" @click="activeTab = 'keywords'">알림 키워드</div>
-          <div class="sidebar-item" :class="{ active: activeTab === 'messages' }" @click="activeTab = 'messages'">
+          <div class="sidebar-item" :class="{ active: activeTab === 'activity' }" @click="setActiveTab('activity')">내 활동</div>
+          <div class="sidebar-item" :class="{ active: activeTab === 'keywords' }" @click="setActiveTab('keywords')">알림 키워드</div>
+          <div class="sidebar-item" :class="{ active: activeTab === 'messages' }" @click="setActiveTab('messages')">
             쪽지함
             <span v-if="messageStore.unreadCount > 0" class="sidebar-unread-badge">{{ messageStore.unreadCount }}</span>
           </div>
-          <div class="sidebar-item" :class="{ active: activeTab === 'notifications' }" @click="activeTab = 'notifications'">알림 설정</div>
-          <div class="sidebar-item" :class="{ active: activeTab === 'account' }" @click="activeTab = 'account'">계정 정보</div>
+          <div class="sidebar-item" :class="{ active: activeTab === 'notifications' }" @click="setActiveTab('notifications')">알림 설정</div>
+          <div class="sidebar-item" :class="{ active: activeTab === 'account' }" @click="setActiveTab('account')">계정 정보</div>
         </div>
         
         <div class="settings-content">
@@ -536,7 +536,8 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, nextTick } from 'vue'
+import { ref, computed, onMounted, nextTick, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import axios from '@/plugins/axios'
 import PageHeader from '@/components/PageHeader.vue'
 import AnimatedNickname from '@/components/AnimatedNickname.vue'
@@ -548,7 +549,20 @@ import { useMessageStore } from '@/stores/message'
 const authStore = useAuthStore()
 const badgeStore = useBadgeStore()
 const messageStore = useMessageStore()
-const activeTab = ref('activity')
+const route = useRoute()
+const router = useRouter()
+const activeTab = ref(route.query.tab || 'activity')
+
+// [시니어 조치] 탭 전환 시 URL 쿼리 파라미터 업데이트
+const setActiveTab = (tab) => {
+  activeTab.value = tab
+  router.push({ query: { ...route.query, tab } })
+}
+
+// [시니어 조치] URL 쿼리 파라미터 변경 감시하여 탭 전환
+watch(() => route.query.tab, (newTab) => {
+  if (newTab) activeTab.value = newTab
+})
 const userTags = ref([])
 const searchQuery = ref('')
 const searchResults = ref([])

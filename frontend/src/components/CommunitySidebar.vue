@@ -251,7 +251,7 @@ const isChildActive = (group) => group.children?.some(child => child.value === p
 const handleMainMenuClick = (menuId) => {
   if (menuId === 'MESSAGES') {
     emit('update:activeMenu', menuId)
-    router.push('/messages')
+    router.push('/keywords?tab=messages')
     return
   }
   const defaultSub = menuId === 'NOTICE' ? 'PREPARING' : 'ALL'

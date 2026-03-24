@@ -46,8 +46,12 @@ public interface MessageRepository extends JpaRepository<Message, Long> {
            "AND m.isRead = false AND m.deletedByReceiver = false AND m.isDeleted = false")
     long countUnreadMessagesWithPartner(@Param("user") User user, @Param("partner") User partner);
 
-    // 대화방 목록 조회 (상대방별 최신 쪽지 1개씩, 최근 90일 내역만)
-    @Query("SELECT m FROM Message m WHERE m.id IN (" +
+    // 대화방 목록 조회 (상대방별 최신 쪽지 1개씩, 최근 90일 내역만) - OSIV OFF 대응 Fetch Join 추가
+    @Query("SELECT m FROM Message m " +
+           "LEFT JOIN FETCH m.sender " +
+           "LEFT JOIN FETCH m.receiver " +
+           "LEFT JOIN FETCH m.attachments " +
+           "WHERE m.id IN (" +
            "  SELECT MAX(m2.id) FROM Message m2 " +
            "  WHERE ((m2.sender = :user AND m2.deletedBySender = false) " +
            "  OR (m2.receiver = :user AND m2.deletedByReceiver = false)) " +
@@ -66,8 +70,11 @@ public interface MessageRepository extends JpaRepository<Message, Long> {
            "ORDER BY m.createdAt ASC")
     List<Message> findConversationWithPartnerWithTime(@Param("user") User user, @Param("partner") User partner, @Param("since") java.time.LocalDateTime since);
 
-    // 특정 유저와의 전체 대화 내역 조회 (삭제/관리용)
+    // 특정 유저와의 전체 대화 내역 조회 (삭제/관리용) - Fetch Join 추가
     @Query("SELECT m FROM Message m " +
+           "LEFT JOIN FETCH m.sender " +
+           "LEFT JOIN FETCH m.receiver " +
+           "LEFT JOIN FETCH m.attachments " +
            "WHERE ((m.sender = :user AND m.receiver = :partner) " +
            "OR (m.sender = :partner AND m.receiver = :user)) " +
            "AND m.isDeleted = false")

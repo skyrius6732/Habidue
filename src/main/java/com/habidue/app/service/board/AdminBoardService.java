@@ -61,7 +61,12 @@ public class AdminBoardService {
     }
 
     public Page<CommentResponseDto> getAdminComments(Long userId, String keyword, String status, Pageable pageable) {
-        return commentRepository.findComments(userId, keyword, status, pageable).map(comment -> CommentResponseDto.from(comment, true));
+        // [시니어 조치] 관리자 목록 조회 시에는 복잡한 답글(children) 조립을 하지 않음 (성능 및 무한 루프 방지)
+        return commentRepository.findComments(userId, keyword, status, pageable).map(comment -> {
+            CommentResponseDto dto = CommentResponseDto.from(comment, true);
+            dto.setChildren(new java.util.ArrayList<>()); // 자식 강제 비우기
+            return dto;
+        });
     }
 
     @Transactional

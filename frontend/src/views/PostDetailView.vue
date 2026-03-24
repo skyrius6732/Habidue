@@ -166,7 +166,7 @@
             </div>
 
             <div class="comment-list-container">
-              <div v-for="comment in visibleComments" :key="comment.id" class="comment-group">
+              <div v-for="comment in comments" :key="comment.id" class="comment-group">
                 <div class="comment-item main-item" :id="`comment-${comment.id}`" :class="{ 'highlight': highlightedCommentId === comment.id }">
                   <div class="c-avatar">{{ (comment.authorName || '익명').charAt(0) }}</div>
                   <div class="c-body">
@@ -242,7 +242,7 @@
                 </div>
 
                 <div v-if="comment.children && comment.children.length > 0" class="replies-area-modern">
-                  <div v-for="reply in getVisibleFlattenedReplies(comment)" :key="reply.id" 
+                  <div v-for="reply in getFlattenedReplies(comment)" :key="reply.id" 
                        class="reply-item-modern" :id="`comment-${reply.id}`" :class="{ 'highlight': highlightedCommentId === reply.id }">
                     <div class="c-avatar mini">{{ (reply.authorName || '익명').charAt(0) }}</div>
                     <div class="c-body">
@@ -324,13 +324,7 @@
                       </div>
                     </div>
                   </div>
-                  <div v-if="hasMoreFlattenedReplies(comment)" class="load-more-replies">
-                    <button class="btn-text-load-more" @click="loadMoreReplies(comment.id)">답글 더보기 (+{{ Math.min(3, getFlattenedReplies(comment).length - (visibleRepliesMap[comment.id] || 3)) }})</button>
-                  </div>
                 </div>
-              </div>
-              <div v-if="hasMoreComments" class="load-more-box">
-                <button class="btn-load-more" @click="loadMore">댓글 더보기 (+{{ Math.min(3, comments.length - visibleCount) }})</button>
               </div>
             </div>
           </section>
@@ -541,19 +535,32 @@ const fetchPostDetail = async () => {
 
 const fetchComments = async (id) => {
   try {
-    const res = await axios.get(`/api/posts/${id}/comments`)
+    const isFromNoti = !!route.query.commentId;
+    // 데이터는 넉넉히 가져오되
+    const pageSize = isFromNoti ? 999 : 20;
+    
+    const res = await axios.get(`/api/posts/${id}/comments`, { params: { size: pageSize } })
     const rawData = res.data.data.content || res.data.data || []
     
-    // [시니어 조치] 루트 댓글들이 항상 작성 시간 순으로 정렬되도록 보장
     comments.value = rawData.sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt))
     
-    comments.value.forEach(c => { if (!visibleRepliesMap[c.id]) visibleRepliesMap[c.id] = 3 })
-    
-    // [시니어 조치] 데이터 로드 후 즉시 스크롤 시도 (알림 이동 대응)
-    if (route.query.commentId) {
-      scrollToComment(route.query.commentId)
+    // [시니어 조치] 무조건 기본값(접힘)으로 초기화하여 UI 통일성 유지
+    visibleCount.value = 20; 
+    comments.value.forEach(c => {
+      visibleRepliesMap[c.id] = 3;
+    });
+
+    // [시니어 조치] 알림 이동 시 핀셋 스크롤 트리거
+    if (isFromNoti) {
+      nextTick(() => {
+        setTimeout(() => {
+          scrollToComment(route.query.commentId)
+        }, 300)
+      })
     }
-  } catch (e) {}
+  } catch (e) {
+    console.error('댓글 로드 실패', e)
+  }
 }
 
 const scrollToComments = () => {
@@ -675,41 +682,60 @@ const submitReport = async () => {
   } catch (e) { alert(e.response?.data?.message || '신고 실패') }
 }
 
-// [시니어 조치] 특정 댓글로 스크롤 및 하이라이트 효과 (답글 자동 펼침 & 재시도 로직 포함)
+// [시니어 조치] URL 쿼리 파라미터 감시 (같은 페이지 내 이동 대응)
+watch(() => route.query.t, () => {
+  if (route.query.commentId) {
+    scrollToComment(route.query.commentId)
+  }
+})
+
+// [시니어 조치] 특정 댓글로 스크롤 및 하이라이트 효과 (핀셋 확장 로직)
 const scrollToComment = (targetId) => {
   if (!targetId) return
   
-  // 1. 답글일 경우 부모 펼치기
-  const expandParent = () => {
-    for (const comment of comments.value) {
-      if (comment.children && comment.children.some(r => String(r.id) === String(targetId))) {
-        visibleRepliesMap[comment.id] = 999
-        return true
+  // 1. [핀셋 확장] 대상이 어디에 있는지 찾아서 필요한 만큼만 열기
+  const surgicallyExpand = () => {
+    // A. 답글인 경우 부모 찾기
+    for (const c of comments.value) {
+      if (c.children && c.children.some(r => String(r.id) === String(targetId))) {
+        visibleRepliesMap[c.id] = 999; // 해당 부모의 답글만 다 열기
+        
+        // 부모 자체가 20번째 이후라면 부모가 보이게 visibleCount 조절
+        const parentIdx = comments.value.indexOf(c);
+        if (parentIdx >= visibleCount.value) {
+          visibleCount.value = parentIdx + 1;
+        }
+        return;
       }
     }
-    return false
-  }
-  expandParent()
-
-  // 2. 요소 찾기 및 스크롤 (최대 10번 재시도)
-  let attempts = 0
-  const tryScroll = () => {
-    const element = document.getElementById(`comment-${targetId}`)
-    if (element) {
-      const y = element.getBoundingClientRect().top + window.pageYOffset - 150
-      window.scrollTo({ top: y, behavior: 'smooth' })
-      
-      highlightedCommentId.value = Number(targetId)
-      setTimeout(() => { highlightedCommentId.value = null }, 3000)
-      
-      element.classList.add('highlight-flash')
-      setTimeout(() => element.classList.remove('highlight-flash'), 3000)
-    } else if (attempts < 10) {
-      attempts++
-      setTimeout(tryScroll, 200)
+    
+    // B. 일반 댓글인 경우
+    const targetIdx = comments.value.findIndex(c => String(c.id) === String(targetId));
+    if (targetIdx !== -1 && targetIdx >= visibleCount.value) {
+      visibleCount.value = targetIdx + 1; // 해당 댓글이 보일 만큼만 확장
     }
   }
-  nextTick(tryScroll)
+  
+  surgicallyExpand();
+
+  // 2. 재시도 메커니즘 (DOM 렌더링 추적)
+  let attempts = 0;
+  const performScroll = () => {
+    const el = document.getElementById(`comment-${targetId}`);
+    if (el) {
+      const rect = el.getBoundingClientRect();
+      window.scrollTo({ top: rect.top + window.pageYOffset - 150, behavior: 'smooth' });
+      highlightedCommentId.value = Number(targetId);
+      el.classList.add('highlight-flash');
+      setTimeout(() => { highlightedCommentId.value = null; el.classList.remove('highlight-flash'); }, 3500);
+    } else if (attempts < 15) {
+      attempts++;
+      surgicallyExpand(); // 루프 안에서도 계속 확장 시도
+      setTimeout(performScroll, 200);
+    }
+  };
+
+  nextTick(performScroll);
 }
 
 const handleSliderScroll = () => { if (sliderRef.value) currentImgIdx.value = Math.round(sliderRef.value.scrollLeft / sliderRef.value.clientWidth) }
