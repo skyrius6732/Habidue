@@ -62,7 +62,7 @@ public class SecurityConfig {
             .httpBasic(basic -> basic.disable())
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> auth
-                .requestMatchers("/api/auth/**", "/login/**", "/oauth2/**", "/api/auth/reissue", "/error", "/favicon.ico", "/uploads/**", "/api/ranking/**", "/api/notifications/subscribe", "/api/test/**").permitAll()
+                .requestMatchers("/api/auth/**", "/login/**", "/oauth2/**", "/api/auth/reissue", "/error", "/favicon.ico", "/uploads/**", "/api/ranking/**", "/api/notifications/subscribe").permitAll()
                 .requestMatchers("/api/admin/**").hasRole("ADMIN")
                 .requestMatchers("/api/notices/**", "/api/user-notices/**", "/api/keywords/**", "/api/user-tags/**", "/api/attendance/**", "/api/users/**").hasAnyRole("USER", "ADMIN")
                 .anyRequest().authenticated()
