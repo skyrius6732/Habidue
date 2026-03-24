@@ -127,12 +127,14 @@
           </div>
 
           <div v-else key="tags" class="tag-cloud">
-            <button v-for="(tag, idx) in popularTags" :key="tag.id" 
-                    class="trending-tag-btn" @click="searchTag(tag.name)">
-              <span class="t-rank highlight-rank">{{ idx + 1 }}</span>
-              <span class="t-name">#{{ tag.name }}</span>
-            </button>
-            <div v-if="popularTags.length === 0" class="empty-trending">인기태그가 없습니다.</div>
+            <template v-if="popularTags && popularTags.length > 0">
+              <button v-for="(tag, idx) in popularTags" :key="tag?.id || idx" 
+                      class="trending-tag-btn" @click="tag && searchTag(tag.name)">
+                <span class="t-rank highlight-rank">{{ idx + 1 }}</span>
+                <span class="t-name">#{{ tag?.name }}</span>
+              </button>
+            </template>
+            <div v-if="!popularTags || popularTags.length === 0" class="empty-trending">인기태그가 없습니다.</div>
           </div>
         </transition>
       </div>

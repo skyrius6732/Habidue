@@ -33,6 +33,7 @@ import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 
 @Slf4j
 @Service
@@ -203,6 +204,19 @@ public class MessageService {
         User blocked = userRepository.findById(blockedId).orElseThrow();
         userBlockRepository.deleteByBlockerAndBlocked(blocker, blocked);
         messageRepository.clearRestrictionBetweenUsers(blocker, blocked);
+    }
+
+    @Transactional(readOnly = true)
+    public List<Map<String, Object>> getBlockedUsersWithDetails(User blocker) {
+        return userBlockRepository.findAllByBlocker(blocker).stream().map(b -> {
+            Map<String, Object> map = new java.util.HashMap<>();
+            User blocked = b.getBlocked();
+            map.put("id", blocked.getId());
+            map.put("nickname", blocked.getNickname() != null ? blocked.getNickname() : blocked.getUsername());
+            map.put("reason", b.getReason());
+            map.put("isSystemBlock", b.isSystemBlock());
+            return map;
+        }).collect(Collectors.toList());
     }
 
     @Transactional(readOnly = true)

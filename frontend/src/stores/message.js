@@ -34,6 +34,8 @@ export const useMessageStore = defineStore('message', () => {
   }
 
   const fetchConversation = async (partnerId) => {
+    if (isLoading.value) return currentConversation.value
+    isLoading.value = true
     try {
       const res = await axios.get(`/api/messages/conversation/${partnerId}`)
       currentConversation.value = res.data.data
@@ -41,6 +43,8 @@ export const useMessageStore = defineStore('message', () => {
     } catch (e) {
       console.error('대화 내역 로드 실패:', e)
       return []
+    } finally {
+      isLoading.value = false
     }
   }
 

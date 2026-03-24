@@ -193,19 +193,8 @@ public class MessageController {
     }
 
     @GetMapping("/block/list")
-    @Transactional(readOnly = true)
     public ResponseEntity<ApiResponse<List<Map<String, Object>>>> getBlockedUsers(
             @AuthenticationPrincipal UserPrincipal userPrincipal) {
-        List<com.habidue.app.domain.message.UserBlock> blockedList = messageService.getBlockedUsers(getAuthenticatedUser(userPrincipal));
-        List<Map<String, Object>> response = blockedList.stream().map(b -> {
-            Map<String, Object> map = new java.util.HashMap<>();
-            User blocked = b.getBlocked();
-            map.put("id", blocked.getId());
-            map.put("nickname", blocked.getNickname() != null ? blocked.getNickname() : blocked.getUsername());
-            map.put("reason", b.getReason());
-            map.put("isSystemBlock", b.isSystemBlock());
-            return map;
-        }).collect(java.util.stream.Collectors.toList());
-        return ApiResponse.success(response);
+        return ApiResponse.success(messageService.getBlockedUsersWithDetails(getAuthenticatedUser(userPrincipal)));
     }
 }

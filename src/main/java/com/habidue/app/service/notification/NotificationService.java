@@ -166,12 +166,8 @@ public class NotificationService { // [시니어 조치] 클래스 레벨 @Trans
 
     @Transactional
     public void markAllAsReadByUserId(Long userId) {
+        // [시니어 조치] 최적화된 벌크 쿼리 한 번으로 모든 처리 종료 (네트워크 타임아웃 방지)
         int updatedCount = notificationRepository.forceReadAllByUserId(userId);
-        log.info("[Notification] Bulk force read update: User {}, Count: {}", userId, updatedCount);
-        List<Notification> stillUnread = notificationRepository.findAllUnreadByUserId(userId);
-        if (!stillUnread.isEmpty()) {
-            for (Notification n : stillUnread) { n.markAsRead(); }
-            notificationRepository.saveAll(stillUnread);
-        }
+        log.info("[Notification] Bulk read update completed: User {}, Count: {}", userId, updatedCount);
     }
 }

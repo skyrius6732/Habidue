@@ -61,8 +61,11 @@ public interface MessageRepository extends JpaRepository<Message, Long> {
            ") ORDER BY m.createdAt DESC")
     Page<Message> findLatestMessagesByPartnersWithTime(@Param("user") User user, @Param("since") java.time.LocalDateTime since, Pageable pageable);
 
-    // 특정 유저와의 전체 대화 내역 조회 (최근 90일)
+    // 특정 유저와의 전체 대화 내역 조회 (최근 90일) - [시니어 최적화] Fetch Join 적용
     @Query("SELECT m FROM Message m " +
+           "LEFT JOIN FETCH m.sender " +
+           "LEFT JOIN FETCH m.receiver " +
+           "LEFT JOIN FETCH m.attachments " +
            "WHERE ((m.sender = :user AND m.receiver = :partner AND m.deletedBySender = false) " +
            "OR (m.sender = :partner AND m.receiver = :user AND m.deletedByReceiver = false)) " +
            "AND m.isDeleted = false " +

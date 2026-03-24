@@ -12,70 +12,53 @@ export const useNotificationStore = defineStore('notification', {
     isInitializing: false,
     isConnecting: false,
     reconnectTimer: null,
-    pollingTimer: null // [시니어 조치] 폴링 타이머 추가
+    pollingTimer: null
   }),
 
   actions: {
-    // [시니어 조치] 통합 상태 동기화 (숫자와 목록을 한꺼번에 최신화)
+    // [시니어 조치] 통합 상태 동기화
     async syncState() {
       if (this.isMarkingAll) return
       const authStore = useAuthStore()
       if (!authStore.isAuthenticated) return
 
       try {
-        console.log('[알림-DEBUG] 서버 상태 동기화 중...')
-        // 1. 카운트와 목록을 병렬로 요청하여 속도 최적화
         const [listRes, countRes] = await Promise.all([
           axios.get(`/api/notifications?_t=${Date.now()}`),
-          this.fetchUnreadCount()
+          axios.get(`/api/notifications/unread-count?_t=${Date.now()}`)
         ])
 
-        // 2. 알림 목록 정규화 및 저장
         const newItems = (listRes.data.data || []).map(n => ({
           ...n,
           isRead: n.isRead === true || n.read === true || n.isRead === 1 || n.read === 1 || n.isRead === 'true' || n.read === 'true'
         }))
         
         this.notifications = newItems
+        this.unreadCount = Number(countRes.data.data) || 0
         this.isLoaded = true
-        console.log('[알림-DEBUG] 동기화 완료:', this.notifications.length, '건, 미읽음:', this.unreadCount)
       } catch (e) {
-        console.error('[알림-DEBUG] 동기화 실패:', e)
+        console.warn('[알림-DEBUG] 동기화 중 일시적 오류 발생 (자동 재시도 예정)')
       }
     },
 
-    async fetchUnreadCount() {
-      try {
-        const res = await axios.get(`/api/notifications/unread-count?_t=${Date.now()}`)
-        this.unreadCount = Number(res.data.data) || 0
-        return res
-      } catch (e) {
-        throw e
-      }
-    },
-
-    // [시니어 조치] 초기화 로직 (동기화 + SSE + 폴링 시작)
     async initialize(callback) {
       const authStore = useAuthStore()
-      
       if (this.isInitializing) return
       if (this.isLoaded && this.eventSource && this.eventSource.readyState === 1) return
 
       this.isInitializing = true 
-
       let retryCount = 0
       const checkAuthAndRun = async () => {
         if (authStore.isAuthenticated && authStore.accessToken) {
           try {
-            await this.syncState() // 1. 초기 데이터 로드
-            this.connectSse(callback) // 2. 실시간 채널 연결
-            this.startPolling(callback) // 3. 안전장치 폴링 시작
+            await this.syncState()
+            await this.connectSse(callback)
+            this.startPolling(callback)
           } finally {
             this.isInitializing = false 
           }
           return
         }
-
         if (retryCount < 20) {
           retryCount++
           setTimeout(checkAuthAndRun, 500)
@@ -83,23 +66,19 @@ export const useNotificationStore = defineStore('notification', {
           this.isInitializing = false 
         }
       }
-
       checkAuthAndRun()
     },
 
-    // [시니어 조치] 30초 주기 안전장치 폴링
     startPolling(callback) {
       this.stopPolling()
       this.pollingTimer = setInterval(() => {
-        console.log('[알림-DEBUG] 안전장치 폴링 실행 중...')
         const prevCount = this.unreadCount
         this.syncState().then(() => {
-          // 폴링 중 새로운 알림이 발견되면 콜백 호출 (토스트 띄우기용)
           if (this.unreadCount > prevCount && callback && this.notifications.length > 0) {
             callback(this.notifications[0])
           }
         })
-      }, 30000) // 30초 주기 (서버 부하 최소화 및 정합성 보장)
+      }, 30000)
     },
 
     stopPolling() {
@@ -109,18 +88,27 @@ export const useNotificationStore = defineStore('notification', {
       }
     },
 
+    /**
+     * [시니어 조치] SSE 연결 전 토큰 체크 로직의 안정성 극대화
+     */
     async connectSse(callback) {
       const authStore = useAuthStore()
       if (!authStore.isAuthenticated) return
       if (this.isConnecting) return
+      
+      // 이미 연결이 시도 중이거나 열려 있으면 중복 실행 원천 차단
       if (this.eventSource && (this.eventSource.readyState === 0 || this.eventSource.readyState === 1)) return
 
       this.isConnecting = true
 
       try {
-        // 연결 전 토큰 상태 한 번 더 체크
-        await axios.get('/api/notifications/unread-count?_t=' + Date.now())
-        authStore.syncTokenFromStorage()
+        // [중요] 연결 전 토큰 체크 실패 시에도 SSE 재연결 주기에 맡기도록 예외 처리
+        try {
+          await axios.get('/api/notifications/unread-count?_t=' + Date.now())
+          authStore.syncTokenFromStorage()
+        } catch (tokenErr) {
+          console.warn('[SSE-DEBUG] 토큰 체크 일시적 실패, 기존 토큰으로 연결 시도...')
+        }
         
         this.disconnectSse()
 
@@ -130,7 +118,7 @@ export const useNotificationStore = defineStore('notification', {
         this.eventSource = new EventSource(url)
 
         this.eventSource.onopen = () => {
-          console.log('[SSE-DEBUG] 연결 성공')
+          console.log('[SSE-DEBUG] 실시간 채널 연결 성공')
         }
 
         this.eventSource.onmessage = (event) => {
@@ -138,13 +126,10 @@ export const useNotificationStore = defineStore('notification', {
           try {
             const rawData = JSON.parse(event.data)
             if (!rawData || !rawData.id) return
-            
             const newNoti = {
               ...rawData,
               isRead: rawData.isRead === true || rawData.read === true || rawData.isRead === 1 || rawData.read === 1 || rawData.isRead === 'true' || rawData.read === 'true'
             }
-
-            // 중복 방지 및 최상단 추가
             if (!this.notifications.some(n => n.id === newNoti.id)) {
               this.notifications.unshift(newNoti)
               this.unreadCount++
@@ -156,6 +141,7 @@ export const useNotificationStore = defineStore('notification', {
         }
 
         this.eventSource.onerror = (e) => {
+          console.warn('[SSE-DEBUG] 연결 끊김, 15초 후 재연결 시도...')
           this.disconnectSse()
           if (authStore.isAuthenticated) {
             if (this.reconnectTimer) clearTimeout(this.reconnectTimer)
@@ -163,7 +149,7 @@ export const useNotificationStore = defineStore('notification', {
           }
         }
       } catch (e) {
-        console.error('[SSE-DEBUG] 연결 실패:', e)
+        console.error('[SSE-DEBUG] SSE 초기화 중 치명적 오류:', e)
       } finally {
         this.isConnecting = false 
       }
@@ -189,7 +175,8 @@ export const useNotificationStore = defineStore('notification', {
       this.unreadCount = 0
       try {
         await axios.patch('/api/notifications/read-all')
-        setTimeout(() => { this.isMarkingAll = false }, 1000)
+        // 락 해제 지연을 주어 연쇄적인 동기화 부하 방지
+        setTimeout(() => { this.isMarkingAll = false }, 2000)
       } catch (e) {
         this.isMarkingAll = false
         await this.syncState()
