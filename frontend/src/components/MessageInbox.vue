@@ -246,19 +246,34 @@ const handleReportMsg = async (msg) => {
 const handleBlock = async () => {
   const partnerId = getPartnerId(selectedRoom.value)
   if (!partnerId) return
-  if (confirm('사용자를 차단하시겠습니까?\n차단 시 기존 대화방 목록에서 사라지며, 더 이상 메시지를 주고받을 수 없습니다.')) {
+  if (confirm('사용자를 차단하시겠습니까?\n차단 시 서로 메시지를 주고받을 수 없으며, 차단 목록에서 관리할 수 있습니다.')) {
     const blockSuccess = await messageStore.blockUser(partnerId)
     if (blockSuccess) {
-      await messageStore.deleteConversation(partnerId)
       alert('사용자가 차단되었습니다.')
       showMenu.value = false
-      selectedRoom.value = null
-      conversationList.value = []
+      // [시니어 조치] 방을 삭제하지 않고 내역만 다시 불러와 입력창 차단 확인
+      conversationList.value = await messageStore.fetchConversation(partnerId)
       await messageStore.fetchMessageRooms()
-      currentMobileView.value = 'LIST'
     }
   }
 }
+
+// [시니어 조치] 현재 대화방이 차단 상태인지 확인
+const isRoomBlocked = computed(() => {
+  if (!conversationList.value || conversationList.value.length === 0) return false
+  // 대화 내역 중 가장 최신 메시지에서 차단 상태 확인
+  const lastMsg = conversationList.value[conversationList.value.length - 1]
+  return lastMsg.isBlockedByMe || lastMsg.isBlockedByPartner || lastMsg.isRoomRestricted
+})
+
+const blockedMessage = computed(() => {
+  if (!conversationList.value || conversationList.value.length === 0) return ''
+  const lastMsg = conversationList.value[conversationList.value.length - 1]
+  if (lastMsg.isRoomRestricted) return '운영 정책에 의해 대화가 제한된 방입니다.'
+  if (lastMsg.isBlockedByMe) return '차단한 사용자입니다. 메시지를 보낼 수 없습니다.'
+  if (lastMsg.isBlockedByPartner) return '상대방에 의해 차단되어 메시지를 보낼 수 없습니다.'
+  return ''
+})
 
 const handleUnblock = async (user) => {
   const userId = user.id || user; // u.id 객체와 단순 ID 모두 대응
@@ -486,45 +501,55 @@ const vClickOutside = {
           </div>
         </div>
 
-        <!-- 하단 입력 영역 (1:1 대화방인 경우 항상 표시, 영구 제한 시 비활성화) -->
+        <!-- 하단 입력 영역 (1:1 대화방인 경우 항상 표시, 영구 제한/차단 시 비활성화) -->
         <div class="input-container" v-if="getPartnerId(selectedRoom)">
-          <div v-if="editingMessage" class="edit-preview-bar">
-            <div class="edit-info">
-              <span class="edit-label">메시지 수정 중</span>
-              <p class="edit-text-preview">{{ editingMessage.content }}</p>
-            </div>
-            <button class="cancel-edit-btn" @click="cancelEdit">✕</button>
-          </div>
-
-          <div class="input-info-bar" v-else>
-            <span class="limit-text">오늘 남은 발송: <strong>{{ messageStore.dailyStatus.remainingCount }}</strong> / {{ messageStore.dailyStatus.maxCount }}</span>
-            <span class="cost-text">신뢰점수 0.1P 소모</span>
-          </div>
-          
-          <div v-if="replyFiles.length > 0 && !editingMessage" class="f-previews thin-scrollbar">
-            <div v-for="(f, i) in replyFiles" :key="i" class="f-chip">
-              <span class="f-name">{{ f.name }}</span>
-              <button @click="removeFile(i)" class="f-remove">&times;</button>
+          <!-- [시니어 조치] 차단/제한 상태 시 안내 문구 표시 -->
+          <div v-if="isRoomBlocked" class="blocked-notice-area">
+            <div class="blocked-notice-box">
+              <span class="b-icon">🔒</span>
+              <p class="b-text">{{ blockedMessage }}</p>
             </div>
           </div>
 
-          <div class="input-form-wrapper" :class="{ 'editing-active': editingMessage, 'is-restricted': isRoomRestricted }">
-            <div class="input-field-container">
-              <label v-if="!editingMessage && !isRoomRestricted" class="attach-trigger"><input type="file" multiple @change="handleFileChange" style="display: none;">📎</label>
-              <textarea 
-                v-model="replyContent" 
-                :placeholder="isRoomRestricted ? '제재로 인해 메시지 발송이 제한되었습니다.' : (editingMessage ? '메시지 수정...' : '메시지 보내기...')" 
-                @keydown.enter.exact.prevent="handleSendReply" 
-                :disabled="isSendingReply || isRoomRestricted" 
-                rows="3"
-              ></textarea>
+          <template v-else>
+            <div v-if="editingMessage" class="edit-preview-bar">
+              <div class="edit-info">
+                <span class="edit-label">메시지 수정 중</span>
+                <p class="edit-text-preview">{{ editingMessage.content }}</p>
+              </div>
+              <button class="cancel-edit-btn" @click="cancelEdit">✕</button>
             </div>
-            <div class="input-footer-actions">
-              <button class="real-send-btn" @click="handleSendReply" :disabled="isSendingReply || isRoomRestricted || (!replyContent.trim() && replyFiles.length === 0)" :class="{ 'active': (replyContent.trim() || replyFiles.length > 0) && !isRoomRestricted }">
-                {{ editingMessage ? '수정 완료' : '전송' }}
-              </button>
+
+            <div class="input-info-bar" v-else>
+              <span class="limit-text">오늘 남은 발송: <strong>{{ messageStore.dailyStatus.remainingCount }}</strong> / {{ messageStore.dailyStatus.maxCount }}</span>
+              <span class="cost-text">신뢰점수 0.1P 소모</span>
             </div>
-          </div>
+            
+            <div v-if="replyFiles.length > 0 && !editingMessage" class="f-previews thin-scrollbar">
+              <div v-for="(f, i) in replyFiles" :key="i" class="f-chip">
+                <span class="f-name">{{ f.name }}</span>
+                <button @click="removeFile(i)" class="f-remove">&times;</button>
+              </div>
+            </div>
+
+            <div class="input-form-wrapper" :class="{ 'editing-active': editingMessage }">
+              <div class="input-field-container">
+                <label v-if="!editingMessage" class="attach-trigger"><input type="file" multiple @change="handleFileChange" style="display: none;">📎</label>
+                <textarea 
+                  v-model="replyContent" 
+                  :placeholder="editingMessage ? '메시지 수정...' : '메시지 보내기...'" 
+                  @keydown.enter.exact.prevent="handleSendReply" 
+                  :disabled="isSendingReply" 
+                  rows="3"
+                ></textarea>
+              </div>
+              <div class="input-footer-actions">
+                <button class="real-send-btn" @click="handleSendReply" :disabled="isSendingReply || (!replyContent.trim() && replyFiles.length === 0)" :class="{ 'active': (replyContent.trim() || replyFiles.length > 0) }">
+                  {{ editingMessage ? '수정 완료' : '전송' }}
+                </button>
+              </div>
+            </div>
+          </template>
         </div>
       </template>
       <div v-else class="main-empty">
@@ -695,6 +720,27 @@ textarea::-webkit-scrollbar { width: 3px; }
 textarea::-webkit-scrollbar-thumb { background: rgba(168, 85, 247, 0.2); border-radius: 10px; }
 
 .input-footer-actions { display: flex; justify-content: flex-end; width: 100%; margin-top: 4px; }
+
+/* [시니어 조치] 차단 안내 UI 스타일 */
+.blocked-notice-area {
+  padding: 15px 20px;
+  background: var(--bg-secondary);
+  border-top: 1px solid var(--border-color);
+}
+.blocked-notice-box {
+  background: var(--hover-bg);
+  border: 1px dashed var(--border-color);
+  border-radius: 16px;
+  padding: 12px 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  color: var(--text-secondary);
+}
+.b-icon { font-size: 1.2rem; }
+.b-text { margin: 0; font-size: 0.85rem; font-weight: 700; line-height: 1.4; }
+
 .real-send-btn { background: none; border: none; color: #a855f7; font-weight: 950; cursor: pointer; opacity: 0.3; transition: 0.2s; padding: 5px 10px; }
 .real-send-btn.active { opacity: 1; transform: scale(1.05); }
 .real-send-btn:disabled { cursor: not-allowed; opacity: 0.2; }

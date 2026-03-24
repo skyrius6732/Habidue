@@ -14,7 +14,6 @@ public class MessageResponseDto {
     private Long id;
     private SenderInfo sender;
     
-    // [시니어 조치] 수신자 정보 추가 (대화방 목록에서 내가 보낸 경우 상대방 식별용)
     private Long receiverId;
     private String receiverNickname;
 
@@ -27,19 +26,25 @@ public class MessageResponseDto {
     private boolean isSystem;
 
     @JsonProperty("isDeleted")
-    private boolean isDeleted; // [시니어 조치]
+    private boolean isDeleted;
 
     @JsonProperty("isEdited")
-    private boolean isEdited; // [시니어 조치]
+    private boolean isEdited;
 
     @JsonProperty("isRestoredByAdmin")
-    private boolean isRestoredByAdmin; // [시니어 조치]
+    private boolean isRestoredByAdmin;
 
     @JsonProperty("isRoomRestricted")
-    private boolean isRoomRestricted; // [시니어 조치]
+    private boolean isRoomRestricted;
 
-    private Long visibleToUserId; // [시니어 조치]
-    private Long relatedTargetId; // [시니어 조치]
+    @JsonProperty("isBlockedByMe")
+    private boolean isBlockedByMe; // [시니어 조치] 내가 상대방을 차단했는지 여부
+
+    @JsonProperty("isBlockedByPartner")
+    private boolean isBlockedByPartner; // [시니어 조치] 상대방이 나를 차단했는지 여부
+
+    private Long visibleToUserId;
+    private Long relatedTargetId;
 
     @JsonProperty("isReported")
     private boolean isReported;
@@ -47,10 +52,10 @@ public class MessageResponseDto {
     private LocalDateTime createdAt;
     private LocalDateTime readAt;
     private Double aiScore;
-    private Long unreadCount; // [시니어 조치] 대화방별 읽지 않은 메시지 수
+    private Long unreadCount;
     
     @JsonProperty("isPartnerOnline")
-    private boolean isPartnerOnline; // [시니어 조치] 상대방 온라인 여부
+    private boolean isPartnerOnline;
 
     @Builder.Default
     private java.util.List<FileDto> attachments = new java.util.ArrayList<>();
@@ -76,10 +81,17 @@ public class MessageResponseDto {
     }
 
     public static MessageResponseDto from(Message message) {
-        return from(message, null, false);
+        return from(message, null, false, false, false);
     }
 
     public static MessageResponseDto from(Message message, Long unreadCount, boolean isPartnerOnline) {
+        return from(message, unreadCount, isPartnerOnline, false, false);
+    }
+
+    /**
+     * [시니어 조치] 차단 정보를 포함하는 확장된 변환 메서드
+     */
+    public static MessageResponseDto from(Message message, Long unreadCount, boolean isPartnerOnline, boolean blockedByMe, boolean blockedByPartner) {
         SenderInfo senderInfo = null;
         if (message.getSender() != null) {
             String nickname = message.getSender().getNickname() != null ? 
@@ -115,6 +127,8 @@ public class MessageResponseDto {
                 .isEdited(message.isEdited())
                 .isRestoredByAdmin(message.isRestoredByAdmin())
                 .isRoomRestricted(message.isRoomRestricted())
+                .isBlockedByMe(blockedByMe)
+                .isBlockedByPartner(blockedByPartner)
                 .visibleToUserId(message.getVisibleToUserId())
                 .relatedTargetId(message.getRelatedTargetId())
                 .isReported(message.isReported())

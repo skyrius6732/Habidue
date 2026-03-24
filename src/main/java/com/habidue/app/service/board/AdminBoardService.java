@@ -223,22 +223,16 @@ public class AdminBoardService {
             if (status == ReportStatus.BLIND_COMPLETE) {
                 karmaService.deductKarma(suspect.getId(), 30, KarmaReason.REPORT_MESSAGE_APPROVED, "신고 승인에 따른 제재 (ID: " + targetId + ")", null, true);
                 notificationService.send(suspect, NotificationType.SYSTEM, "⚠️ 보내신 쪽지가 운영 정책 위반으로 블라인드 처리되었습니다: \"" + preview + "\"", suspect.getId(), null);
-                
-                // [시니어 조치] 가해자에게 메시지 발송 시 receiver를 suspect로 지정하여 배지 활성화
                 messageService.sendAdminResultSystemMessage(partner, suspect, "⚠️ [경고] 운영 정책 위반 표현 사용으로 제재가 적용되었습니다. ('" + violation + "')", suspect.getId(), false, targetId);
-                
                 for (User reporter : reporters) {
                     messageService.sendAdminResultSystemMessage(suspect, reporter, "📢 [안내] 신고하신 내용에 대해 조치가 완료되었습니다. ('" + violation + "')", reporter.getId(), false, targetId);
                 }
             } else if (status == ReportStatus.DELETE_COMPLETE) {
                 karmaService.deductKarma(suspect.getId(), 70, KarmaReason.REPORT_MESSAGE_APPROVED, "심각한 위반으로 인한 영구 제한 (ID: " + targetId + ")", null, true);
                 notificationService.send(suspect, NotificationType.SYSTEM, "🚫 보내신 쪽지가 심각한 운영 정책 위반으로 영구 제한되었습니다: \"" + preview + "\"", null, null);
-                
-                // 가해자에게 영구 제한 메시지
-                messageService.sendAdminResultSystemMessage(partner, suspect, "🚫 [주의] 심각한 위반('" + violation + "') 정황이 확인되어 본 대화방 이용이 영구 제한됩니다.", suspect.getId(), true, targetId);
-                
+                String suspectMsg = "🚫 [주의] 심각한 위반('" + violation + "') 정황이 확인되어 본 대화방 이용이 영구 제한됩니다.";
+                messageService.sendAdminResultSystemMessage(partner, suspect, suspectMsg, suspect.getId(), true, targetId);
                 for (User reporter : reporters) {
-                    // [시니어 조치] 실제 차단 목록 추가 및 방 폭파 연동
                     messageService.blockUser(reporter, suspect.getId(), "심각한 운영원칙 위반('" + violation + "')으로 인한 자동 격리", true);
                     messageService.sendAdminResultSystemMessage(suspect, reporter, "📢 [안내] 심각한 운영 위반 확인으로 대상자 차단 및 영구 조치가 완료되었습니다.", reporter.getId(), true, targetId);
                 }
@@ -249,6 +243,17 @@ public class AdminBoardService {
                         messageService.sendAdminResultSystemMessage(suspect, reporter, "📢 [안내] 신고하신 내용을 검토했으나 위반 사항이 확인되지 않아 반려되었습니다.", reporter.getId(), false, targetId);
                     }
                 }
+                
+                // [시니어 조치] 관리자 조치 번복 시, 자동으로 신고자의 차단 목록에서 가해자 제거 (Sync 보정)
+                for (User reporter : reporters) {
+                    try {
+                        messageService.unblockUser(reporter, suspect.getId());
+                        log.info("🔓 조치 번복으로 인한 자동 차단 해제: Blocker={}, Blocked={}", reporter.getId(), suspect.getId());
+                    } catch (Exception e) {
+                        log.warn("차단 해제 중 오류 발생 (이미 해제되었을 수 있음): {}", e.getMessage());
+                    }
+                }
+
                 if (oldStatus == ReportStatus.BLIND_COMPLETE) karmaService.manualAdjustKarma(suspect.getId(), 30, KarmaReason.ADMIN_REVERSAL, "조치 번복 점수 복구", null, false);
                 else if (oldStatus == ReportStatus.DELETE_COMPLETE) karmaService.manualAdjustKarma(suspect.getId(), 70, KarmaReason.ADMIN_REVERSAL, "조치 번복 점수 복구", null, false);
             }
@@ -263,10 +268,6 @@ public class AdminBoardService {
         reports.stream().map(Report::getReporter).distinct().forEach(reporter -> {
             notificationService.send(reporter, NotificationType.SYSTEM, "📢 신고하신 " + targetName + "에 대한 검토 결과, " + resultMsg, targetId, null);
         });
-    }
-
-    private User findReporterForTarget(Long targetId, ReportTargetType type) {
-        return reportRepository.findAllByTargetIdAndTargetType(targetId, type).stream().findFirst().map(Report::getReporter).orElse(null);
     }
 
     @Transactional

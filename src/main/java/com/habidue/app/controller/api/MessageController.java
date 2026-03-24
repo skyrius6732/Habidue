@@ -7,6 +7,7 @@ import com.habidue.app.dto.message.MessageRequestDto;
 import com.habidue.app.service.message.MessageService;
 import com.habidue.app.service.user.UserService;
 import com.habidue.app.config.oauth.UserPrincipal;
+import com.habidue.app.repository.message.UserBlockRepository;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -14,10 +15,10 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.multipart.MultipartHttpServletRequest;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.Map;
@@ -31,11 +32,11 @@ public class MessageController {
     private final MessageService messageService;
     private final UserService userService;
     private final com.habidue.app.service.board.BoardReportService boardReportService;
+    private final UserBlockRepository userBlockRepository;
 
-    // [시니어 조치] UserPrincipal에서 User 엔티티를 안전하게 가져오는 헬퍼 메서드
     private User getAuthenticatedUser(UserPrincipal principal) {
         if (principal.getUser() != null) return principal.getUser();
-        return userService.getUserById(principal.getId()); // ID로 조회 (JWT 인증 시 대응)
+        return userService.getUserById(principal.getId());
     }
 
     @PostMapping({"", "/{receiverId}"})
@@ -96,11 +97,17 @@ public class MessageController {
             @PathVariable Long partnerId) {
         User user = getAuthenticatedUser(userPrincipal);
         userService.updateUserOnlineStatus(user.getId());
+        User partner = userService.getUserById(partnerId);
+        
         java.util.List<Message> conversation = messageService.getConversation(user, partnerId);
         boolean isPartnerOnline = userService.isUserOnline(partnerId);
+        
+        // [시니어 조치] 차단 여부 조회
+        boolean blockedByMe = userBlockRepository.existsByBlockerAndBlocked(user, partner);
+        boolean blockedByPartner = userBlockRepository.existsByBlockerAndBlocked(partner, user);
 
         return ApiResponse.success(conversation.stream()
-                .map(m -> com.habidue.app.dto.message.MessageResponseDto.from(m, null, isPartnerOnline))
+                .map(m -> com.habidue.app.dto.message.MessageResponseDto.from(m, null, isPartnerOnline, blockedByMe, blockedByPartner))
                 .collect(java.util.stream.Collectors.toList()));
     }
 
@@ -186,13 +193,13 @@ public class MessageController {
     }
 
     @GetMapping("/block/list")
-    @Transactional(readOnly = true) // [시니어 조치] LazyLoading 에러 방지
+    @Transactional(readOnly = true)
     public ResponseEntity<ApiResponse<List<Map<String, Object>>>> getBlockedUsers(
             @AuthenticationPrincipal UserPrincipal userPrincipal) {
         List<com.habidue.app.domain.message.UserBlock> blockedList = messageService.getBlockedUsers(getAuthenticatedUser(userPrincipal));
         List<Map<String, Object>> response = blockedList.stream().map(b -> {
             Map<String, Object> map = new java.util.HashMap<>();
-            User blocked = b.getBlocked(); // 강제 초기화 유도
+            User blocked = b.getBlocked();
             map.put("id", blocked.getId());
             map.put("nickname", blocked.getNickname() != null ? blocked.getNickname() : blocked.getUsername());
             map.put("reason", b.getReason());
