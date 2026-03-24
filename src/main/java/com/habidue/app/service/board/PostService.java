@@ -133,6 +133,11 @@ public class PostService {
         }).collect(Collectors.toList());
     }
 
+    @Transactional(readOnly = true)
+    public long countByKeywordAndType(String keyword, PostType type) {
+        return postRepository.countByKeywordAndType(keyword, type);
+    }
+
     @Transactional
     public PostResponseDto getPostDetail(Long postId, UserPrincipal currentUser) {
         Post post = postRepository.findWithAuthorById(postId).orElseThrow();

@@ -72,15 +72,28 @@ const handleNotiClick = async (noti) => {
 
   if (noti.type === 'COMMENT' || noti.type === 'REPLY') {
     // [시니어 조치] 상세 페이지로 이동하며 댓글 ID를 쿼리로 전달
-    // 쿼리 파라미터를 명시적으로 다르게 주어(t=Date.now) 같은 페이지에서도 반응하게 함
     router.push({
       path: `/board/post/${noti.postId}`,
       query: { commentId: noti.relatedTargetId, t: Date.now() }
     })
   } else if (noti.type === 'MESSAGE') {
-    router.push('/keywords?tab=messages')
+    router.push({ path: '/keywords', query: { tab: 'messages', t: Date.now() } })
   } else if (noti.type === 'KARMA_CHANGE' || noti.type === 'SYSTEM') {
-    router.push('/keywords?tab=activity')
+    // [시니어 조치] SYSTEM 타입(좋아요 등)이 게시글 관련이면 해당 위치로 이동
+    if (noti.postId) {
+      router.push({
+        path: `/board/post/${noti.postId}`,
+        query: { 
+          commentId: (noti.relatedTargetId && noti.relatedTargetId !== noti.postId) ? noti.relatedTargetId : null, 
+          t: Date.now() 
+        }
+      })
+    } else if (noti.content.includes('쪽지')) {
+      // [시니어 조치] 쪽지 제재 알림인 경우 마이페이지 > 쪽지함으로 이동
+      router.push({ path: '/keywords', query: { tab: 'messages', t: Date.now() } })
+    } else {
+      router.push({ path: '/keywords', query: { tab: 'activity', t: Date.now() } })
+    }
   }
 }
 const timeAgo = (date) => formatDistanceToNow(new Date(date), { addSuffix: true, locale: ko })
@@ -103,23 +116,23 @@ onMounted(() => {
   applyTheme()
   window.addEventListener('scroll', handleScroll)
   if (authStore.isAuthenticated) {
-    notificationStore.fetchUnreadCount()
-    notificationStore.connectSse((noti) => triggerToast(noti))
+    notificationStore.initialize((noti) => triggerToast(noti))
   }
 })
 
 watch(() => authStore.isAuthenticated, (val) => {
   if (val) {
-    notificationStore.fetchUnreadCount()
-    notificationStore.connectSse((noti) => triggerToast(noti))
+    notificationStore.initialize((noti) => triggerToast(noti))
   } else {
     notificationStore.disconnectSse()
+    notificationStore.stopPolling()
   }
 })
 
 onUnmounted(() => {
   window.removeEventListener('scroll', handleScroll)
   notificationStore.disconnectSse()
+  notificationStore.stopPolling()
 })
 </script>
 

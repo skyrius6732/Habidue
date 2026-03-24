@@ -12,11 +12,18 @@ export const useAuthStore = defineStore('auth', {
     isAdmin: (state) => state.user?.role === 'ADMIN' || localStorage.getItem('userRole') === 'ADMIN',
   },
   actions: {
+    // [시니어 조치] 토큰 상태와 로컬 스토리지를 완벽히 동기화
     setTokens(accessToken, refreshToken) {
       this.accessToken = accessToken;
-      this.refreshToken = refreshToken;
+      if (refreshToken) this.refreshToken = refreshToken;
+      
       localStorage.setItem('accessToken', accessToken);
-      localStorage.setItem('refreshToken', refreshToken);
+      if (refreshToken) localStorage.setItem('refreshToken', refreshToken);
+    },
+    // [시니어 조치] 외부(axios 인터셉터 등)에서 갱신된 토큰을 스토어에 반영
+    syncTokenFromStorage() {
+      this.accessToken = localStorage.getItem('accessToken');
+      this.refreshToken = localStorage.getItem('refreshToken');
     },
     async fetchUserProfile() {
       try {

@@ -58,6 +58,14 @@ instance.interceptors.response.use(
           if (newAccessToken) {
             const tokenValue = newAccessToken.replace('Bearer ', '')
             localStorage.setItem('accessToken', tokenValue)
+            
+            // [시니어 조치] Pinia 스토어 상태도 즉시 동기화 (SSE 등에서 활용)
+            try {
+              const { useAuthStore } = await import('@/stores/auth')
+              const authStore = useAuthStore()
+              authStore.syncTokenFromStorage()
+            } catch (e) {}
+
             originalRequest.headers['Authorization'] = `Bearer ${tokenValue}`
             
             // 원래 요청 재시도

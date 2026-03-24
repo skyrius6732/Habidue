@@ -17,7 +17,8 @@ const keyword = ref('')
 const loading = ref(true)
 const searchResult = ref({
   totalCount: 0,
-  resultsByCategory: {}
+  categoryCounts: {},
+  results: []
 })
 
 const popularKeywords = ref([])
@@ -34,14 +35,7 @@ const allDataLoaded = ref(false)
 
 const hasMore = computed(() => {
   if (allDataLoaded.value) return false
-  
-  let currentLoadedCount = 0
-  if (searchResult.value.resultsByCategory) {
-    Object.values(searchResult.value.resultsByCategory).forEach(list => {
-      if (list) currentLoadedCount += list.length
-    })
-  }
-  return currentLoadedCount < (searchResult.value.totalCount || 0)
+  return (searchResult.value.results?.length || 0) < (searchResult.value.totalCount || 0)
 })
 
 const categoryInfo = {
@@ -65,67 +59,38 @@ const fetchSearchResults = async (isMore = false) => {
     loading.value = true
     currentPage.value = 0
     allDataLoaded.value = false
-    searchResult.value = { totalCount: 0, resultsByCategory: {} }
+    searchResult.value = { totalCount: 0, categoryCounts: {}, results: [] }
   } else {
     isFetchingMore.value = true
   }
 
   try {
-    if (!isMore) await axios.get(`/api/users/me/activity`)
-    
     const params = {
       keyword: q,
       page: currentPage.value,
       size: pageSize
     }
     const searchRes = await axios.get(`/api/v1/search`, { params })
-    const newData = searchRes.data
+    const newData = searchRes.data.data
     
     if (!isMore) {
       searchResult.value = newData
       if (newData.totalCount === 0) fetchPopularKeywords()
     } else {
-      let itemsAddedThisTime = 0
-      const newResults = { ...searchResult.value.resultsByCategory }
-      
-      // [시니어 조치] 무한 스크롤 시에도 전체 카운트는 유지 (서버에서 다시 오더라도 첫 값을 신뢰)
-      if (!searchResult.value.categoryCounts && newData.categoryCounts) {
-        searchResult.value.categoryCounts = newData.categoryCounts;
-      }
-
-      if (newData.resultsByCategory) {
-        Object.keys(newData.resultsByCategory).forEach(cat => {
-          const newList = newData.resultsByCategory[cat] || []
-          if (newList.length > 0) {
-            if (!newResults[cat]) {
-              newResults[cat] = []
-            }
-            
-            // 중복 방지: 이미 로드된 ID와 겹치지 않는 것만 추가
-            const existingIds = new Set(newResults[cat].map(item => item.post.id))
-            const uniqueNewItems = newList.filter(item => !existingIds.has(item.post.id))
-            
-            if (uniqueNewItems.length > 0) {
-              newResults[cat] = [...newResults[cat], ...uniqueNewItems]
-              itemsAddedThisTime += uniqueNewItems.length
-            }
-          }
-        })
-      }
-
-      searchResult.value.resultsByCategory = newResults
-
-      // 서버 응답에는 데이터가 있으나 중복 제외 후 실제 추가된 게 없거나, 아예 빈 응답인 경우
-      if (itemsAddedThisTime === 0) {
+      const newItems = newData.results || []
+      if (newItems.length === 0) {
         allDataLoaded.value = true
+      } else {
+        const existingIds = new Set(searchResult.value.results.map(item => item.post.id))
+        const uniqueNewItems = newItems.filter(item => !existingIds.has(item.post.id))
+        if (uniqueNewItems.length > 0) {
+          searchResult.value.results = [...searchResult.value.results, ...uniqueNewItems]
+        } else {
+          allDataLoaded.value = true
+        }
       }
       searchResult.value.totalCount = newData.totalCount 
-    }
-    
-    if (!isMore && searchResult.value.totalCount > 0 && currentTab.value !== 'ALL') {
-       if (!(searchResult.value.resultsByCategory[currentTab.value]?.length > 0)) {
-         currentTab.value = 'ALL'
-       }
+      searchResult.value.categoryCounts = newData.categoryCounts
     }
 
     if (!isMore && window.innerWidth <= 992) {
@@ -139,7 +104,6 @@ const fetchSearchResults = async (isMore = false) => {
   } catch (error) {
     console.error('검색 결과 로딩 실패:', error)
   } finally {
-    // [핵심 조치] 로딩 상태를 먼저 해제하여 DOM에 트리거 요소가 렌더링되게 한 후 감지기 부착
     loading.value = false
     isFetchingMore.value = false
     nextTick(() => {
@@ -158,35 +122,19 @@ const loadMore = async () => {
 const fetchPopularKeywords = async () => {
   try {
     const res = await axios.get('/api/v1/search/popular-keywords')
-    popularKeywords.value = res.data
+    popularKeywords.value = res.data.data
   } catch (e) {}
 }
 
 const getCount = (category) => {
   if (category === 'ALL') return searchResult.value.totalCount || 0
-  
-  // 서버에서 받은 카테고리별 실제 전체 건수를 우선 반환
-  if (searchResult.value.categoryCounts && searchResult.value.categoryCounts[category] !== undefined) {
-    return searchResult.value.categoryCounts[category]
-  }
-  
-  // 폴백: 현재 로드된 리스트 길이 (데이터가 아직 없는 초기 상태 등)
-  if (!searchResult.value.resultsByCategory) return 0
-  return searchResult.value.resultsByCategory[category]?.length || 0
+  return searchResult.value.categoryCounts?.[category] || 0
 }
 
 const filteredResults = computed(() => {
-  if (!searchResult.value.resultsByCategory) return []
-  
-  if (currentTab.value === 'ALL') {
-    const allItems = []
-    Object.values(searchResult.value.resultsByCategory).forEach(list => {
-      if (list) allItems.push(...list)
-    })
-    // [핵심 조치] 최신순 페이징 구조와 일관성을 맞추기 위해 작성일(createdAt) 역순 정렬
-    return allItems.sort((a, b) => new Date(b.post.createdAt) - new Date(a.post.createdAt))
-  }
-  return searchResult.value.resultsByCategory[currentTab.value] || []
+  if (!searchResult.value.results) return []
+  if (currentTab.value === 'ALL') return searchResult.value.results
+  return searchResult.value.results.filter(item => item.post.type === currentTab.value)
 })
 
 let scrollObserver = null
@@ -283,10 +231,10 @@ watch(() => route.query.q, () => fetchSearchResults())
               <button @click="$router.push('/board')" class="back-link-btn">← 커뮤니티 홈으로 돌아가기</button>
             </div>
           </div>
-          <div v-if="popularKeywords.length > 0" class="recommend-section">
+          <div v-if="popularKeywords && popularKeywords.length > 0" class="recommend-section">
             <h4 class="recommend-title">이런 키워드는 어떠세요?</h4>
             <div class="recommend-tag-cloud">
-              <button v-for="tag in popularKeywords" :key="tag.id" class="tag-chip-v2" @click="$router.push(`/search?q=${tag.name}`)">#{{ tag.name }}</button>
+              <button v-for="tag in popularKeywords" :key="tag" class="tag-chip-v2" @click="$router.push(`/search?q=${tag}`)">#{{ tag }}</button>
             </div>
           </div>
         </div>
@@ -298,7 +246,6 @@ watch(() => route.query.q, () => fetchSearchResults())
                 <div class="post-main">
                   <h4 class="post-title">
                     <span class="category-badge">{{ categoryInfo[item.post.type]?.icon }} {{ categoryInfo[item.post.type]?.name }}</span>
-                    <!-- [시니어] 블라인드 및 삭제 뱃지 (관리자 전용) -->
                     <template v-if="item.post.status === 'BLINDED'">
                       <span v-if="isAdmin" class="blinded-status-badge admin-hidden">모니터링: 숨김</span>
                     </template>
@@ -315,9 +262,7 @@ watch(() => route.query.q, () => fetchSearchResults())
                 </div>
               </div>
 
-              <!-- [시니어 조치] 하단 메타 정보 2행 분리 구조 -->
               <div class="post-meta-v2">
-                <!-- 1행: 상호작용 지표 -->
                 <div class="meta-row interaction-row">
                   <span class="meta-item" :class="{ 'is-liked': item.post.liked }">
                     <span class="m-icon-mini">{{ item.post.liked ? '❤️' : '🤍' }}</span> 
@@ -335,7 +280,6 @@ watch(() => route.query.q, () => fetchSearchResults())
                   </span>
                 </div>
 
-                <!-- 2행: 유저 정보 및 시간 -->
                 <div class="meta-row info-row">
                   <div class="author-group">
                     <AnimatedNickname 
@@ -395,27 +339,20 @@ watch(() => route.query.q, () => fetchSearchResults())
 }
 .category-badge { flex-shrink: 0; font-size: 0.72rem; font-weight: 800; color: var(--text-primary); background: var(--hover-bg); padding: 3px 10px; border-radius: 6px; border: 1px solid var(--border-color); display: inline-flex; align-items: center; gap: 4px; box-shadow: 0 1px 2px rgba(0,0,0,0.02); }
 
-/* [시니어] 블라인드 및 삭제 뱃지 스타일 */
 .blinded-status-badge { 
   flex-shrink: 0; font-size: 0.72rem; font-weight: 850; color: white; 
   background: #ed4956; padding: 3px 10px; border-radius: 6px; 
   display: inline-flex; align-items: center; box-shadow: 0 2px 5px rgba(237, 73, 86, 0.3); 
   margin-right: 6px;
 }
-.blinded-status-badge.admin-hidden {
-  background: #e74c3c; /* 선명한 빨간색 */
-}
-.blinded-status-badge.admin-deleted {
-  background: #8e44ad; /* 보라색 (삭제 상태) */
-  box-shadow: 0 2px 5px rgba(142, 68, 173, 0.3);
-}
+.blinded-status-badge.admin-hidden { background: #e74c3c; }
+.blinded-status-badge.admin-deleted { background: #8e44ad; box-shadow: 0 2px 5px rgba(142, 68, 173, 0.3); }
 
 .post-summary { font-size: 0.9rem; color: var(--text-secondary); margin: 0; overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; line-height: 1.6; }
 .post-mini-thumb { flex-shrink: 0; width: 60px; height: 60px; border-radius: 8px; overflow: hidden; position: relative; border: 1px solid var(--border-color); background-color: var(--hover-bg); }
 .post-mini-thumb img { width: 100%; height: 100%; object-fit: cover; }
 .img-count { position: absolute; bottom: 0; right: 0; background: rgba(0,0,0,0.6); color: white; font-size: 0.6rem; padding: 2px 4px; border-radius: 4px 0 0 0; }
 
-/* [시니어 조치] 메타 정보 2행 구조 스타일 */
 .post-meta-v2 { margin-top: 12px; display: flex; flex-direction: column; gap: 8px; }
 .meta-row { display: flex; align-items: center; }
 .interaction-row { gap: 12px; font-size: 0.8rem; color: var(--text-muted); font-weight: 600; }
@@ -425,11 +362,6 @@ watch(() => route.query.q, () => fetchSearchResults())
 .white-eye-mini { color: var(--text-muted); opacity: 0.8; }
 .info-row { justify-content: space-between; padding-top: 8px; border-top: 1px dotted var(--divider-color); }
 .author-group { display: flex; align-items: center; gap: 8px; }
-.author-name { font-size: 0.8rem; font-weight: 700; color: var(--text-secondary); }
-.author-badge-mini {
-  cursor: help;
-}
-
 .post-date-v2 { font-size: 0.75rem; color: var(--text-muted); font-weight: 500; }
 
 .no-result-state-v2 { background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 24px; padding: 60px; text-align: left; }
@@ -450,7 +382,6 @@ watch(() => route.query.q, () => fetchSearchResults())
 .loader { border: 3px solid var(--border-color); border-top: 3px solid var(--link-color); border-radius: 50%; width: 32px; height: 32px; animation: spin 1s linear infinite; margin-bottom: 20px; }
 @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
 
-/* 무한 스크롤 하단 로딩 스타일 */
 .load-more-trigger { height: 100px; display: flex; align-items: center; justify-content: center; margin-top: 20px; }
 .scroll-loading { display: flex; flex-direction: column; align-items: center; gap: 10px; color: var(--text-secondary); font-size: 0.85rem; font-weight: 600; }
 .mini-loader { border: 2px solid var(--border-color); border-top: 2px solid var(--link-color); border-radius: 50%; width: 20px; height: 20px; animation: spin 1s linear infinite; }

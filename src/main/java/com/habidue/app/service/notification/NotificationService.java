@@ -29,7 +29,23 @@ public class NotificationService { // [시니어 조치] 클래스 레벨 @Trans
     private final UserRepository userRepository;
     
     private static final Map<Long, SseEmitter> emitters = new ConcurrentHashMap<>();
-    private static final Long DEFAULT_TIMEOUT = 60L * 1000 * 60; // 60분으로 연장
+    private static final Long DEFAULT_TIMEOUT = 1000L * 60 * 60; // 60분
+
+    /**
+     * [시니어 조치] 연결 유지용 하트비트 스케줄러 (더 짧은 주기로 변경)
+     */
+    @org.springframework.scheduling.annotation.Scheduled(fixedRate = 15000) // 15초마다 실행
+    public void sendHeartbeat() {
+        if (emitters.isEmpty()) return;
+        emitters.forEach((userId, emitter) -> {
+            try {
+                // [시니어 조치] 가장 안전한 형태의 핑 (이벤트명 없이 데이터만)
+                emitter.send(SseEmitter.event().data("ping"));
+            } catch (Exception e) {
+                emitters.remove(userId, emitter);
+            }
+        });
+    }
 
     /**
      * SSE 구독
@@ -37,46 +53,43 @@ public class NotificationService { // [시니어 조치] 클래스 레벨 @Trans
     public SseEmitter subscribe(Long userId) {
         log.info("[SSE-DEBUG] === Subscribe Start: User {} ===", userId);
         
-        // 기존 연결 정리
-        if (emitters.containsKey(userId)) {
-            log.info("[SSE-DEBUG] Found old emitter for user {}. Completing and removing.", userId);
-            SseEmitter oldEmitter = emitters.get(userId);
-            try { 
-                oldEmitter.complete(); 
-            } catch (Exception e) {
-                log.warn("[SSE-DEBUG] Error completing old emitter: {}", e.getMessage());
-            }
-            emitters.remove(userId);
+        SseEmitter oldEmitter = emitters.get(userId);
+        if (oldEmitter != null) {
+            log.info("[SSE-DEBUG] Found old emitter for user {} (Hash: {}). Completing.", userId, oldEmitter.hashCode());
+            try { oldEmitter.complete(); } catch (Exception e) {}
+            emitters.remove(userId, oldEmitter);
         }
         
         SseEmitter emitter = new SseEmitter(DEFAULT_TIMEOUT);
-        emitters.put(userId, emitter);
+        int emitterHash = emitter.hashCode();
         
         emitter.onCompletion(() -> {
-            log.info("[SSE-DEBUG] Connection Completed: User {}", userId);
-            emitters.remove(userId, emitter); // [중요] 내가 등록한 '그' 객체일 때만 삭제
+            log.info("[SSE-DEBUG] Connection Completed (OnCompletion): User {} (Hash: {})", userId, emitterHash);
+            emitters.remove(userId, emitter);
         });
         emitter.onTimeout(() -> { 
-            log.info("[SSE-DEBUG] Connection Timeout: User {}", userId);
+            log.info("[SSE-DEBUG] Connection Timeout (OnTimeout): User {} (Hash: {})", userId, emitterHash);
             emitter.complete(); 
-            emitters.remove(userId, emitter); // [중요] 내가 등록한 '그' 객체일 때만 삭제
+            emitters.remove(userId, emitter);
         });
         emitter.onError((e) -> { 
-            log.error("[SSE-DEBUG] Connection Error: User {}: {}", userId, e.getMessage());
+            log.error("[SSE-DEBUG] Connection Error (OnError): User {} (Hash: {}): {}", userId, emitterHash, e.getMessage());
             emitter.complete(); 
-            emitters.remove(userId, emitter); // [중요] 내가 등록한 '그' 객체일 때만 삭제
+            emitters.remove(userId, emitter);
         });
         
-        // 초기 연결 성공 알림 및 더미 데이터 전송 (연결 유지용)
+        emitters.put(userId, emitter);
+        log.info("[SSE-DEBUG] New Emitter Registered: User {} (Hash: {})", userId, emitterHash);
+        
         try {
+            // [시니어 조치] 브라우저의 자동 재시도를 늦추기 위해 reconnectTime을 매우 길게 설정 (1시간)
+            // 실제 재연결은 프론트엔드에서 새 토큰으로 제어함
             emitter.send(SseEmitter.event()
-                    .name("connect")
-                    .data("connected!")
-                    .reconnectTime(3000)); // 끊겼을 때 3초 후 재연결 시도 지시
-            log.info("[SSE-DEBUG] Initial 'connect' event sent to user: {}", userId);
-        } catch (IOException e) { 
-            log.error("[SSE-DEBUG] Failed to send initial event: {}", userId);
-            emitters.remove(userId); 
+                    .data("connected")
+                    .reconnectTime(3600000)); 
+            log.info("[SSE-DEBUG] Registered & Connected: User {} (Hash: {})", userId, emitterHash);
+        } catch (Exception e) { 
+            emitters.remove(userId, emitter); 
         }
         
         return emitter;
@@ -122,7 +135,7 @@ public class NotificationService { // [시니어 조치] 클래스 레벨 @Trans
                 log.info("[SSE-DEBUG] Pushing Success! User: {}", userId);
             } catch (Exception e) { 
                 log.error("[SSE-DEBUG] Pushing Failed. User: {}, Reason: {}", userId, e.getMessage());
-                emitters.remove(userId); 
+                emitters.remove(userId, emitter); 
             }
         } else {
             log.warn("[SSE-DEBUG] !!! No Emitter in Map for User: {} !!! (This is why real-time fails)", userId);

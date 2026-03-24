@@ -205,7 +205,8 @@ public class CommentService {
                     String notiContent = String.format("❤️ '%s'님이 회원님의 댓글을 좋아합니다.", currentUser.getNickname());
                     if (gain > 0) notiContent += " (⚖️ 신뢰 점수 +0.1P)";
                     
-                    notificationService.send(author, NotificationType.SYSTEM, notiContent + ": \"" + truncatedComment + "\"", comment.getPost().getId(), comment.getPost().getId());
+                    // relatedTargetId에 comment.getId()를 전달하여 프론트에서 포커싱 가능하게 함
+                    notificationService.send(author, NotificationType.SYSTEM, notiContent + ": \"" + truncatedComment + "\"", comment.getId(), comment.getPost().getId());
                 }
             } catch (Exception e) {
                 log.error("Error sending like notification: {}", e.getMessage());
