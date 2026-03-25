@@ -291,6 +291,10 @@ public class CommentService {
         }
 
         postRepository.decrementCommentCount(comment.getPost().getId());
-        commentRepository.delete(comment);
+        
+        // [시니어 조치] Soft Delete 적용: 본체는 보존, 좋아요 연결은 정리
+        comment.changeStatus("DELETED");
+        comment.getCommentLikes().clear(); // 연관된 좋아요 물리 삭제
+        commentRepository.save(comment);
     }
 }

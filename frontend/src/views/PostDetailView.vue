@@ -634,7 +634,15 @@ const handleDeletePost = async () => {
   if (!confirm('게시글 삭제 시 획득한 경험치(EXP)와 받은 좋아요에 따른 신뢰 점수(Karma)가 모두 회수됩니다. 정말 삭제하시겠습니까?')) return; 
   try { 
     await axios.delete(`/api/posts/${post.value.id}`); 
-    router.push({ path: post.value?.noticeId ? `/board/${post.value.noticeId}` : '/board', query: { menu: activeMenu.value, sub: activeSubCategory.value } })
+    
+    // [시니어 조치] 삭제 후 이전 목록 맥락(쿼리 파라미터)을 그대로 들고 이동
+    const noticeId = post.value?.noticeId;
+    const path = noticeId ? `/board/${noticeId}` : '/board';
+    
+    router.push({ 
+      path: path, 
+      query: { ...route.query } 
+    });
   } catch (e) {
     alert('게시글 삭제에 실패했습니다.')
   } 

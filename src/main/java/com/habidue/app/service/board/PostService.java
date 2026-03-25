@@ -385,6 +385,19 @@ public class PostService {
             }
         }
 
-        postRepository.delete(post);
+        // [시니어 조치] Soft Delete 적용: 본체는 보존, 휘발성 연관 데이터는 정리
+        post.changeStatus("DELETED");
+        
+        // 좋아요와 태그는 물리 삭제 (DB 용량 및 정합성 관리)
+        post.getPostLikes().clear();
+        post.getTags().clear();
+
+        if (post.getComments() != null) {
+            post.getComments().forEach(c -> {
+                c.changeStatus("DELETED");
+                c.getCommentLikes().clear(); // 댓글 좋아요도 정리
+            });
+        }
+        postRepository.save(post);
     }
 }

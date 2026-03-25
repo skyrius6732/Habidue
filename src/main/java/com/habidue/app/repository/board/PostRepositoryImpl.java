@@ -214,6 +214,9 @@ public class PostRepositoryImpl implements PostRepositoryCustom {
         }
 
         // [시니어 조치] 카운트 쿼리에도 검색 리스트와 동일한 권한 기반 상태 필터 적용
+        // [시니어 조치] Soft Delete 필터링: 삭제된 글은 조회 대상에서 제외
+        builder.and(post.status.ne("DELETED"));
+
         if (isAdmin) {
             builder.and(post.status.ne("HARD_DELETED"));
         } else if (currentUserId != null) {
