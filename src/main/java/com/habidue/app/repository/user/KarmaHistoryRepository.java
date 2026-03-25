@@ -25,4 +25,11 @@ public interface KarmaHistoryRepository extends JpaRepository<KarmaHistory, Long
     @Query("SELECT COALESCE(SUM(kh.pointChange), 0) FROM KarmaHistory kh " +
            "WHERE kh.user.id = :userId AND kh.reason = :reason AND kh.comment = :postKey")
     int getPointsByPost(@Param("userId") Long userId, @Param("reason") KarmaReason reason, @Param("postKey") String postKey);
+
+    /**
+     * [시니어 조치] 특정 항목(게시글/댓글 식별자)으로 획득한 총 점수 합산
+     */
+    @Query("SELECT COALESCE(SUM(kh.pointChange), 0) FROM KarmaHistory kh " +
+           "WHERE kh.user.id = :userId AND kh.comment = :comment")
+    int getSumByUserIdAndComment(@Param("userId") Long userId, @Param("comment") String comment);
 }

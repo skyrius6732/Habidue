@@ -38,12 +38,19 @@ public class KarmaService {
     }
 
     /**
-     * [시니어 조치] 좋아요 알림과의 세트화를 위해 내부 알림 발송은 제거하고 결과만 반환
+     * [시니어 조치] 신뢰 점수 복구 (좋아요 수신 등)
      */
     @Transactional
     public int restoreKarma(Long userId, int points, String comment, User admin, Integer maxAllowedTotal, KarmaReason reason) {
         User user = userRepository.findById(userId).orElseThrow();
         if (user.getKarmaPoint() >= 1000) return 0;
+
+        // [시니어] 해당 항목으로 이미 얻은 점수가 있는지 확인 (중복 획득 방지)
+        if (maxAllowedTotal != null && comment != null) {
+            int alreadyEarned = karmaHistoryRepository.getSumByUserIdAndComment(userId, comment);
+            if (alreadyEarned >= maxAllowedTotal) return 0;
+            points = Math.min(points, maxAllowedTotal - alreadyEarned);
+        }
 
         LocalDateTime startOfDay = LocalDateTime.now().withHour(0).withMinute(0).withSecond(0).withNano(0);
         int dailyEarned = karmaHistoryRepository.getDailyEarnedPoints(userId, startOfDay);
@@ -57,22 +64,30 @@ public class KarmaService {
         user.setKarmaPoint(newPoint);
         karmaHistoryRepository.save(KarmaHistory.builder().user(user).reason(reason != null ? reason : KarmaReason.RESTORATION).pointChange(actualChange).resultingPoint(newPoint).comment(comment).admin(admin).build());
         
-        if (newPoint >= 800) {
+        if (newPoint >= 800 && user.getStatus() == UserStatus.RESTRICTED) {
             user.setRestrictedUntil(null);
-            if (user.getStatus() == UserStatus.RESTRICTED) user.setStatus(UserStatus.ACTIVE);
+            user.setStatus(UserStatus.ACTIVE);
         }
         return actualChange;
     }
 
     /**
-     * [시니어 조치] 좋아요 취소 시 무조건 점수를 회수하되, 알림은 보내지 않음
+     * [시니어 조치] 좋아요 취소 시 점수 회수
+     * 해당 항목(comment)으로 이전에 실제로 얻은 점수가 있을 때만 회수함
      */
     @Transactional
     public int revokeKarma(Long userId, int points, String comment, KarmaReason reason) {
         User user = userRepository.findById(userId).orElseThrow();
-        int scaledPoints = Math.abs(points);
-        int newPoint = Math.max(0, user.getKarmaPoint() - scaledPoints);
+        
+        // [핵심] 이전에 해당 항목으로 획득한 점수의 총합 확인
+        int previouslyEarned = (comment != null) ? karmaHistoryRepository.getSumByUserIdAndComment(userId, comment) : 0;
+        if (previouslyEarned <= 0) return 0; // 얻은 점수가 없으므로 깎지 않음
+
+        // 얻은 점수보다 더 많이 깎을 수는 없음
+        int pointsToRevoke = Math.min(Math.abs(points), previouslyEarned);
+        int newPoint = Math.max(0, user.getKarmaPoint() - pointsToRevoke);
         int actualChange = user.getKarmaPoint() - newPoint;
+        
         if (actualChange <= 0) return 0;
 
         user.setKarmaPoint(newPoint);

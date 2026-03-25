@@ -18,6 +18,7 @@ public class ExpService {
 
     private final UserRepository userRepository;
     private final ExpHistoryRepository expHistoryRepository;
+    private final com.habidue.app.service.ranking.RankingService rankingService;
 
     /**
      * 레벨 테이블 (간단한 산술식 또는 고정 구간)
@@ -61,5 +62,45 @@ public class ExpService {
         }
 
         userRepository.save(user); // 변경 감지(Dirty Checking)로 업데이트 되지만 명시적 저장
+        
+        // [시니어 조치] 경험치 변동 시 랭킹 캐시 즉시 무효화 (실시간 반영)
+        rankingService.clearRankingCache();
+    }
+
+    /**
+     * [시니어 조치] 특정 활동이 삭제될 때 부여됐던 경험치를 회수함
+     * 게시글/댓글 삭제 시 호출되어 어뷰징 방지 및 데이터 정합성 유지
+     */
+    @Transactional
+    public void revokeExp(Long userId, ExpReason reason, String description) {
+        if (userId == null || userId <= 0) {
+            log.warn("EXP 회수 건너뜀: 유효하지 않은 사용자 ID (ID: {})", userId);
+            return;
+        }
+        User user = userRepository.findById(userId).orElse(null);
+        if (user == null) return;
+
+        int expToRevoke = reason.getDefaultExp();
+        
+        // 1. 경험치 회수 이력 저장 (음수 값)
+        ExpHistory history = ExpHistory.create(user, -expToRevoke, reason, "[회수] " + description);
+        expHistoryRepository.save(history);
+
+        // 2. 유저 누적 경험치 차감 (최소 0 유지)
+        user.setTotalExp(Math.max(0, user.getTotalExp() - expToRevoke));
+
+        // 3. 레벨 재계산 (레벨 다운 가능)
+        int oldLevel = user.getLevel();
+        int newLevel = calculateLevel(user.getTotalExp());
+
+        if (newLevel < oldLevel) {
+            user.setLevel(newLevel);
+            log.info("사용자 레벨 다운... ID: {}, {} -> {}", userId, oldLevel, newLevel);
+        }
+
+        userRepository.save(user);
+        
+        // [시니어 조치] 경험치 변동 시 랭킹 캐시 즉시 무효화 (실시간 반영)
+        rankingService.clearRankingCache();
     }
 }

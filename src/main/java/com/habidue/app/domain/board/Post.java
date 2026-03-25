@@ -1,6 +1,5 @@
 package com.habidue.app.domain.board;
 
-import com.habidue.app.domain.common.BaseTimeEntity;
 import com.habidue.app.domain.user.User;
 import com.habidue.app.domain.notice.Notice;
 import jakarta.persistence.*;
@@ -14,25 +13,22 @@ import java.util.ArrayList;
 import java.util.List;
 
 @Entity
-@Table(name = "posts", indexes = {
-    @Index(name = "idx_post_status_created", columnList = "status, createdAt"),
-    @Index(name = "idx_post_author", columnList = "user_id"),
-    @Index(name = "idx_post_notice", columnList = "notice_id")
-})
+@Table(name = "posts")
 @Getter
-@NoArgsConstructor(access = AccessLevel.PROTECTED)
+@Setter
+@NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class Post extends BaseTimeEntity {
+public class Post {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(nullable = false, length = 100)
+    @Column(nullable = false)
     private String title;
 
-    @Column(columnDefinition = "TEXT", nullable = false)
+    @Column(nullable = false, columnDefinition = "TEXT")
     private String content;
 
     @ManyToOne(fetch = FetchType.LAZY)
@@ -44,7 +40,7 @@ public class Post extends BaseTimeEntity {
     private Notice notice;
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false, length = 20)
+    @Column(nullable = false)
     private PostType type;
 
     @Column
@@ -73,6 +69,10 @@ public class Post extends BaseTimeEntity {
     private Integer likeCount = 0;
 
     @OneToMany(mappedBy = "post", cascade = CascadeType.ALL, orphanRemoval = true)
+    @Builder.Default
+    private List<PostLike> postLikes = new ArrayList<>();
+
+    @OneToMany(mappedBy = "post", cascade = CascadeType.ALL, orphanRemoval = true)
     @BatchSize(size = 50)
     @Builder.Default
     private List<Comment> comments = new ArrayList<>();
@@ -87,6 +87,14 @@ public class Post extends BaseTimeEntity {
     @Builder.Default
     private List<PostTag> tags = new ArrayList<>();
 
+    @CreationTimestamp
+    @Column(nullable = false, updatable = false)
+    private LocalDateTime createdAt;
+
+    @UpdateTimestamp
+    @Column(nullable = false)
+    private LocalDateTime updatedAt;
+
     // --- 연관관계 편의 메서드 ---
     public void addPostTag(PostTag postTag) {
         this.tags.add(postTag);
@@ -99,16 +107,15 @@ public class Post extends BaseTimeEntity {
         this.tags.clear();
     }
 
-    // --- 비즈니스 로직 ---
-    public void changeStatus(String status) {
-        this.status = status;
-    }
-
     public void update(String title, String content, String category, String subCategory, String regionTag) {
         this.title = title;
         this.content = content;
         this.category = category;
         this.subCategory = subCategory;
         this.regionTag = regionTag;
+    }
+
+    public void changeStatus(String status) {
+        this.status = status;
     }
 }

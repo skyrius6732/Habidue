@@ -614,7 +614,7 @@ const handleDeleteComment = async (id) => {
     alert('관리자에 의해 차단된 댓글은 삭제할 수 없습니다.');
     return;
   }
-  if (!confirm('댓글을 삭제할까요?')) return; 
+  if (!confirm('댓글 삭제 시 획득한 경험치와 받은 신뢰 점수가 회수됩니다. 정말 삭제하시겠습니까?')) return; 
   try { 
     await axios.delete(`/api/comments/${id}`); 
     activeCommentMenuId.value = null;
@@ -631,7 +631,7 @@ const handleDeletePost = async () => {
     alert('관리자에 의해 차단된 게시글은 삭제할 수 없습니다.');
     return;
   }
-  if (!confirm('게시글을 삭제하시겠습니까?')) return; 
+  if (!confirm('게시글 삭제 시 획득한 경험치(EXP)와 받은 좋아요에 따른 신뢰 점수(Karma)가 모두 회수됩니다. 정말 삭제하시겠습니까?')) return; 
   try { 
     await axios.delete(`/api/posts/${post.value.id}`); 
     router.push({ path: post.value?.noticeId ? `/board/${post.value.noticeId}` : '/board', query: { menu: activeMenu.value, sub: activeSubCategory.value } })

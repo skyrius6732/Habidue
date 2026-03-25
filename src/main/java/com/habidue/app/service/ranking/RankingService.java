@@ -141,6 +141,21 @@ public class RankingService {
     }
 
     /**
+     * [시니어 조치] 경험치 변동 시 관련 랭킹 캐시를 모두 삭제하여 실시간성을 보장함
+     */
+    public void clearRankingCache() {
+        try {
+            Set<String> keys = redisTemplate.keys(RANKING_CACHE_PREFIX + "*");
+            if (keys != null && !keys.isEmpty()) {
+                redisTemplate.delete(keys);
+                log.info("[RANKING] Ranking cache cleared for real-time update.");
+            }
+        } catch (Exception e) {
+            log.warn("Failed to clear ranking cache: {}", e.getMessage());
+        }
+    }
+
+    /**
      * 지정된 기간 및 분야의 상위 랭커 목록을 조회합니다.
      */
     @Transactional(readOnly = true)

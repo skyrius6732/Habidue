@@ -45,6 +45,10 @@ public class Comment {
     @Builder.Default
     private List<Comment> children = new ArrayList<>();
 
+    @OneToMany(mappedBy = "comment", cascade = CascadeType.ALL, orphanRemoval = true)
+    @Builder.Default
+    private List<CommentLike> commentLikes = new ArrayList<>();
+
     @Column(nullable = false, length = 20)
     @Builder.Default
     private String status = "ACTIVE"; // ACTIVE, BLINDED, DELETED
