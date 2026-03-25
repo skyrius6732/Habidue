@@ -1,5 +1,8 @@
 # habiDue Project Rules
 
+## 🛠️ 개발 원칙 (Development Principles)
+1. **최소 변경 원칙 (Minimal Modification Principle):** 모든 수정 및 추가 작업 시, **요청받은 기능 구현에 직접적으로 필요한 부분만 수술적으로(Surgically) 변경**한다. 기능과 무관한 기존 코드는 최대한 건드리지 않으며, 전체 파일을 다시 쓰는 방식보다 정밀한 부분 수정을 지향한다.
+
 ## 🌐 Communication Rules
 1. **Language:** Always communicate and explain in **Korean**.
 2. **Explain Before Acting:** Provide a detailed explanation of the intent and plan in Korean before executing any tool calls or code changes.
@@ -17,6 +20,15 @@
 
 ## 📝 Work Summary
 ### ✅ [Completed]
+- [O] 2026-03-25: **통합검색 UX 고도화: 화면 덜그럭거림 해결 및 태그 검색 결과 가시성 강화**
+ - 탭 전환 시 카운트 정보를 유지하여 화면 떨림(Jitter) 현상 제거 및 부드러운 UI 전환 구현.
+ - 검색 결과 본문 하단에 태그 리스트를 노출하고, 검색어 포함 태그를 파란색으로 하이라이트 처리.
+- [O] 2026-03-25: **통합검색 카테고리별 건수 정합성 확보 및 권한 기반 카운팅 구현**
+ - 검색 리스트와 탭 건수 불일치 해결 (관리자/작성자 숨김글 노출 로직 카운트 쿼리에 통합).
+ - 프론트엔드 탭 전환 시 전체 건수 증발 현상 수정 및 글로벌 합계 계산 로직 도입.
+- [O] 2026-03-25: **통합검색 카테고리 필터링 정합성 해결 및 서버 사이드 필터링 도입**
+ - 각 탭(통합광장, 공고소통방 등) 이동 시 데이터가 0으로 노출되던 로컬 필터링 결함 해결.
+ - `SearchController`에 카테고리 필터(`type`) 파라미터를 추가하고 서버 레벨에서 정확한 결과를 반환하도록 고도화.
 - [O] 2026-03-25: **실시간 급상승 공고(Hot Ranking) 알고리즘 고도화 및 어뷰징 방지**
  - **정밀 스코어링 도입**: 조회(+1), 찜(+20), 소통글(+30), 댓글(+10) 가중치 차등 적용.
  - **마일스톤 보너스**: 소통방 최초 해금(+100), 휴면 소통방 깨우기 성공(+50) 시 파격적 보너스 부여.

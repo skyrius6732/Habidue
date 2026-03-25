@@ -139,8 +139,9 @@ public class PostService {
     }
 
     @Transactional(readOnly = true)
-    public long countByKeywordAndType(String keyword, PostType type) {
-        return postRepository.countByKeywordAndType(keyword, type);
+    public long countByKeywordAndType(String keyword, PostType type, UserPrincipal currentUser) {
+        boolean isAdmin = currentUser != null && currentUser.getAuthorities().stream().anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN"));
+        return postRepository.countByKeywordAndType(keyword, type, currentUser != null ? currentUser.getId() : null, isAdmin);
     }
 
     @Transactional

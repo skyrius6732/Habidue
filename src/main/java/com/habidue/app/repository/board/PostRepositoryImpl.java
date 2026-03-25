@@ -197,7 +197,7 @@ public class PostRepositoryImpl implements PostRepositoryCustom {
     }
 
     @Override
-    public long countByKeywordAndType(String keyword, PostType type) {
+    public long countByKeywordAndType(String keyword, PostType type, Long currentUserId, boolean isAdmin) {
         QPost post = QPost.post;
         QUser author = QUser.user;
         BooleanBuilder builder = new BooleanBuilder();
@@ -213,7 +213,15 @@ public class PostRepositoryImpl implements PostRepositoryCustom {
                     .or(post.tags.any().tag.name.containsIgnoreCase(keyword)));
         }
 
-        builder.and(post.status.eq("ACTIVE"));
+        // [시니어 조치] 카운트 쿼리에도 검색 리스트와 동일한 권한 기반 상태 필터 적용
+        if (isAdmin) {
+            builder.and(post.status.ne("HARD_DELETED"));
+        } else if (currentUserId != null) {
+            builder.and(post.status.eq("ACTIVE")
+                    .or(post.status.eq("BLINDED").and(post.author.id.eq(currentUserId))));
+        } else {
+            builder.and(post.status.eq("ACTIVE"));
+        }
 
         Long count = queryFactory
                 .select(post.count())

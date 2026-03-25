@@ -219,13 +219,19 @@
           <div v-else class="tab-content board-tab">
             <NoticeBoard 
               :notice-id="selectedNotice.id" 
+              :notice-title="selectedNotice.title"
               :is-preview="true"
               :is-board-active="selectedNotice.isBoardActive"
               :is-revived="selectedNotice.isRevived"
               :is-dormant="selectedNotice.isDormant"
               :notice-status="selectedNotice.status"
               :source="selectedNotice.source"
+              :wakeup-status="wakeupStatus"
+              :current-interest-count="selectedNotice.interestCount"
+              :is-favorite="selectedNotice.isFavorite"
               @toggle-favorite="handleToggleFavorite(selectedNotice)"
+              @toggle-wake-up="handleToggleWakeUp"
+              @go-to-hub="handleGoToHub"
             />
           </div>
         </div>
@@ -256,8 +262,47 @@ const totalPages = ref(0)
 const isLastPage = ref(false)
 const activeMenuId = ref(null)
 const selectedNotice = ref(null)
+const wakeupStatus = ref(null) // [시니어 추가] 깨우기 상태
 const isMouseDownOnOverlay = ref(false)
 const activeTab = ref('info')
+
+// [시니어 추가] 깨우기 상태 조회
+const fetchWakeupStatus = async (noticeId) => {
+  if (!noticeId) return
+  try {
+    const res = await axios.get(`/api/notices/${noticeId}/wakeup-status`)
+    wakeupStatus.value = res.data.data
+  } catch (e) {
+    console.error('깨우기 상태 조회 실패:', e)
+  }
+}
+
+// [시니어 추가] 소통방 깨우기 실행
+const handleToggleWakeUp = async () => {
+  if (!selectedNotice.value) return
+  try {
+    await axios.post(`/api/notices/${selectedNotice.value.id}/wakeup`)
+    await fetchWakeupStatus(selectedNotice.value.id)
+    
+    // 깨우기 성공 시(방이 살아남) selectedNotice 정보 갱신
+    if (wakeupStatus.value?.isRevived || wakeupStatus.value?.revived) {
+      alert('소통방이 깨어났습니다! 이제 자유롭게 대화하실 수 있습니다.')
+      const res = await axios.get(`/api/notices/${selectedNotice.value.id}`)
+      selectedNotice.value = res.data.data
+    }
+  } catch (e) {
+    if (e.response?.data?.message) alert(e.response.data.message)
+  }
+}
+
+// [시니어 추가] 소통방 허브로 이동 (자동 검색 연동)
+const handleGoToHub = (title, sub) => {
+  closeDetail() // 상세 모달 닫기
+  router.push({
+    path: '/board',
+    query: { menu: 'NOTICE', sub: sub, hubSearch: title }
+  })
+}
 
 const activeSources = ref(route.query.sources ? route.query.sources.split(',') : ['ALL'])
 const activeStatuses = ref(route.query.statuses ? route.query.statuses.split(',') : (Object.keys(route.query).length === 0 ? ['RECRUITING'] : ['ALL']))
@@ -340,7 +385,11 @@ const clearSearch = () => { searchKeyword.value = ''; updateUrlParams(); handleS
 const handleSortChange = () => { updateUrlParams(); handleSearch(); }
 const changePage = (p) => { if (p >= 0 && p < totalPages.value) fetchNotices(p, true).then(() => topAnchor.value?.scrollIntoView({ behavior: 'smooth' })) }
 
-const openDetail = (notice) => { selectedNotice.value = notice; router.replace({ query: { ...route.query, openId: notice.id } }) }
+const openDetail = (notice) => { 
+  selectedNotice.value = notice; 
+  fetchWakeupStatus(notice.id); // [시니어 추가] 깨우기 상태 정보 로드
+  router.replace({ query: { ...route.query, openId: notice.id } });
+}
 const getStatus = (notice) => {
   const systemTag = notice.tags?.find(t => ['접수중', '마감', '결과발표', '발표완료', '안내', '이전안내'].includes(t.name));
   const statusText = systemTag ? systemTag.name : '안내';
@@ -381,6 +430,7 @@ watch(() => route.query.openId, async (newOpenId) => {
     try {
       const res = await axios.get(`/api/notices/${newOpenId}`);
       selectedNotice.value = res.data.data;
+      fetchWakeupStatus(newOpenId); // [시니어 추가] 깨우기 상태 정보 로드
       activeTab.value = 'info';
     } catch (e) {
       console.warn('알림 대상 공고 조회 실패:', e);

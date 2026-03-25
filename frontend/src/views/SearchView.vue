@@ -59,7 +59,8 @@ const fetchSearchResults = async (isMore = false) => {
     loading.value = true
     currentPage.value = 0
     allDataLoaded.value = false
-    searchResult.value = { totalCount: 0, categoryCounts: {}, results: [] }
+    // [시니어 조치] 탭 전환 시 results만 초기화하여 categoryCounts(숫자) 유지 -> 덜그럭거림 방지
+    searchResult.value.results = []
   } else {
     isFetchingMore.value = true
   }
@@ -68,27 +69,25 @@ const fetchSearchResults = async (isMore = false) => {
     const params = {
       keyword: q,
       page: currentPage.value,
-      size: pageSize
+      size: pageSize,
+      type: currentTab.value === 'ALL' ? null : currentTab.value
     }
     const searchRes = await axios.get(`/api/v1/search`, { params })
     const newData = searchRes.data.data
     
     if (!isMore) {
+      // [시니어 조치] 탭 전환(또는 검색 시작) 시 데이터 전체 교체
       searchResult.value = newData
-      if (newData.totalCount === 0) fetchPopularKeywords()
+      if (newData.totalCount === 0 && currentTab.value === 'ALL') fetchPopularKeywords()
     } else {
+      // [시니어 조치] 무한 스크롤 시 기존 리스트에 추가
       const newItems = newData.results || []
       if (newItems.length === 0) {
         allDataLoaded.value = true
       } else {
-        const existingIds = new Set(searchResult.value.results.map(item => item.post.id))
-        const uniqueNewItems = newItems.filter(item => !existingIds.has(item.post.id))
-        if (uniqueNewItems.length > 0) {
-          searchResult.value.results = [...searchResult.value.results, ...uniqueNewItems]
-        } else {
-          allDataLoaded.value = true
-        }
+        searchResult.value.results = [...searchResult.value.results, ...newItems]
       }
+      // 카운트 정보는 항상 최신으로 갱신
       searchResult.value.totalCount = newData.totalCount 
       searchResult.value.categoryCounts = newData.categoryCounts
     }
@@ -123,18 +122,26 @@ const fetchPopularKeywords = async () => {
   try {
     const res = await axios.get('/api/v1/search/popular-keywords')
     popularKeywords.value = res.data.data
-  } catch (e) {}
+  } catch (e) {
+    console.error('인기 키워드 로드 실패:', e)
+  }
 }
 
 const getCount = (category) => {
-  if (category === 'ALL') return searchResult.value.totalCount || 0
+  if (category === 'ALL') {
+    const counts = searchResult.value.categoryCounts || {}
+    return Object.values(counts).reduce((acc, cur) => acc + cur, 0)
+  }
   return searchResult.value.categoryCounts?.[category] || 0
 }
 
+const globalTotalElements = computed(() => {
+  const counts = searchResult.value.categoryCounts || {}
+  return Object.values(counts).reduce((acc, cur) => acc + cur, 0)
+})
+
 const filteredResults = computed(() => {
-  if (!searchResult.value.results) return []
-  if (currentTab.value === 'ALL') return searchResult.value.results
-  return searchResult.value.results.filter(item => item.post.type === currentTab.value)
+  return searchResult.value.results || []
 })
 
 let scrollObserver = null
@@ -175,6 +182,7 @@ const formatDate = (dateStr) => {
 }
 
 watch(currentTab, () => {
+  fetchSearchResults()
   nextTick(() => setupScrollObserver())
 })
 
@@ -195,7 +203,7 @@ watch(() => route.query.q, () => fetchSearchResults())
       icon="🔍" 
       :title="keyword ? `'${keyword}' 검색 결과` : '통합 검색'" 
       :stats-text="keyword ? '검색 결과' : null" 
-      :stats-value="searchResult.totalCount + '건'"
+      :stats-value="globalTotalElements + '건'"
       bio="habiDue 커뮤니티 전체를 대상으로 검색한 결과입니다."
     />
 
@@ -207,8 +215,8 @@ watch(() => route.query.q, () => fetchSearchResults())
           <div class="search-tabs">
             <button 
               v-for="(info, key) in categoryInfo" :key="key"
-              class="tab-btn" :class="{ active: currentTab === key, disabled: getCount(key) === 0 }"
-              @click="getCount(key) > 0 && (currentTab = key)"
+              class="tab-btn" :class="{ active: currentTab === key }"
+              @click="currentTab = key"
             >
               <span class="tab-icon">{{ info.icon }}</span>
               <span class="tab-name">{{ info.name }}</span>
@@ -234,7 +242,9 @@ watch(() => route.query.q, () => fetchSearchResults())
           <div v-if="popularKeywords && popularKeywords.length > 0" class="recommend-section">
             <h4 class="recommend-title">이런 키워드는 어떠세요?</h4>
             <div class="recommend-tag-cloud">
-              <button v-for="tag in popularKeywords" :key="tag" class="tag-chip-v2" @click="$router.push(`/search?q=${tag}`)">#{{ tag }}</button>
+              <button v-for="tag in popularKeywords" :key="tag.id || tag.name" class="tag-chip-v2" @click="$router.push(`/search?q=${tag.name}`)">
+                #{{ tag.name }}
+              </button>
             </div>
           </div>
         </div>
@@ -255,6 +265,18 @@ watch(() => route.query.q, () => fetchSearchResults())
                     <span class="title-text" v-html="highlightKeyword(item.post.title)"></span>
                   </h4>
                   <p class="post-summary" v-html="highlightKeyword(item.snippet)"></p>
+                  
+                  <!-- [시니어 조치] 게시글 태그 노출 및 하이라이트 -->
+                  <div v-if="item.post.tags && item.post.tags.length > 0" class="post-tags-v2">
+                    <span 
+                      v-for="tag in item.post.tags" 
+                      :key="tag.id" 
+                      class="mini-tag-v2"
+                      :class="{ 'tag-highlight': tag.name.toLowerCase().includes(keyword.toLowerCase()) }"
+                    >
+                      #{{ tag.name }}
+                    </span>
+                  </div>
                 </div>
                 <div v-if="item.post.imageUrls && item.post.imageUrls.length > 0" class="post-mini-thumb">
                   <img :src="item.post.imageUrls[0]" alt="thumb" loading="lazy" />
@@ -349,6 +371,12 @@ watch(() => route.query.q, () => fetchSearchResults())
 .blinded-status-badge.admin-deleted { background: #8e44ad; box-shadow: 0 2px 5px rgba(142, 68, 173, 0.3); }
 
 .post-summary { font-size: 0.9rem; color: var(--text-secondary); margin: 0; overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; line-height: 1.6; }
+
+/* [시니어 조치] 통합검색 태그 스타일 */
+.post-tags-v2 { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+.mini-tag-v2 { font-size: 0.75rem; color: var(--text-muted); font-weight: 500; }
+.mini-tag-v2.tag-highlight { color: var(--link-color); font-weight: 700; }
+
 .post-mini-thumb { flex-shrink: 0; width: 60px; height: 60px; border-radius: 8px; overflow: hidden; position: relative; border: 1px solid var(--border-color); background-color: var(--hover-bg); }
 .post-mini-thumb img { width: 100%; height: 100%; object-fit: cover; }
 .img-count { position: absolute; bottom: 0; right: 0; background: rgba(0,0,0,0.6); color: white; font-size: 0.6rem; padding: 2px 4px; border-radius: 4px 0 0 0; }

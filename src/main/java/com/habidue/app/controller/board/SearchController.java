@@ -28,6 +28,7 @@ import java.util.stream.Collectors;
 public class SearchController {
 
     private final PostService postService;
+    private final com.habidue.app.service.tag.TagService tagService;
 
     /**
      * [시니어 조치] 통합 검색 API
@@ -36,20 +37,21 @@ public class SearchController {
     @GetMapping
     public ResponseEntity<ApiResponse<IntegratedSearchResponseDto>> search(
             @RequestParam String keyword,
+            @RequestParam(required = false) PostType type, // [시니어 조치] 카테고리 필터 파라미터 추가
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size,
             @AuthenticationPrincipal UserPrincipal currentUser) {
 
         Pageable pageable = PageRequest.of(page, size);
         
-        // 1. 전체 검색 결과 (통합)
-        Page<PostResponseDto> totalPage = postService.getPosts(null, null, null, null, keyword, null, null, currentUser, pageable);
+        // 1. 검색 결과 조회 (type이 null이면 전체, 값이 있으면 해당 카테고리만)
+        Page<PostResponseDto> totalPage = postService.getPosts(type, null, null, null, keyword, null, null, currentUser, pageable);
         
         // 2. 카테고리별 건수 집계
         Map<String, Long> categoryCounts = new HashMap<>();
-        for (PostType type : PostType.values()) {
-            long count = postService.countByKeywordAndType(keyword, type);
-            categoryCounts.put(type.name(), count);
+        for (PostType postType : PostType.values()) {
+            long count = postService.countByKeywordAndType(keyword, postType, currentUser);
+            categoryCounts.put(postType.name(), count);
         }
 
         // 3. 결과 변환
@@ -70,7 +72,8 @@ public class SearchController {
     }
 
     @GetMapping("/popular-keywords")
-    public ResponseEntity<ApiResponse<List<String>>> getPopularKeywords() {
-        return ApiResponse.success(List.of("LH공고", "SH공고", "청년주택", "당첨후기", "이사꿀팁", "인테리어"));
+    public ResponseEntity<ApiResponse<List<com.habidue.app.dto.tag.TagResponseDto>>> getPopularKeywords() {
+        // [시니어 조치] 하드코딩 제거 및 TagService를 통한 실제 인기 태그 반환
+        return ApiResponse.success(tagService.getPopularTags(10));
     }
 }

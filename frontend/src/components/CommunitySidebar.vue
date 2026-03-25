@@ -267,7 +267,14 @@ const viewPostDetail = (postId) => { router.push(`/board/post/${postId}`) }
 const searchTag = (tagName) => { router.push({ path: '/search', query: { q: tagName } }) }
 
 const fetchTrendingPosts = async () => { try { const res = await axios.get('/api/posts/trending', { params: { limit: 5 } }); trendingPosts.value = res.data.data } catch (e) {} }
-const fetchPopularTags = async () => { try { const res = await axios.get('/api/v1/search/popular-keywords'); popularTags.value = res.data } catch (e) {} }
+const fetchPopularTags = async () => { 
+  try { 
+    const res = await axios.get('/api/v1/search/popular-keywords')
+    popularTags.value = res.data.data // [시니어 조치] res.data -> res.data.data 로 수정
+  } catch (e) {
+    console.error('인기 태그 로드 실패:', e)
+  } 
+}
 
 defineExpose({ fetchTrendingPosts, fetchPopularTags })
 const handleResize = () => { isMobile.value = window.innerWidth <= 992 }

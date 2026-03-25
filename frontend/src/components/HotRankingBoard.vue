@@ -135,7 +135,7 @@ onUnmounted(() => {
   box-shadow: 0 4px 20px rgba(0,0,0,0.05);
   margin-bottom: 20px;
   position: relative;
-  z-index: 1001; /* 최상위 레이어 경쟁력 확보 */
+  z-index: 10; /* 메인 헤더(보통 1000)보다 아래에 위치하도록 하향 조정 */
 }
 
 .card-header {
@@ -205,7 +205,7 @@ onUnmounted(() => {
   min-width: 0;
   position: relative;
 }
-.ranking-item:hover { background: var(--hover-bg); z-index: 1002; }
+.ranking-item:hover { background: var(--hover-bg); z-index: 20; }
 
 .rank-badge { font-size: 1.1rem; font-weight: 900; min-width: 28px; text-align: center; color: var(--text-secondary); flex-shrink: 0; }
 .rank-1 { color: #e74c3c; } .rank-2 { color: #e67e22; } .rank-3 { color: #f1c40f; }
@@ -242,7 +242,7 @@ onUnmounted(() => {
   font-size: 0.75rem;
   white-space: nowrap;
   box-shadow: 0 10px 30px rgba(0,0,0,0.3);
-  z-index: 9999;
+  z-index: 100;
   opacity: 0;
   visibility: hidden;
   transform: translateY(10px);

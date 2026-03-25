@@ -21,5 +21,5 @@ public interface PostRepositoryCustom {
     List<Post> findTrendingPosts(int limit);
 
     // [시니어 조치] 카테고리별 검색 결과 카운트용
-    long countByKeywordAndType(String keyword, PostType type);
+    long countByKeywordAndType(String keyword, PostType type, Long currentUserId, boolean isAdmin);
 }
