@@ -5,6 +5,8 @@ import com.habidue.app.domain.user.ExpReason;
 import com.habidue.app.dto.ranking.RankerResponseDto;
 import com.habidue.app.repository.user.ExpHistoryRepository;
 import com.habidue.app.repository.user.UserRepository;
+import com.habidue.app.domain.user.User;
+import com.habidue.app.domain.user.ExpHistory;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -12,13 +14,19 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.data.redis.core.ZSetOperations;
+import org.springframework.scheduling.annotation.Scheduled;
+import com.habidue.app.dto.ranking.HotNoticeResponseDto;
+import com.habidue.app.repository.notice.NoticeRepository;
 
 import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.format.DateTimeFormatter;
 import java.time.temporal.TemporalAdjusters;
 import java.util.List;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -31,10 +39,106 @@ public class RankingService {
     private final com.habidue.app.repository.badge.UserBadgeRepository userBadgeRepository;
     private final com.habidue.app.repository.badge.BadgeRepository badgeRepository;
     private final com.habidue.app.repository.badge.BadgeLevelRuleRepository badgeLevelRuleRepository;
+    private final NoticeRepository noticeRepository;
     private final org.springframework.data.redis.core.StringRedisTemplate redisTemplate;
     private final com.fasterxml.jackson.databind.ObjectMapper objectMapper;
 
     private static final String RANKING_CACHE_PREFIX = "ranking:cache:v2:";
+    private static final String HOT_NOTICE_KEY = "ranking:hot:notices";
+    private static final String HOT_NOTICE_UPDATE_KEY = "ranking:hot:updated_at";
+    private static final String VIEW_LOCK_PREFIX = "ranking:view:lock:";
+    private static final String RAW_VIEW_COUNT_PREFIX = "ranking:view:raw_count:";
+
+    // [가중치 및 마일스톤 보너스 상수]
+    public static final double SCORE_VIEW = 1.0;          // 단순 조회
+    public static final double SCORE_INTEREST = 20.0;     // 관심 등록(찜)
+    public static final double SCORE_POST = 30.0;         // 소통방 게시글 작성
+    public static final double SCORE_COMMENT = 10.0;      // 댓글/답글 작성
+    public static final double SCORE_BOARD_UNLOCK = 100.0; // 소통방 최초 해금 (10명 달성)
+    public static final double SCORE_BOARD_REVIVE = 50.0;  // 휴면 소통방 깨우기 성공
+
+    /**
+     * 공고의 실시간 점수를 증가시킵니다.
+     */
+    public void increaseNoticeScore(Long noticeId, double score) {
+        try {
+            redisTemplate.opsForZSet().incrementScore(HOT_NOTICE_KEY, String.valueOf(noticeId), score);
+            redisTemplate.opsForValue().set(HOT_NOTICE_UPDATE_KEY, LocalDateTime.now().format(DateTimeFormatter.ofPattern("HH:mm")));
+        } catch (Exception e) {
+            log.warn("Failed to update hot notice score: {}", e.getMessage());
+        }
+    }
+
+    /**
+     * 조회수 어뷰징을 방지하며 점수를 올립니다. (1시간당 1회 인정)
+     */
+    public void increaseNoticeViewScore(Long noticeId, String identifier) {
+        String lockKey = VIEW_LOCK_PREFIX + noticeId + ":" + identifier;
+        String rawCountKey = RAW_VIEW_COUNT_PREFIX + noticeId;
+        try {
+            // [시니어 조치] 순수 조회수는 별도 카운팅하여 툴팁에 노출
+            redisTemplate.opsForValue().increment(rawCountKey);
+
+            // [시니어 조치] 1시간 동안 해당 유저/IP의 조회 점수 합산 차단
+            Boolean isFirstView = redisTemplate.opsForValue().setIfAbsent(lockKey, "true", 1, java.util.concurrent.TimeUnit.HOURS);
+            if (Boolean.TRUE.equals(isFirstView)) {
+                increaseNoticeScore(noticeId, SCORE_VIEW);
+            }
+        } catch (Exception e) {
+            log.warn("View scoring error: {}", e.getMessage());
+        }
+    }
+
+    /**
+     * 실시간 급상승 공고 TOP N을 조회합니다.
+     */
+    @Transactional(readOnly = true)
+    public List<HotNoticeResponseDto> getHotNotices(int limit) {
+        Set<ZSetOperations.TypedTuple<String>> typedTuples = redisTemplate.opsForZSet()
+                .reverseRangeWithScores(HOT_NOTICE_KEY, 0, limit - 1);
+
+        if (typedTuples == null || typedTuples.isEmpty()) {
+            return java.util.Collections.emptyList();
+        }
+
+        List<HotNoticeResponseDto> result = new java.util.ArrayList<>();
+        for (ZSetOperations.TypedTuple<String> tuple : typedTuples) {
+            Long noticeId = Long.parseLong(tuple.getValue());
+            double score = tuple.getScore() != null ? tuple.getScore() : 0.0;
+            
+            // [시니어 조치] Redis에서 순수 조회수 가져오기
+            String rawViewStr = redisTemplate.opsForValue().get(RAW_VIEW_COUNT_PREFIX + noticeId);
+            long viewCount = rawViewStr != null ? Long.parseLong(rawViewStr) : 0L;
+
+            noticeRepository.findById(noticeId).ifPresent(notice -> {
+                result.add(HotNoticeResponseDto.from(notice, score, result.size() + 1, viewCount));
+            });
+        }
+        return result;
+    }
+
+    /**
+     * 매일 자정에 급상승 랭킹을 초기화합니다. (Daily Hot Ranking)
+     */
+    @Scheduled(cron = "0 0 0 * * *")
+    public void clearHotNotices() {
+        log.info("Cleaning up daily hot notice rankings...");
+        redisTemplate.delete(HOT_NOTICE_KEY);
+        redisTemplate.delete(HOT_NOTICE_UPDATE_KEY);
+        
+        // [시니어 조치] 개별 조회수 키들도 모두 삭제
+        Set<String> keys = redisTemplate.keys(RAW_VIEW_COUNT_PREFIX + "*");
+        if (keys != null && !keys.isEmpty()) {
+            redisTemplate.delete(keys);
+        }
+    }
+
+    /**
+     * 마지막 업데이트 시각을 조회합니다.
+     */
+    public String getHotNoticeUpdatedAt() {
+        return redisTemplate.opsForValue().get(HOT_NOTICE_UPDATE_KEY);
+    }
 
     /**
      * 지정된 기간 및 분야의 상위 랭커 목록을 조회합니다.

@@ -69,6 +69,11 @@
       </div>
     </div>
 
+    <!-- 실시간 급상승 공고 랭킹 (시니어 위치 조정) -->
+    <div class="ranking-section">
+      <HotRankingBoard />
+    </div>
+
     <!-- [PC 레이아웃] -->
     <div v-if="!isMobile" class="pc-list-container">
       <table class="notice-table">
@@ -113,7 +118,8 @@
             <td>
               <div class="tags-wrapper">
                 <span v-for="tag in getDisplayTags(notice)" :key="tag.id" 
-                      class="mini-tag" :class="{ matched: userKeywords.includes(tag.name) }">
+                      class="mini-tag" :class="{ matched: userKeywords.includes(tag.name) }"
+                      @click.stop="toggleAlertKeyword(tag)">
                   #{{ tag.name }}
                 </span>
                 <span v-if="notice.tags?.length > 4" class="more-tag-count">+{{ notice.tags.length - 4 }}</span>
@@ -149,94 +155,76 @@
       <div ref="infiniteScrollTrigger" class="scroll-status-container">
         <div v-if="loading" class="loading-spinner-v2">
           <div class="spinner-dot"></div>
-          <span>공고를 불러오는 중...</span>
+          <span>공고를 불러오는 중입니다...</span>
         </div>
-        <div v-else-if="isLastPage && notices.length > 0" class="no-more-data-v2">
+        <div v-else-if="isLastPage && totalElements > 0" class="no-more-data-v2">
           <div class="end-content">
-            <div class="end-check-icon">
-              <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
-                <polyline points="20 6 9 17 4 12"></polyline>
-              </svg>
-            </div>
-            <p class="end-text">모든 공고를 불러왔습니다.</p>
+            <div class="end-check-icon">✓</div>
+            <p class="end-text">모든 공고를 확인했습니다.</p>
           </div>
         </div>
       </div>
     </div>
 
-    <!-- [공통] 공고 상세 모달 -->
+    <!-- 상세 모달 -->
     <div v-if="selectedNotice" class="modal-overlay" @mousedown="handleOverlayMouseDown" @mouseup="handleOverlayMouseUp">
-      <div class="detail-modal" @mousedown.stop>
-        <!-- 1. 모달 헤더 -->
+      <div class="detail-modal" @mousedown.stop @mouseup.stop>
         <div class="modal-header">
           <div class="header-badges">
             <span class="modal-source-tag" :class="selectedNotice.source">{{ getSourceLabel(selectedNotice.source) }}</span>
-            <span v-if="isReallyNew(selectedNotice.createdAt)" class="new-tag-modal">NEW</span>
             <span class="status-badge" :class="getStatus(selectedNotice).class">{{ getStatus(selectedNotice).text }}</span>
+            <span v-if="isReallyNew(selectedNotice.createdAt)" class="new-tag-modal">NEW</span>
           </div>
           <div class="header-actions">
             <button class="modal-favorite-btn" @click="handleToggleFavorite(selectedNotice)">
-              <span class="heart-icon" :class="{ filled: selectedNotice.isFavorite }">{{ selectedNotice.isFavorite ? '❤️' : '🤍' }}</span>
-              <span class="count-label">{{ selectedNotice.interestCount || 0 }}</span>
+              {{ selectedNotice.isFavorite ? '❤️' : '🤍' }}
+              <span>{{ selectedNotice.interestCount || 0 }}</span>
             </button>
+            <button class="btn-close-modal" @click="closeDetail">✕</button>
           </div>
         </div>
 
-        <!-- 2. 탭 메뉴 -->
         <div class="modal-tabs">
-          <button class="tab-item" :class="{ active: activeTab === 'info' }" @click="activeTab = 'info'">공고 정보</button>
-          <button class="tab-item" :class="{ active: activeTab === 'community' }" @click="activeTab = 'community'">커뮤니티</button>
+          <button class="tab-item" :class="{ active: activeTab === 'info' }" @click="activeTab = 'info'">🏠 공고 정보</button>
+          <button class="tab-item" :class="{ active: activeTab === 'board' }" @click="activeTab = 'board'">💬 소통방</button>
         </div>
 
         <div class="modal-body">
-          <!-- 탭 1: 공고 정보 -->
           <div v-if="activeTab === 'info'" class="tab-content info-tab">
-            <!-- 스크롤 가능 영역 -->
             <div class="info-scroll-area">
-              <div class="title-area" :style="{ borderLeftColor: sourceColor }">
+              <div class="title-area" :style="{ '--source-color': sourceColor }">
                 <h2 class="detail-title">{{ selectedNotice.title }}</h2>
               </div>
-
               <div class="detail-grid">
-                <div class="detail-info-item">
-                  <span class="info-label">모집 지역</span>
-                  <span class="info-value">{{ selectedNotice.region }}</span>
-                </div>
-                <div class="detail-info-item">
-                  <span class="info-label">접수 마감</span>
-                  <span class="info-value">{{ formatDateDot(selectedNotice.deadline) }}</span>
-                </div>
+                <div class="detail-info-item"><span class="info-label">기관</span><span class="info-value">{{ getSourceLabel(selectedNotice.source) }}</span></div>
+                <div class="detail-info-item"><span class="info-label">지역</span><span class="info-value">{{ selectedNotice.region }}</span></div>
+                <div class="detail-info-item"><span class="info-label">공고일</span><span class="info-value">{{ formatDateDot(selectedNotice.announcementDate) }}</span></div>
+                <div class="detail-info-item"><span class="info-label">마감일</span><span class="info-value">{{ formatDateDot(selectedNotice.deadline) || '-' }}</span></div>
               </div>
-
               <div class="modal-tag-section">
-                <h4 class="section-title">연관 키워드</h4>
+                <h4 class="section-title">관련 키워드</h4>
                 <div class="detail-tags-cloud">
-                  <span v-for="tag in selectedNotice.tags.slice(0, 6)" :key="tag.id" 
+                  <span v-for="tag in getDisplayTags(selectedNotice, 20)" :key="tag.id" 
                         class="clickable-tag" :class="{ matched: userKeywords.includes(tag.name) }"
-                        :style="userKeywords.includes(tag.name) ? { color: sourceColor, borderColor: sourceColor } : {}"
                         @click="toggleAlertKeyword(tag)">
                     #{{ tag.name }}
                   </span>
                 </div>
               </div>
             </div>
-            
-            <!-- [시니어 조치] 하단 버튼 위치 고정을 위한 푸터 구조 -->
             <div class="info-footer">
-              <a :href="selectedNotice.link" target="_blank" class="main-apply-btn" :style="{ backgroundColor: sourceColor }">🔗 원문 공고보기</a>
+              <a :href="selectedNotice.link" target="_blank" class="main-apply-btn" :style="{ backgroundColor: sourceColor }">🔗 원문 공고 바로가기</a>
             </div>
           </div>
-
-          <!-- 탭 2: 커뮤니티 (게시판) -->
           <div v-else class="tab-content board-tab">
             <NoticeBoard 
               :notice-id="selectedNotice.id" 
-              :is-board-active="selectedNotice.isBoardActive"
-              :current-interest-count="selectedNotice.interestCount"
-              :is-favorite="selectedNotice.isFavorite"
-              :source="selectedNotice.source"
-              :notice-status="selectedNotice.status"
               :is-preview="true"
+              :is-board-active="selectedNotice.isBoardActive"
+              :is-revived="selectedNotice.isRevived"
+              :is-dormant="selectedNotice.isDormant"
+              :notice-status="selectedNotice.status"
+              :source="selectedNotice.source"
               @toggle-favorite="handleToggleFavorite(selectedNotice)"
             />
           </div>
@@ -251,6 +239,7 @@ import { ref, onMounted, onUnmounted, nextTick, computed, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import axios from '@/plugins/axios'
 import NoticeCard from '@/components/NoticeCard.vue'
+import HotRankingBoard from '@/components/HotRankingBoard.vue'
 import PageHeader from '@/components/PageHeader.vue'
 import NoticeBoard from '@/components/NoticeBoard.vue'
 
@@ -273,13 +262,13 @@ const activeTab = ref('info')
 const activeSources = ref(route.query.sources ? route.query.sources.split(',') : ['ALL'])
 const activeStatuses = ref(route.query.statuses ? route.query.statuses.split(',') : (Object.keys(route.query).length === 0 ? ['RECRUITING'] : ['ALL']))
 const sortOrder = ref(route.query.sortOrder || 'alarm')
-const isNewFilter = ref(route.query.isNew === 'true') // 추가
+const isNewFilter = ref(route.query.isNew === 'true')
 
 const updateUrlParams = () => {
   const query = { ...route.query }; query.sources = activeSources.value.join(','); query.statuses = activeStatuses.value.join(',');
   if (sortOrder.value !== 'alarm') query.sortOrder = sortOrder.value; else delete query.sortOrder;
   if (searchKeyword.value) query.keyword = searchKeyword.value; else delete query.keyword;
-  if (isNewFilter.value) query.isNew = 'true'; else delete query.isNew; // 추가
+  if (isNewFilter.value) query.isNew = 'true'; else delete query.isNew;
   router.replace({ query });
 }
 
@@ -361,7 +350,6 @@ const getStatus = (notice) => {
 const calculateDDay = (notice) => { if (notice.status === 'CLOSED' || notice.status === 'RESULT' || notice.status === 'INFO' || !notice.deadline) return '-'; const target = new Date(notice.deadline); const today = new Date(); target.setHours(0,0,0,0); today.setHours(0,0,0,0); const diff = Math.ceil((target - today) / 86400000); return diff < 0 ? '-' : (diff === 0 ? 'D-Day' : `D-${diff}`); }
 const isReallyExpired = (deadline) => { if (!deadline) return false; const now = new Date(); const end = new Date(deadline); end.setHours(23, 59, 59, 999); return now > end; }
 
-// [시니어 조치] 최근 48시간 이내 등록 여부 판별
 const isReallyNew = (createdAt) => {
   if (!createdAt) return false;
   const created = new Date(createdAt);
@@ -388,7 +376,6 @@ const nextBlock = () => { if (!isLastPage.value) changePage((Math.floor(currentP
 
 const handleKeyDown = (e) => { if (e.key === 'Escape' && selectedNotice.value) { closeDetail(); } }
 
-// [시니어 조치] URL 파라미터 변경 실시간 감시 (이미 페이지에 있을 때 알림 클릭 대응)
 watch(() => route.query.openId, async (newOpenId) => {
   if (newOpenId) {
     try {
@@ -419,7 +406,6 @@ onMounted(async () => {
   if (route.query.sources) activeSources.value = route.query.sources.split(',');
   if (route.query.statuses) activeStatuses.value = route.query.statuses.split(',');
   
-  // [시니어 조치] URL 파라미터 기반 초기 로딩 최적화
   if (route.query.keyword) {
     searchKeyword.value = route.query.keyword;
   }
@@ -427,13 +413,11 @@ onMounted(async () => {
   await fetchNotices(0, true)
   if (isMobile.value) initInfiniteScroll()
   
-  // [시니어 조치] 알림 클릭 등을 통한 openId 처리 (상세 모달 자동 오픈)
   const openId = route.query.openId;
   if (openId) { 
     try { 
       const res = await axios.get(`/api/notices/${openId}`); 
       selectedNotice.value = res.data.data; 
-      // 기본적으로 '공고 정보' 탭을 먼저 보여줌
       activeTab.value = 'info'; 
     } catch (e) {
       console.warn('자동 오픈 대상 공고를 불러오지 못했습니다:', e);
@@ -491,13 +475,24 @@ onUnmounted(() => { window.removeEventListener('keydown', handleKeyDown); if (me
 .heart-icon.filled { color: #ed4956; }
 .interest-count { font-size: 0.85rem; font-weight: 700; color: var(--text-primary); min-width: 20px; text-align: left; }
 .tags-wrapper { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-start; }
-.mini-tag { font-size: 0.75rem; color: var(--text-secondary); font-weight: 500; }
+.mini-tag { 
+  font-size: 0.75rem; 
+  color: var(--text-secondary); 
+  font-weight: 500; 
+  cursor: pointer; 
+  padding: 2px 4px;
+  border-radius: 4px;
+  transition: all 0.2s;
+}
+.mini-tag:hover {
+  background-color: var(--hover-bg);
+  color: var(--link-color);
+}
 .mini-tag.matched { color: var(--link-color); font-weight: 700; }
 .pagination-container { display: flex; justify-content: center; align-items: center; gap: 8px; margin-top: 40px; padding-bottom: 20px; }
 .page-btn, .page-num { background: var(--card-bg); border: 1px solid var(--border-color); padding: 8px 14px; border-radius: 6px; cursor: pointer; color: var(--text-primary); font-size: 0.9rem; font-weight: 600; }
 .page-num.active { background-color: var(--link-color); color: white; border-color: var(--link-color); }
 
-/* [시니어 조치] 모달 레이아웃 정규화 (완벽한 대칭 구조) */
 .modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0, 0, 0, 0.6); backdrop-filter: blur(4px); z-index: 2000; display: flex; align-items: center; justify-content: center; padding: 20px; }
 .detail-modal { background: var(--card-bg); width: 100%; max-width: 550px; border-radius: 20px; overflow: hidden; height: 560px; border: 1px solid var(--border-color); display: flex; flex-direction: column; box-shadow: 0 30px 60px rgba(0,0,0,0.4); }
 .modal-header { padding: 24px 24px 16px; display: flex; justify-content: space-between; align-items: center; background-color: var(--hover-bg); flex-shrink: 0; }
@@ -506,6 +501,29 @@ onUnmounted(() => { window.removeEventListener('keydown', handleKeyDown); if (me
 .modal-source-tag.LH { background-color: #38a169; } .modal-source-tag.SH { background-color: #3182ce; } .modal-source-tag.PRIVATE { background-color: #c08457; }
 .status-badge { padding: 0 12px; border-radius: 6px; font-size: 0.75rem; font-weight: 700; display: flex; align-items: center; justify-content: center; height: 30px; white-space: nowrap; }
 .header-actions { display: flex; align-items: center; gap: 12px; }
+
+.btn-close-modal {
+  background: var(--hover-bg);
+  border: 1px solid var(--border-color);
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1rem;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.2s;
+  padding: 0;
+  line-height: 1;
+}
+.btn-close-modal:hover {
+  background-color: var(--border-color);
+  color: var(--text-primary);
+  transform: rotate(90deg);
+}
+
 .modal-favorite-btn { background: var(--card-bg); border: 1px solid var(--border-color); padding: 6px 14px; border-radius: 20px; cursor: pointer; display: flex; align-items: center; gap: 6px; color: var(--text-primary); transition: all 0.2s; }
 .modal-favorite-btn:hover { background-color: var(--border-color); }
 .modal-tabs { display: flex; background-color: var(--hover-bg); border-bottom: 1px solid var(--divider-color); border-top: 1px solid var(--divider-color); flex-shrink: 0; }
@@ -528,9 +546,16 @@ onUnmounted(() => { window.removeEventListener('keydown', handleKeyDown); if (me
 .modal-tag-section { display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px; }
 .section-title { font-size: 0.85rem; font-weight: 800; margin: 0; color: var(--text-primary); }
 .detail-tags-cloud { display: flex; flex-wrap: wrap; gap: 6px; }
-.clickable-tag { font-size: 0.75rem; color: var(--text-primary); background-color: var(--hover-bg); padding: 4px 10px; border-radius: 20px; border: 1px solid var(--border-color); cursor: pointer; }
+.clickable-tag { font-size: 0.75rem; color: var(--text-primary); background-color: var(--hover-bg); padding: 4px 10px; border-radius: 20px; border: 1px solid var(--border-color); cursor: pointer; transition: all 0.2s; }
+.clickable-tag:hover { border-color: var(--link-color); color: var(--link-color); }
+.clickable-tag.matched { 
+  color: white; 
+  background-color: var(--link-color); 
+  border-color: var(--link-color); 
+  font-weight: 700;
+  box-shadow: 0 2px 8px rgba(52, 152, 219, 0.3);
+}
 
-/* [핵심] 하단 푸터 좌표 고정 (Info 탭) */
 .info-footer { flex-shrink: 0; padding-top: 20px; }
 .main-apply-btn { 
   display: flex; align-items: center; justify-content: center;
@@ -539,7 +564,6 @@ onUnmounted(() => { window.removeEventListener('keydown', handleKeyDown); if (me
 }
 .main-apply-btn:hover { transform: translateY(-1px); filter: brightness(1.1); }
 
-/* [시니어 조치] 무한 스크롤 상태 안내 스타일 고도화 */
 .scroll-status-container {
   padding: 40px 0 80px;
   display: flex;
@@ -612,5 +636,17 @@ onUnmounted(() => { window.removeEventListener('keydown', handleKeyDown); if (me
   .search-sort-row { gap: 8px; padding: 0 15px; } 
   .filter-scroll { justify-content: flex-start; } 
   .detail-modal { width: 95%; height: 90vh; max-height: 700px; } 
+}
+
+.ranking-section {
+  max-width: 1200px;
+  margin: 0 auto 25px;
+  padding: 0 20px;
+}
+
+@media (min-width: 992px) {
+  .ranking-section {
+    max-width: 1200px; /* 아래 리스트와 너비 동일하게 설정 */
+  }
 }
 </style>

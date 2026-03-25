@@ -27,10 +27,33 @@
 - **작성자 알림**: 블라인드/삭제 처리 시 알림에 원본 내용(제목/본문)을 포함하여 구체적인 제재 사유 전달.
 - **신고자 피드백**: 관리자 조치 완료 시 신고자에게도 "조치 완료" 또는 "반려" 알림을 자동 발송하여 커뮤니티 투명성 제고.
 
+### 6. 관심 공고 키워드 매칭 및 마감 임박 알림 (Personalization)
+- **키워드 매칭 알림 (Task 2)**: 
+  - Spring Event(`NoticeCreatedEvent`) 기반 비동기 알림 아키텍처 구축.
+  - 새 공고 수집 시 사용자가 설정한 관심 태그(`UserTag`)와 매칭하여 실시간 알림 발송.
+  - 동일 공고에 대한 중복 알림 방지 로직 적용 (`Notification` 테이블 조회 기반).
+- **마감 임박 리마인드 (Task 3)**:
+  - `NotificationScheduler`를 통해 매일 오전 9시, 마감이 24시간 남은 찜한 공고 알림 발송.
+- **관심 공고 상태 추적**: 찜한 공고의 상태가 변경(예: 안내 -> 모집)될 때 해당 유저에게 실시간 상태 변경 알림(`NOTICE_STATUS_CHANGE`) 발송.
+
+### 7. 공고 리스트 가시성 및 UX 고도화
+- **신규 공고 가시성 확보**: 
+  - 생성일 기준 48시간 이내 공고에 대해 `[NEW]` 배지 UI 적용 (PC/모바일 공통).
+  - QueryDSL 검색 엔진에 `isNew` 동적 필터 추가 및 `createdAt` 최우선 정렬 로직 보정.
+- **알림 클릭 UX 혁신 (Option 2)**: 
+  - 알림 클릭 시 단순 페이지 이동이 아닌, 검색어 자동 입력 및 대상 공고의 **상세 모달을 즉시 오픈**하는 직관적 동선 구현.
+  - 모달 닫기 시 기존 검색 컨텍스트를 유지하여 자연스러운 탐색 유도.
+- **관리자 운영 효율화**: 
+  - 관리자용 공고 등록/수정 모달에 공고일(`announcementDate`) 및 결과 발표일(`resultDate`) 필드 추가.
+  - '태그 재설정' 등 내부 데이터 정비 시 유저 알림 발송을 차단하는 `shouldNotify` 플래그 도입.
+
 ---
 
 ## 🛠️ 해결된 기술적 이슈
-- `LazyInitializationException`: 관리자 페이지 및 차단 목록 조회 시 트랜잭션 범위 확장으로 해결.
-- `BeanDefinitionConflictException`: 중복된 `SearchController` 클래스명 정리 및 패키지 구조 최적화.
-- `JSON Parse Error`: SSE 초기 메시지(`connected`) 및 하트비트 데이터의 비-JSON 형식 예외 처리.
-- `TypeError: notificationStore.fetchUnreadCount`: 고도화 과정에서 변경된 메서드 명칭 하위 호환성 복구.
+- `Data truncated for column 'type'`: `Notification` 테이블의 `type` 컬럼 길이를 50자로 확장하여 긴 타입명 수용 환경 마련.
+- `Connection is read-only`: 스케줄러 및 이벤트 리스너의 `@Transactional` 설정을 `Propagation.REQUIRES_NEW` 및 쓰기 가능 상태로 보정.
+- `Uncaught ReferenceError: watch is not defined`: `NoticeListView.vue`에 누락된 Vue 헬퍼 임포트 추가.
+- `TypeError: _ctx.moveSelection is not a function`: `MyKeywordsView.vue`의 키워드 검색 키보드 탐색 로직 복구 및 스타일 강화.
+- `LazyInitializationException`: `NoticeEventListener` 내부에서 ID 기반 재조회를 통해 비동기 트랜잭션 격리 환경에서의 데이터 정합성 해결.
+- **모바일 UI 정렬**: 무한 스크롤 마감 워딩 중앙 정렬 및 SVG 아이콘 교체로 가독성 개선.
+

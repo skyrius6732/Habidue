@@ -39,13 +39,14 @@ public class ReportService {
         }
     }
 
+    @Transactional(readOnly = true)
     public void sendUserReport(User user) {
         LocalDateTime now = LocalDateTime.now();
         LocalDateTime next3Days = now.plusDays(3);
         LocalDateTime lastWeek = now.minusDays(7);
 
-        // 1. 마감 임박 공고 (관심 등록한 것 중 D-3 이내)
-        List<Map<String, String>> urgentNotices = userNoticeRepository.findAllByUser(user).stream()
+        // 1. 마감 임박 공고 (관심 등록한 것 중 D-3 이내) - Notice를 미리 Fetch Join하여 1+N 방지
+        List<Map<String, String>> urgentNotices = userNoticeRepository.findAllByUserWithNotice(user).stream()
                 .map(un -> un.getNotice())
                 .filter(n -> n.getDeadline() != null && n.getDeadline().isAfter(now) && n.getDeadline().isBefore(next3Days))
                 .map(this::mapToMailDto)

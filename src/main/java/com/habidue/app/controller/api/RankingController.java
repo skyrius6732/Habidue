@@ -1,6 +1,7 @@
 package com.habidue.app.controller.api;
 
 import com.habidue.app.dto.ApiResponse;
+import com.habidue.app.dto.ranking.HotNoticeResponseDto;
 import com.habidue.app.dto.ranking.RankerResponseDto;
 import com.habidue.app.service.ranking.RankingService;
 import lombok.RequiredArgsConstructor;
@@ -10,7 +11,9 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/ranking")
@@ -33,5 +36,22 @@ public class RankingController {
         
         List<RankerResponseDto> rankers = rankingService.getTopRankers(period, category, limit);
         return ApiResponse.success(rankers);
+    }
+
+    /**
+     * 실시간 급상승 공고 랭킹 조회 (Hot Notices)
+     */
+    @GetMapping("/hot-notices")
+    public ResponseEntity<ApiResponse<Map<String, Object>>> getHotNotices(
+            @RequestParam(defaultValue = "10") int limit) {
+        
+        List<HotNoticeResponseDto> hotNotices = rankingService.getHotNotices(limit);
+        String updatedAt = rankingService.getHotNoticeUpdatedAt();
+        
+        Map<String, Object> response = new HashMap<>();
+        response.put("notices", hotNotices);
+        response.put("updatedAt", updatedAt);
+        
+        return ApiResponse.success(response);
     }
 }

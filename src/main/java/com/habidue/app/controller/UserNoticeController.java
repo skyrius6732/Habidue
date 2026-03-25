@@ -40,8 +40,7 @@ public class UserNoticeController {
         Sort sorting = Sort.by(Sort.Direction.fromString(sort[1]), sort[0]);
         Pageable pageable = PageRequest.of(page, size, sorting);
         
-        Page<UserNotice> userNoticePage = userNoticeService.getMyUserNotices(pageable);
-        return ApiResponse.success(userNoticePage.map(UserNoticeResponseDto::new));
+        return ApiResponse.success(userNoticeService.getMyUserNotices(pageable));
     }
 
     // 메모 및 참고 URL 통합 업데이트 엔드포인트
@@ -50,12 +49,12 @@ public class UserNoticeController {
     public ResponseEntity<ApiResponse<UserNoticeResponseDto>> updateUserInfo(
             @PathVariable Long id, 
             @RequestBody UserNoticeUpdateDto updateDto) {
-        UserNotice updated = userNoticeService.updateUserInfo(
+        UserNoticeResponseDto updated = userNoticeService.updateUserInfo(
                 id, 
                 updateDto.getMemo(), 
                 updateDto.getReferenceUrls(),
                 updateDto.getUserDeadline());
-        return ApiResponse.success(new UserNoticeResponseDto(updated));
+        return ApiResponse.success(updated);
     }
 
     @DeleteMapping("/{id}")

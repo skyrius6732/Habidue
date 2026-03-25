@@ -47,6 +47,7 @@ public class CommentService {
     private final com.habidue.app.repository.badge.BadgeLevelRuleRepository badgeLevelRuleRepository;
     private final ExpService expService;
     private final KarmaService karmaService;
+    private final com.habidue.app.service.ranking.RankingService rankingService;
     private final com.habidue.app.repository.board.CommentLikeRepository commentLikeRepository;
     private final NotificationService notificationService;
     private final StringRedisTemplate redisTemplate;
@@ -67,6 +68,11 @@ public class CommentService {
         Comment comment = Comment.builder().content(requestDto.getContent()).post(post).author(author).parent(parent).build();
         postRepository.incrementCommentCount(postId);
         Comment savedComment = commentRepository.save(comment);
+        
+        // [시니어 조치] 실시간 급상승 랭킹 점수 반영 (댓글 작성 +10점)
+        if (post.getNotice() != null) {
+            rankingService.increaseNoticeScore(post.getNotice().getId(), com.habidue.app.service.ranking.RankingService.SCORE_COMMENT);
+        }
         
         // 경험치 증여
         expService.grantExp(author.getId(), ExpReason.COMMENT_CREATED, "댓글 작성: " + savedComment.getId());

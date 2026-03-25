@@ -682,12 +682,23 @@ const submitReport = async () => {
   } catch (e) { alert(e.response?.data?.message || '신고 실패') }
 }
 
-// [시니어 조치] URL 쿼리 파라미터 감시 (같은 페이지 내 이동 대응)
-watch(() => route.query.t, () => {
-  if (route.query.commentId) {
-    scrollToComment(route.query.commentId)
+// [시니어 조치] URL 쿼리 파라미터 감시 (같은 페이지 내 이동 및 알림 클릭 대응)
+watch(() => route.query, (newQuery) => {
+  // 1. 특정 댓글/답글 포커싱 요청이 있는 경우
+  if (newQuery.commentId) {
+    console.log("[DEBUG] 알림 클릭 감지 (댓글):", newQuery.commentId);
+    scrollToComment(newQuery.commentId);
+  } 
+  // 2. 게시글 자체(좋아요 등)에 대한 알림인 경우
+  else if (newQuery.t && !newQuery.commentId) {
+    console.log("[DEBUG] 알림 클릭 감지 (게시글 본문)");
+    const noticeBar = document.querySelector('.system-notice-bar-soft');
+    if (noticeBar) {
+      const y = noticeBar.getBoundingClientRect().top + window.pageYOffset - 80;
+      window.scrollTo({ top: y, behavior: 'smooth' });
+    }
   }
-})
+}, { deep: true });
 
 // [시니어 조치] 특정 댓글로 스크롤 및 하이라이트 효과 (핀셋 확장 로직)
 const scrollToComment = (targetId) => {

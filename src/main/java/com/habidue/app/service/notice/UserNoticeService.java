@@ -32,6 +32,7 @@ public class UserNoticeService {
     private final NoticeRepository noticeRepository;
     private final UserActivityStatsRepository userActivityStatsRepository;
     private final BadgeService badgeService;
+    private final com.habidue.app.service.ranking.RankingService rankingService;
 
     private User getCurrentUser() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
@@ -60,7 +61,12 @@ public class UserNoticeService {
         } else {
             noticeRepository.incrementInterestCount(notice.getId(), 10);
             notice.setInterestCount((notice.getInterestCount() != null ? notice.getInterestCount() : 0) + 1);
-            if (notice.getInterestCount() >= 10) notice.setIsBoardActive(true);
+            
+            // [시니어 조치] 최초 10명 달성 시 소통방 해금 보너스 부여 (+100점)
+            if (notice.getInterestCount() >= 10 && Boolean.FALSE.equals(notice.getIsBoardActive())) {
+                notice.setIsBoardActive(true);
+                rankingService.increaseNoticeScore(notice.getId(), com.habidue.app.service.ranking.RankingService.SCORE_BOARD_UNLOCK);
+            }
             
             saved = userNoticeRepository.save(UserNotice.builder()
                     .user(currentUser).notice(notice)
@@ -73,18 +79,22 @@ public class UserNoticeService {
             stats.incrementNoticeInterestCount();
             userActivityStatsRepository.save(stats);
             badgeService.checkAndAwardBadges(stats);
+            
+            // [시니어 조치] 실시간 급상승 랭킹 점수 반영 (+10점)
+            rankingService.increaseNoticeScore(notice.getId(), 10.0);
         }
 
         return new UserNoticeResponseDto(saved);
     }
 
-    public Page<UserNotice> getMyUserNotices(Pageable pageable) {
+    public Page<UserNoticeResponseDto> getMyUserNotices(Pageable pageable) {
         User currentUser = getCurrentUser();
-        return userNoticeRepository.findByUserId(currentUser.getId(), pageable);
+        return userNoticeRepository.findByUserId(currentUser.getId(), pageable)
+                .map(UserNoticeResponseDto::new);
     }
 
     @Transactional
-    public UserNotice updateUserInfo(Long userNoticeId, String memo, String urls, java.time.LocalDateTime userDeadline) {
+    public UserNoticeResponseDto updateUserInfo(Long userNoticeId, String memo, String urls, java.time.LocalDateTime userDeadline) {
         User currentUser = getCurrentUser();
         UserNotice userNotice = userNoticeRepository.findById(userNoticeId)
                 .orElseThrow(() -> new NoSuchElementException("관심 공고를 찾을 수 없습니다."));
@@ -94,7 +104,8 @@ public class UserNoticeService {
         userNotice.setMemo(memo);
         userNotice.setReferenceUrls(urls);
         userNotice.setUserDeadline(userDeadline);
-        return userNoticeRepository.save(userNotice);
+        UserNotice saved = userNoticeRepository.save(userNotice);
+        return new UserNoticeResponseDto(saved);
     }
 
     @Transactional
@@ -107,6 +118,9 @@ public class UserNoticeService {
         
         noticeRepository.decrementInterestCount(userNoticeToDelete.getNotice().getId());
         userNoticeRepository.delete(userNoticeToDelete);
+        
+        // [시니어 조치] 실시간 급상승 랭킹 점수 차감 (-10점)
+        rankingService.increaseNoticeScore(userNoticeToDelete.getNotice().getId(), -10.0);
 
         userActivityStatsRepository.findById(currentUser.getId()).ifPresent(stats -> {
             stats.decrementNoticeInterestCount();
@@ -125,6 +139,9 @@ public class UserNoticeService {
         
         noticeRepository.decrementInterestCount(noticeId);
         userNoticeRepository.delete(userNotice);
+        
+        // [시니어 조치] 실시간 급상승 랭킹 점수 차감 (-10점)
+        rankingService.increaseNoticeScore(noticeId, -10.0);
 
         userActivityStatsRepository.findById(currentUser.getId()).ifPresent(stats -> {
             stats.decrementNoticeInterestCount();

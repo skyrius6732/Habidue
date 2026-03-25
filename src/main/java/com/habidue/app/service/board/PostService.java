@@ -57,6 +57,7 @@ public class PostService {
     private final ExpService expService;
     private final KarmaService karmaService;
     private final NotificationService notificationService;
+    private final com.habidue.app.service.ranking.RankingService rankingService;
     private final StringRedisTemplate redisTemplate;
 
     private static final String LIKE_NOTI_COOLDOWN_KEY = "like:noti:cooldown:";
@@ -77,7 +78,11 @@ public class PostService {
             tagRepository.findAllById(requestDto.getTagIds()).forEach(tag -> post.addPostTag(com.habidue.app.domain.board.PostTag.create(post, tag)));
         }
         Post savedPost = postRepository.save(post);
-        if (savedPost.getNotice() != null) savedPost.getNotice().setLastPostAt(LocalDateTime.now());
+        if (savedPost.getNotice() != null) {
+            savedPost.getNotice().setLastPostAt(LocalDateTime.now());
+            // [시니어 조치] 실시간 급상승 랭킹 점수 반영 (소통글 작성 +30점)
+            rankingService.increaseNoticeScore(savedPost.getNotice().getId(), com.habidue.app.service.ranking.RankingService.SCORE_POST);
+        }
         expService.grantExp(author.getId(), ExpReason.POST_CREATED, "게시글 작성: " + savedPost.getId());
         return PostResponseDto.from(savedPost);
     }

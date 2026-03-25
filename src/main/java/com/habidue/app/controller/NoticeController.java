@@ -97,10 +97,17 @@ public class NoticeController {
 
     @GetMapping("/{id}")
     @Secured("ROLE_USER")
-    public ResponseEntity<ApiResponse<NoticeResponseDto>> getNotice(@PathVariable Long id) {
-        Notice notice = noticeService.getNotice(id);
+    public ResponseEntity<ApiResponse<NoticeResponseDto>> getNotice(
+            @PathVariable Long id, 
+            @org.springframework.security.core.annotation.AuthenticationPrincipal com.habidue.app.config.oauth.UserPrincipal userPrincipal,
+            jakarta.servlet.http.HttpServletRequest request) {
+
+        // [시니어 조치] 사용자 식별자 생성 (로그인: ID, 비로그인: IP)
+        String identifier = userPrincipal != null ? "user:" + userPrincipal.getId() : "ip:" + request.getRemoteAddr();
+
+        Notice notice = noticeService.getNotice(id, identifier);
         List<com.habidue.app.domain.tag.NoticeTag> latestTags = noticeTagRepository.findAllByNoticeWithTag(notice);
-        
+
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
         User currentUser = userRepository.findByEmail(auth.getName()).orElse(null);
         List<String> userKeywordsList = null;
@@ -113,12 +120,13 @@ public class NoticeController {
 
         // [최적화] 상세 조회 시에도 엔티티 필드 사용
         NoticeResponseDto dto = new NoticeResponseDto(notice, latestTags, userKeywordsList);
-        
         if (currentUser != null) {
             dto.setFavorite(userNoticeRepository.existsByUserAndNotice(currentUser, notice));
         }
+
         return ApiResponse.success(dto);
     }
+
 
     @PostMapping
     @Secured("ROLE_USER")

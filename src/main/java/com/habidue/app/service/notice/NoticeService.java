@@ -35,6 +35,7 @@ public class NoticeService {
     private final com.habidue.app.repository.user.UserRepository userRepository;
     private final ApplicationEventPublisher eventPublisher;
     private final com.habidue.app.service.tag.TagService tagService;
+    private final com.habidue.app.service.ranking.RankingService rankingService;
 
     /**
      * [시니어 조치] 매일 새벽 3시, 7일간 활동이 없는 소통방을 휴면(읽기전용) 상태로 전환
@@ -81,9 +82,16 @@ public class NoticeService {
         return savedNotice;
     }
 
-    public Notice getNotice(Long id) {
-        return noticeRepository.findById(id)
+    public Notice getNotice(Long id, String identifier) {
+        Notice notice = noticeRepository.findById(id)
                 .orElseThrow(() -> new NoSuchElementException("공고를 찾을 수 없습니다. ID: " + id));
+        
+        // [시니어 조치] 실시간 급상승 랭킹 점수 반영 (조회수 어뷰징 방지: 1시간당 1회 인정)
+        if (identifier != null) {
+            rankingService.increaseNoticeViewScore(id, identifier);
+        }
+        
+        return notice;
     }
 
     public Page<Notice> getNotices(Pageable pageable) {
@@ -199,6 +207,9 @@ public class NoticeService {
                 notice.setLastPostAt(java.time.LocalDateTime.now());
             }
             noticeRepository.save(notice);
+
+            // [시니어 조치] 실시간 급상승 랭킹 보너스 부여 (깨우기 성공 +50점)
+            rankingService.increaseNoticeScore(notice.getId(), com.habidue.app.service.ranking.RankingService.SCORE_BOARD_REVIVE);
 
             // [시니어 조치] 깨우기 성공 후 관련 기록 초기화 (다음 휴면 시 다시 0부터 시작하도록)
             noticeWakeUpRepository.deleteAllByNoticeId(notice.getId());

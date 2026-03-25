@@ -25,10 +25,13 @@ public interface UserNoticeRepository extends JpaRepository<UserNotice, Long>, U
 
     @org.springframework.data.jpa.repository.Query("SELECT un FROM UserNotice un " +
            "JOIN FETCH un.notice n " +
-           "LEFT JOIN FETCH n.noticeTags nt " +
-           "LEFT JOIN FETCH nt.tag " +
            "WHERE un.user.id = :userId")
     Page<UserNotice> findByUserId(@org.springframework.data.repository.query.Param("userId") Long userId, Pageable pageable);
+
+    @org.springframework.data.jpa.repository.Query("SELECT un FROM UserNotice un " +
+           "JOIN FETCH un.notice n " +
+           "WHERE un.user = :user")
+    java.util.List<UserNotice> findAllByUserWithNotice(@org.springframework.data.repository.query.Param("user") User user);
 
     /**
      * 마감 기한이 하루 남은 관심 공고 목록을 조회함 (알림용)

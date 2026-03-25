@@ -74,7 +74,8 @@ public class NoticeAdminController {
 
     @PatchMapping("/notices/{id}/status")
     public ResponseEntity<ApiResponse<NoticeResponseDto>> updateNoticeStatus(@PathVariable Long id, @RequestParam NoticeStatus status) {
-        Notice notice = noticeService.getNotice(id);
+        // [시니어 조치] 관리자 작업이므로 실시간 랭킹 점수 합산에서 제외 (null 전달)
+        Notice notice = noticeService.getNotice(id, null);
         notice.setStatus(status);
         
         // [시니어 조치] 상태 변경 시 태그 재분류 및 알림 발송 (TagService 내부에서 이벤트 발행)

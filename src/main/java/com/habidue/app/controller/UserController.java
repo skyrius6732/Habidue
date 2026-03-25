@@ -18,6 +18,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.annotation.Secured;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
 import java.io.IOException;
@@ -113,11 +114,12 @@ public class UserController {
 
     @GetMapping("/me/export")
     @Secured("ROLE_USER")
+    @Transactional(readOnly = true)
     public ResponseEntity<byte[]> exportMyNotices() throws IOException {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
         User user = userRepository.findByEmail(auth.getName()).orElseThrow();
         
-        List<UserNotice> userNotices = userNoticeRepository.findAllByUser(user);
+        List<UserNotice> userNotices = userNoticeRepository.findAllByUserWithNotice(user);
         byte[] excelData = excelService.exportUserNoticesToExcel(userNotices);
         
         String displayName = user.getNickname() != null ? user.getNickname() : user.getUsername();
