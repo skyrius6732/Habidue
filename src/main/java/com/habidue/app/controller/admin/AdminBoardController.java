@@ -52,13 +52,20 @@ public class AdminBoardController {
     }
 
     /**
-     * 게시글 강제 수정
+     * 게시글 강제 수정 (카테고리 변경 포함)
      */
     @PatchMapping("/posts/{postId}")
     public ResponseEntity<ApiResponse<Void>> updatePost(
             @PathVariable Long postId,
             @RequestBody Map<String, String> body) {
-        adminBoardService.updatePost(postId, body.get("title"), body.get("content"));
+        adminBoardService.updatePost(
+            postId, 
+            body.get("title"), 
+            body.get("content"), 
+            body.get("type"), 
+            body.get("category"), 
+            body.get("subCategory")
+        );
         return ApiResponse.success(null);
     }
 

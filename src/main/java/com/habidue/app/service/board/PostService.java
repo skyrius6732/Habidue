@@ -66,43 +66,23 @@ public class PostService {
 
     /**
      * [시니어 조치] 사용자 규칙에 따른 정밀 경험치 사유 매핑 (Exact Match)
+     * category 필드에 저장된 소통 주제(Topic) 코드값을 기준으로 판별
      */
     private ExpReason determineExpReason(PostType type, String category) {
         if (category == null) return ExpReason.POST_CREATED;
 
-        // 1. 공고 소통방 (NOTICE) -> 전체 지식인 (+30)
+        // 1. 지식인 (+30) - 공고소통방 전체 또는 특정 정보 주제
         if (type == PostType.NOTICE) return ExpReason.KNOWLEDGE_SHARE;
-
-        // 2. 통합광장 (GENERAL) 분기
-        if (type == PostType.GENERAL) {
-            // 지식인 (+30): 서류현황, 기관별팁, 기관문의
-            if (java.util.List.of("STATUS", "INST_TIPS", "INQUIRY").contains(category)) {
-                return ExpReason.KNOWLEDGE_SHARE;
-            }
-            // 그 외 (동네소식, 장소추천, 동네번개, 자유수다) -> 열정파 (+10)
-            return ExpReason.POST_CREATED;
+        if (java.util.List.of("STATUS", "INST_TIPS", "INQUIRY", "SECRET", "DOCUMENT", "LOAN", "TIPS", "GENERAL_TIPS").contains(category)) {
+            return ExpReason.KNOWLEDGE_SHARE;
         }
 
-        // 3. 당첨후기 (REVIEW) 분기
-        if (type == PostType.REVIEW) {
-            // 지식인 (+30): 당첨비결, 서류팁, 자금계획, 일반팁
-            if (java.util.List.of("SECRET", "DOCUMENT", "LOAN", "TIPS").contains(category)) {
-                return ExpReason.KNOWLEDGE_SHARE;
-            }
-            // 리뷰왕 (+40): 내집마련기, 사전점검, 입주후기
-            if (java.util.List.of("SUCCESS_STORY", "MOVE_IN", "PARTNER_REVIEW").contains(category)) {
-                return ExpReason.PRODUCT_REVIEW;
-            }
-        }
-
-        // 4. 하비 파트너스 (PARTNER) -> 전체 리뷰왕 (+40)
-        // (단, 파트너스 내 자유수다(FREE)는 열정파로 처리)
-        if (type == PostType.PARTNER) {
-            if ("FREE".equals(category)) return ExpReason.POST_CREATED;
+        // 2. 리뷰왕 (+40) - 경험/후기 주제 및 파트너스 이용후기
+        if (java.util.List.of("SUCCESS_STORY", "MOVE_IN", "PARTNER_REVIEW", "PRE_CHECK", "POST_CHECK", "ESTIMATE", "CHECKLIST", "MOVING", "CLEANING", "INTERIOR").contains(category)) {
             return ExpReason.PRODUCT_REVIEW;
         }
 
-        // 기본값: 열정파 (+10)
+        // 3. 열정파 (+10) - 그 외 일상 주제 및 기본값
         return ExpReason.POST_CREATED;
     }
 
@@ -156,16 +136,21 @@ public class PostService {
     public PostResponseDto updatePost(Long postId, PostRequestDto requestDto, UserPrincipal currentUser) {
         Post post = postRepository.findById(postId).orElseThrow();
         if (!post.getAuthor().getId().equals(currentUser.getId())) throw new IllegalArgumentException("수정 권한 없음");
-        post.update(requestDto.getTitle(), requestDto.getContent(), requestDto.getCategory(), requestDto.getSubCategory(), requestDto.getRegionTag());
-        post.getImages().clear();
-        if (requestDto.getImageUrls() != null) {
-            for (int i = 0; i < requestDto.getImageUrls().size(); i++) {
-                post.getImages().add(com.habidue.app.domain.board.PostImage.builder().post(post).imageUrl(requestDto.getImageUrls().get(i)).sortOrder(i).build());
-            }
-        }
-        post.clearTags();
+
+        // [시니어 조치] 엔티티 시그니처 변경에 따른 호출부 보정 (타입 유지)
+        post.update(requestDto.getTitle(), requestDto.getContent(), post.getType(), requestDto.getCategory(), requestDto.getSubCategory(), requestDto.getRegionTag());
+
         if (requestDto.getTagIds() != null) {
-            tagRepository.findAllById(requestDto.getTagIds()).forEach(tag -> post.addPostTag(com.habidue.app.domain.board.PostTag.create(post, tag)));
+
+            if (requestDto.getImageUrls() != null) {
+                for (int i = 0; i < requestDto.getImageUrls().size(); i++) {
+                    post.getImages().add(com.habidue.app.domain.board.PostImage.builder().post(post).imageUrl(requestDto.getImageUrls().get(i)).sortOrder(i).build());
+                }
+            }
+            post.clearTags();
+            if (requestDto.getTagIds() != null) {
+                tagRepository.findAllById(requestDto.getTagIds()).forEach(tag -> post.addPostTag(com.habidue.app.domain.board.PostTag.create(post, tag)));
+            }
         }
         return PostResponseDto.from(postRepository.save(post));
     }
@@ -248,34 +233,38 @@ public class PostService {
             postRepository.decrementLikeCount(postId);
             stats.decrementPostLikeReceivedCount(); 
             
-            // [시니어 조치] 좋아요 취소 시 경험치 회수 추가
-            ExpReason baseReason = determineExpReason(post.getType(), post.getCategory());
-            ExpReason likeReason = (baseReason.getCategory() == ExpCategory.KNOWLEDGE) ? ExpReason.KNOWLEDGE_LIKE :
-                                   (baseReason.getCategory() == ExpCategory.REVIEW) ? ExpReason.REVIEW_LIKE : ExpReason.RECEIVED_LIKE;
-            expService.revokeExp(author.getId(), likeReason, "좋아요 취소: " + post.getId());
+            // [시니어 조치] 본인이 아닐 때만 경험치 회수 (대칭성 확보)
+            if (!author.getId().equals(user.getId())) {
+                ExpReason baseReason = determineExpReason(post.getType(), post.getCategory());
+                ExpReason likeReason = (baseReason.getCategory() == ExpCategory.KNOWLEDGE) ? ExpReason.KNOWLEDGE_LIKE :
+                                       (baseReason.getCategory() == ExpCategory.REVIEW) ? ExpReason.REVIEW_LIKE : ExpReason.RECEIVED_LIKE;
+                expService.revokeExp(author.getId(), likeReason, "좋아요 취소: " + post.getId());
+            }
             
             isNowLiked = false;
         } else {
             postLikeRepository.save(PostLike.builder().post(post).user(user).build());
             postRepository.incrementLikeCount(postId);
-            stats.incrementPostLikeReceivedCount(); // [복구]
+            stats.incrementPostLikeReceivedCount(); 
+            
+            // [시니어 조치] 본인이 아닐 때만 경험치 부여 (대칭성 확보)
+            if (!author.getId().equals(user.getId())) {
+                ExpReason baseReason = determineExpReason(post.getType(), post.getCategory());
+                ExpReason likeReason = (baseReason.getCategory() == ExpCategory.KNOWLEDGE) ? ExpReason.KNOWLEDGE_LIKE :
+                                       (baseReason.getCategory() == ExpCategory.REVIEW) ? ExpReason.REVIEW_LIKE : ExpReason.RECEIVED_LIKE;
+                expService.grantExp(author.getId(), likeReason, "좋아요 수신: " + post.getId());
+            }
+            
             isNowLiked = true;
         }
         userActivityStatsRepository.save(stats);
-        badgeService.checkAndAwardBadges(stats); // [복구]
+        badgeService.checkAndAwardBadges(stats); 
 
         if (!post.getAuthor().getId().equals(user.getId())) {
+            String postKey = "POST_ID: " + postId;
             if (isNowLiked) {
-                int gain = karmaService.restoreKarma(author.getId(), 1, "POST_ID: " + postId, null, 10, com.habidue.app.domain.user.KarmaReason.LIKE_RECEIVED);
+                int gain = karmaService.restoreKarma(author.getId(), 1, postKey, null, 10, com.habidue.app.domain.user.KarmaReason.LIKE_RECEIVED);
                 
-                // [시니어 조치] 게시글 성격에 따른 분야별 경험치(EXP) 부여
-                ExpReason likeReason = ExpReason.RECEIVED_LIKE; // 기본: 열정파
-                ExpReason baseReason = determineExpReason(post.getType(), post.getCategory());
-                if (baseReason.getCategory() == ExpCategory.KNOWLEDGE) likeReason = ExpReason.KNOWLEDGE_LIKE;
-                else if (baseReason.getCategory() == ExpCategory.REVIEW) likeReason = ExpReason.REVIEW_LIKE;
-                
-                expService.grantExp(author.getId(), likeReason, "좋아요 수신: " + post.getId());
-
                 String cooldownKey = LIKE_NOTI_COOLDOWN_KEY + user.getId() + ":POST:" + post.getId();
                 Boolean canSendNoti = redisTemplate.opsForValue().setIfAbsent(cooldownKey, "true", 1, TimeUnit.HOURS);
                 if (Boolean.TRUE.equals(canSendNoti)) {
@@ -284,7 +273,8 @@ public class PostService {
                     notificationService.send(author, NotificationType.SYSTEM, notiContent + ": \"" + post.getTitle() + "\"", post.getId(), post.getId());
                 }
             } else {
-                karmaService.revokeKarma(author.getId(), 1, "POST_ID: " + postId, com.habidue.app.domain.user.KarmaReason.LIKE_CANCELED);
+                // [시니어 조치] 취소 후 남은 좋아요 개수를 넘겨서 상한선 보존 로직 가동
+                karmaService.revokeKarma(author.getId(), 1, "POST_ID: " + postId, com.habidue.app.domain.user.KarmaReason.LIKE_CANCELED, post.getLikeCount(), 10);
             }
         }
         return isNowLiked;
@@ -311,92 +301,159 @@ public class PostService {
         dto.setAuthorBadges(badgeDtos);
     }
 
+    /**
+     * [시니어 조치] 게시글 삭제 또는 카테고리 변경 시 모든 활동 보상을 회수함
+     */
+    @Transactional
+    public void revokePostRewards(Post post) {
+        User author = post.getAuthor();
+        ExpReason postReason = determineExpReason(post.getType(), post.getCategory());
+        
+        // 1. 게시글 작성 경험치 회수
+        expService.revokeExp(author.getId(), postReason, "활동 취소(삭제/변경): " + post.getId());
+        
+        // 2. 사진 보너스 회수
+        if (post.getImages() != null && !post.getImages().isEmpty()) {
+            ExpReason photoReason = ExpReason.SINCERITY_PHOTO_BONUS;
+            if (postReason.getCategory() == ExpCategory.KNOWLEDGE) photoReason = ExpReason.KNOWLEDGE_PHOTO_BONUS;
+            else if (postReason.getCategory() == ExpCategory.REVIEW) photoReason = ExpReason.REVIEW_PHOTO_BONUS;
+            expService.revokeExp(author.getId(), photoReason, "활동 취소에 따른 사진 보너스 회수");
+        }
+
+        // 3. 좋아요 경험치 및 카르마 회수
+        // [시니어 조치] 부여할 때와 동일한 정밀 카테고리별 회수 적용
+        ExpReason likeReason = (postReason.getCategory() == ExpCategory.REVIEW) ? ExpReason.REVIEW_LIKE :
+                               (postReason.getCategory() == ExpCategory.KNOWLEDGE) ? ExpReason.KNOWLEDGE_LIKE : ExpReason.RECEIVED_LIKE;
+        
+        for (int i = 0; i < post.getLikeCount(); i++) {
+            expService.revokeExp(author.getId(), likeReason, "활동 취소에 따른 좋아요 경험치 회수");
+        }
+        if (post.getLikeCount() > 0) {
+            // 게시글 삭제 시 남은 좋아요는 0이 되므로 0, 10 전달하여 전액 회수 유도
+            karmaService.revokeKarma(author.getId(), post.getLikeCount(), "POST_ID: " + post.getId(), com.habidue.app.domain.user.KarmaReason.LIKE_CANCELED, 0, 10);
+        }
+    }
+
+    /**
+     * [시니어 조치] 게시글 작성 또는 카테고리 변경 시 활동 보상을 새로 부여함
+     */
+    @Transactional
+    public void grantPostRewards(Post post) {
+        User author = post.getAuthor();
+        ExpReason postReason = determineExpReason(post.getType(), post.getCategory());
+        
+        // 1. 게시글 작성 경험치 부여
+        expService.grantExp(author.getId(), postReason, "활동 등록(작성/변경): " + post.getId());
+        
+        // 2. 사진 보너스 부여
+        if (post.getImages() != null && !post.getImages().isEmpty()) {
+            ExpReason photoReason = ExpReason.SINCERITY_PHOTO_BONUS;
+            if (postReason.getCategory() == ExpCategory.KNOWLEDGE) photoReason = ExpReason.KNOWLEDGE_PHOTO_BONUS;
+            else if (postReason.getCategory() == ExpCategory.REVIEW) photoReason = ExpReason.REVIEW_PHOTO_BONUS;
+            expService.grantExp(author.getId(), photoReason, "활동 등록에 따른 사진 보너스");
+        }
+
+        // 3. 좋아요 경험치 및 카르마 부여 (카테고리 변경 시 기존 좋아요 수만큼 재부여)
+        // [시니어 조치] 리뷰 분야는 +10, 그 외는 +5 정확히 매핑
+        ExpReason likeReason = (postReason.getCategory() == ExpCategory.REVIEW) ? ExpReason.REVIEW_LIKE :
+                               (postReason.getCategory() == ExpCategory.KNOWLEDGE) ? ExpReason.KNOWLEDGE_LIKE : ExpReason.RECEIVED_LIKE;
+        
+        for (int i = 0; i < post.getLikeCount(); i++) {
+            expService.grantExp(author.getId(), likeReason, "활동 등록에 따른 좋아요 경험치 재계산");
+        }
+        
+        // [시니어 조치] 사용자 규칙 준수: 게시물당 최대 1.0P(10) 제한 적용
+        if (post.getLikeCount() > 0) {
+            karmaService.restoreKarma(author.getId(), post.getLikeCount(), "POST_ID: " + post.getId(), null, 10, com.habidue.app.domain.user.KarmaReason.LIKE_RECEIVED);
+        }
+    }
+
+    @Transactional
+    public void updatePostTypeAndCategory(Long postId, PostType newType, String newCategory, String newSubCategory) {
+        Post post = postRepository.findById(postId).orElseThrow();
+        User author = post.getAuthor();
+        
+        // 1. 기존 타입/카테고리 혜택 회수
+        revokePostRewards(post);
+        
+        // 2. 통계 보정 (Review 게시판 출입 시)
+        userActivityStatsRepository.findById(author.getId()).ifPresent(stats -> {
+            if (post.getType() == PostType.REVIEW) stats.decrementReviewPostCount();
+        });
+
+        // 3. 타입 및 카테고리 실제 업데이트
+        post.setType(newType);
+        post.setCategory(newCategory);
+        post.setSubCategory(newSubCategory);
+        
+        // 4. 새 타입/카테고리 혜택 부여
+        grantPostRewards(post);
+        
+        // 5. 통계 보정 완료
+        userActivityStatsRepository.findById(author.getId()).ifPresent(stats -> {
+            if (post.getType() == PostType.REVIEW) stats.incrementReviewPostCount();
+            userActivityStatsRepository.save(stats);
+        });
+        
+        postRepository.save(post);
+    }
+
     @Transactional
     public void deletePost(Long postId, UserPrincipal currentUser) {
         Post post = postRepository.findById(postId).orElseThrow();
         if (!post.getAuthor().getId().equals(currentUser.getId())) throw new IllegalArgumentException("삭제 권한 없음");
         
+        // 1. [방어] 이미 삭제된 게시글 중복 처리 방지
+        if (!"ACTIVE".equals(post.getStatus())) return;
+        
         User author = post.getAuthor();
-        UserActivityStats stats = userActivityStatsRepository.findById(author.getId()).orElse(null);
-
-        // 1. 활동 통계 차감
-        if (stats != null) {
+        
+        // 2. [정밀 정산] 실제 DB에 살아있는 댓글 개수 파악 (중복 차감 방지의 핵심)
+        long activeCommentCount = post.getComments().stream().filter(c -> "ACTIVE".equals(c.getStatus())).count();
+        
+        // 3. 활동 통계 원샷 차감 (루프 대신 직접 수치 차감으로 오차 제거)
+        userActivityStatsRepository.findById(author.getId()).ifPresent(stats -> {
             stats.decrementPostCount();
             if (post.getType() == PostType.REVIEW) stats.decrementReviewPostCount();
-            
-            // 게시글이 받았던 좋아요 수만큼 통계 차감
-            for (int i = 0; i < post.getLikeCount(); i++) {
-                stats.decrementPostLikeReceivedCount();
-            }
+            // 글 좋아요 차감
+            for (int i = 0; i < post.getLikeCount(); i++) stats.decrementPostLikeReceivedCount();
             userActivityStatsRepository.save(stats);
-        }
+        });
 
-        // 2. 경험치 및 카르마 회수 (게시글)
-        ExpReason postReason = determineExpReason(post.getType(), post.getCategory());
-        expService.revokeExp(author.getId(), postReason, "게시글 삭제: " + post.getId());
-        
-        // [시니어 조치] 사진 보너스 경험치 회수 추가 (-10점)
-        if (post.getImages() != null && !post.getImages().isEmpty()) {
-            ExpReason photoReason = ExpReason.SINCERITY_PHOTO_BONUS;
-            if (postReason.getCategory() == ExpCategory.KNOWLEDGE) photoReason = ExpReason.KNOWLEDGE_PHOTO_BONUS;
-            else if (postReason.getCategory() == ExpCategory.REVIEW) photoReason = ExpReason.REVIEW_PHOTO_BONUS;
-            expService.revokeExp(author.getId(), photoReason, "게시글 삭제에 따른 사진 보너스 회수");
-        }
+        // 4. 게시글 보상 회수
+        revokePostRewards(post);
 
-        // 좋아요 수신 경험치 회수
-        ExpReason likeReason = (postReason.getCategory() == ExpCategory.KNOWLEDGE) ? ExpReason.KNOWLEDGE_LIKE :
-                               (postReason.getCategory() == ExpCategory.REVIEW) ? ExpReason.REVIEW_LIKE : ExpReason.RECEIVED_LIKE;
-        for (int i = 0; i < post.getLikeCount(); i++) {
-            expService.revokeExp(author.getId(), likeReason, "게시글 삭제에 따른 좋아요 경험치 회수");
-        }
-
-        if (post.getLikeCount() > 0) {
-            karmaService.revokeKarma(author.getId(), post.getLikeCount(), "POST_ID: " + post.getId(), com.habidue.app.domain.user.KarmaReason.LIKE_CANCELED);
-        }
-
-        // 3. 댓글 관련 연쇄 회수
+        // 5. 하위 활동 연쇄 회수 (ACTIVE 상태인 것만 정밀 타격)
         if (post.getComments() != null) {
-            post.getComments().forEach(comment -> {
-                User cAuthor = comment.getAuthor();
-                userActivityStatsRepository.findById(cAuthor.getId()).ifPresent(cStats -> {
-                    cStats.decrementCommentCount();
+            post.getComments().stream()
+                .filter(c -> "ACTIVE".equals(c.getStatus()))
+                .forEach(comment -> {
+                    User cAuthor = comment.getAuthor();
+                    // 통계 차감
+                    userActivityStatsRepository.findById(cAuthor.getId()).ifPresent(cs -> {
+                        cs.decrementCommentCount();
+                        for (int i = 0; i < comment.getLikeCount(); i++) cs.decrementCommentLikeReceivedCount();
+                        userActivityStatsRepository.save(cs);
+                    });
+                    // EXP 및 카르마 회수 (이미 보완된 KarmaService 호출)
+                    expService.revokeExp(cAuthor.getId(), ExpReason.COMMENT_CREATED, "게시글 삭제 연쇄 회수");
                     for (int i = 0; i < comment.getLikeCount(); i++) {
-                        cStats.decrementCommentLikeReceivedCount();
+                        expService.revokeExp(cAuthor.getId(), ExpReason.RECEIVED_LIKE, "댓글 좋아요 회수");
                     }
-                    userActivityStatsRepository.save(cStats);
+                    // 카르마 정밀 회수 (게시글 삭제 시 남은 활동은 0이 되므로 0 전달)
+                    if (comment.getLikeCount() > 0) {
+                        karmaService.revokeKarma(cAuthor.getId(), comment.getLikeCount(), "POST_ID: " + post.getId(), com.habidue.app.domain.user.KarmaReason.LIKE_CANCELED, 0, 10);
+                    }
+                    comment.changeStatus("USER_DELETED");
                 });
-                
-                expService.revokeExp(cAuthor.getId(), ExpReason.COMMENT_CREATED, "게시글 삭제에 따른 댓글 자동 회수");
-                for (int i = 0; i < comment.getLikeCount(); i++) {
-                    expService.revokeExp(cAuthor.getId(), ExpReason.RECEIVED_LIKE, "게시글 삭제에 따른 댓글 좋아요 회수");
-                }
-                
-                if (comment.getLikeCount() > 0) {
-                    karmaService.revokeKarma(cAuthor.getId(), comment.getLikeCount(), "COMMENT_ID: " + comment.getId(), com.habidue.app.domain.user.KarmaReason.LIKE_CANCELED);
-                }
-            });
         }
 
-        // 4. 실시간 급상승 랭킹 차감
+        // 6. 상태 변경 및 정리
+        post.changeStatus("USER_DELETED");
+        post.getPostLikes().clear();
+        
         if (post.getNotice() != null) {
             rankingService.increaseNoticeScore(post.getNotice().getId(), -com.habidue.app.service.ranking.RankingService.SCORE_POST);
-            if (post.getCommentCount() > 0) {
-                rankingService.increaseNoticeScore(post.getNotice().getId(), -(com.habidue.app.service.ranking.RankingService.SCORE_COMMENT * post.getCommentCount()));
-            }
-        }
-
-        // [시니어 조치] Soft Delete 적용: 본체는 보존, 휘발성 연관 데이터는 정리
-        post.changeStatus("DELETED");
-        
-        // 좋아요와 태그는 물리 삭제 (DB 용량 및 정합성 관리)
-        post.getPostLikes().clear();
-        post.getTags().clear();
-
-        if (post.getComments() != null) {
-            post.getComments().forEach(c -> {
-                c.changeStatus("DELETED");
-                c.getCommentLikes().clear(); // 댓글 좋아요도 정리
-            });
         }
         postRepository.save(post);
     }

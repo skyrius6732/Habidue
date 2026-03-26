@@ -107,9 +107,10 @@ public class Post {
         this.tags.clear();
     }
 
-    public void update(String title, String content, String category, String subCategory, String regionTag) {
+    public void update(String title, String content, PostType type, String category, String subCategory, String regionTag) {
         this.title = title;
         this.content = content;
+        this.type = type;
         this.category = category;
         this.subCategory = subCategory;
         this.regionTag = regionTag;

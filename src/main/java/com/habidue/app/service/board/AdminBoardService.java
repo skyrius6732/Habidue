@@ -33,6 +33,7 @@ import java.util.stream.Collectors;
 public class AdminBoardService {
 
     private final PostRepository postRepository;
+    private final PostService postService;
     private final CommentRepository commentRepository;
     private final ReportRepository reportRepository;
     private final KarmaService karmaService;
@@ -72,9 +73,16 @@ public class AdminBoardService {
     }
 
     @Transactional
-    public void updatePost(Long postId, String title, String content) {
+    public void updatePost(Long postId, String title, String content, String type, String category, String subCategory) {
         Post post = postRepository.findById(postId).orElseThrow(() -> new NoSuchElementException("게시글을 찾을 수 없습니다."));
-        post.update(title, content, post.getCategory(), post.getSubCategory(), post.getRegionTag());
+        
+        // [시니어 조치] 게시판 타입 또는 카테고리 변경 감지
+        PostType newType = type != null ? PostType.valueOf(type) : post.getType();
+        if (newType != post.getType() || (category != null && !category.equals(post.getCategory()))) {
+            postService.updatePostTypeAndCategory(postId, newType, category, subCategory);
+        }
+        
+        post.update(title, content, newType, category, subCategory, post.getRegionTag());
     }
 
     @Transactional(readOnly = true)

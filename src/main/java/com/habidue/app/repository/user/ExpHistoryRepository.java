@@ -11,6 +11,8 @@ import java.util.List;
 
 public interface ExpHistoryRepository extends JpaRepository<ExpHistory, Long> {
 
+    List<ExpHistory> findByUserId(Long userId);
+
     // 특정 사용자의 기간 내 획득 경험치 총합
     @Query("SELECT COALESCE(SUM(e.acquiredExp), 0) FROM ExpHistory e WHERE e.user.id = :userId AND e.createdAt >= :startDate")
     long sumExpByUserIdAndCreatedAtAfter(@Param("userId") Long userId, @Param("startDate") LocalDateTime startDate);

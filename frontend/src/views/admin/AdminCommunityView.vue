@@ -229,8 +229,63 @@
           <div class="modal-content" @click.stop>
             <div class="modal-head"><h3>🛠️ {{ currentTab === 'posts' ? '게시글' : '댓글' }} 수정</h3><span class="modal-id-badge">ID: {{ editForm.id }}</span></div>
             <div class="modal-form-body">
-              <div v-if="currentTab === 'posts'" class="form-group"><label>게시글 제목</label><input v-model="editForm.title" class="form-input" /></div>
-              <div class="form-group"><label>내용</label><textarea v-model="editForm.content" class="form-textarea" rows="10"></textarea></div>
+              <!-- [시니어 조치] 정밀 4단계 계층형 수정 UI -->
+              <template v-if="currentTab === 'posts'">
+                <div class="form-row-multi">
+                  <!-- 1단계: 게시판 -->
+                  <div class="form-group quarter">
+                    <label>1. 게시판</label>
+                    <select v-model="editForm.type" class="form-select" :disabled="editForm.type === 'NOTICE'">
+                      <option v-if="editForm.type === 'NOTICE'" value="NOTICE">📢 공고소통방</option>
+                      <template v-else>
+                        <option value="GENERAL">🏛️ 통합광장</option>
+                        <option value="REVIEW">✨ 당첨후기</option>
+                        <option value="PARTNER">🤝 파트너스</option>
+                      </template>
+                    </select>
+                  </div>
+                  
+                  <!-- 2단계: 소메뉴 분류 -->
+                  <div v-if="ADMIN_4STEP_MAP[editForm.type]" class="form-group quarter">
+                    <label>2. 소메뉴</label>
+                    <select v-model="categoryGroup" class="form-select">
+                      <option v-for="group in ADMIN_4STEP_MAP[editForm.type].groups" :key="group.value" :value="group.value">
+                        {{ group.label }}
+                      </option>
+                    </select>
+                  </div>
+
+                  <!-- 3단계: 상세 대상 (지역/기관 등) -->
+                  <div v-if="ADMIN_4STEP_MAP[editForm.type]" class="form-group quarter">
+                    <label>3. 상세 대상</label>
+                    <select v-model="editForm.subCategory" class="form-select">
+                      <option v-for="target in ADMIN_4STEP_MAP[editForm.type].groups.find(g => g.value === categoryGroup)?.targets" :key="target.value" :value="target.value">
+                        {{ target.label }}
+                      </option>
+                    </select>
+                  </div>
+
+                  <!-- 4단계: 소통 주제 -->
+                  <div v-if="ADMIN_4STEP_MAP[editForm.type]" class="form-group quarter">
+                    <label>4. 소통 주제</label>
+                    <select v-model="editForm.category" class="form-select">
+                      <option v-for="topic in ADMIN_4STEP_MAP[editForm.type].groups.find(g => g.value === categoryGroup)?.topics" :key="topic.value" :value="topic.value">
+                        {{ topic.label }}
+                      </option>
+                    </select>
+                  </div>
+                </div>
+
+                <div class="form-group">
+                  <label>게시글 제목</label>
+                  <input v-model="editForm.title" class="form-input" />
+                </div>
+              </template>
+              
+              <div class="form-group">
+                <label>{{ currentTab === 'posts' ? '본문 내용' : '댓글 내용' }}</label>
+                <textarea v-model="editForm.content" class="form-textarea" rows="10"></textarea>
+              </div>
             </div>
             <div class="modal-actions-footer"><button @click="handleUpdate" class="btn-save">저장</button><button @click="isEditModalOpen = false" class="btn-cancel">닫기</button></div>
           </div>
@@ -295,6 +350,12 @@ const currentPage = computed(() => currentFilter.value.page)
 const totalPages = computed(() => currentFilter.value.totalPages)
 const filteredCount = computed(() => currentFilter.value.totalElements)
 const totalCount = ref(0)
+const isEditModalOpen = ref(false)
+const categoryGroup = ref('ALL')
+const editForm = ref({ id: null, title: '', content: '', type: '', category: '', subCategory: '' })
+const isReporterModalOpen = ref(false)
+const selectedReporters = ref([])
+const selectedTargetId = ref(null)
 const currentCountInfo = computed(() => `${filteredCount.value}건 / ${totalCount.value}건`)
 
 const getPlaceholder = computed(() => { if (currentTab.value === 'posts') return '제목, 내용 또는 닉네임...'; if (currentTab.value === 'comments') return '내용 또는 닉네임...'; return '신고 사유 검색...' })
@@ -439,12 +500,111 @@ const handlePermanentDelete = async (item) => {
   try { await axios.patch(`/api/admin/board/${type}/${item.id}/status`, { status: 'DELETED' }); alert('영구 삭제 처리되었습니다.'); fetchData() } catch (e) { alert('삭제 실패') }
 }
 
-const isEditModalOpen = ref(false); const editForm = ref({ id: null, title: '', content: '' })
-const openEditModal = (item) => { if (currentTab.value === 'posts') editForm.value = { id: item.id, title: item.title, content: item.content }; else editForm.value = { id: item.id, title: '', content: item.content }; isEditModalOpen.value = true }
+// [시니어 조치] 정밀 4단계 계층형 맵 (사용자 요청 100% 반영)
+const ADMIN_4STEP_MAP = {
+  GENERAL: {
+    name: '🏛️ 통합광장',
+    groups: [
+      { label: '🌐 전체', value: 'ALL', targets: [{ label: '전체', value: 'ALL' }], topics: [
+        { label: '☕ 자유수다', value: 'FREE' }, { label: '📢 정보공유', value: 'INFO' }
+      ]},
+      { label: '📍 지역별 소통', value: 'REGION', 
+        targets: [
+          { label: '서울', value: 'SEOUL' }, { label: '경기/인천', value: 'GYEONGGI_INCHEON' }, 
+          { label: '충청/강원/세종', value: 'CHUNG_GANG_SEJONG' }, { label: '경상/부산/대구', value: 'GYEONG_BU_DAE' }, 
+          { label: '전라/광주/제주', value: 'JEON_GWANG_JEJU' }
+        ], 
+        topics: [
+          { label: '📢 동네소식', value: 'LOCAL_NEWS' }, { label: '📍 장소추천', value: 'PLACE' }, { label: '🤝 동네번개', value: 'MEETUP' }
+        ]
+      },
+      { label: '🏢 기관별 소통', value: 'INSTITUTION', 
+        targets: [
+          { label: 'LH 소통', value: 'LH' }, { label: 'SH 소통', value: 'SH' }, { label: '민간임대 소통', value: 'PRIVATE' }
+        ], 
+        topics: [
+          { label: '📊 서류현황', value: 'STATUS' }, { label: '💡 기관별팁', value: 'INST_TIPS' }, { label: '📢 기관문의', value: 'INQUIRY' }
+        ]
+      }
+    ]
+  },
+  REVIEW: {
+    name: '✨ 당첨후기',
+    groups: [
+      { label: '🌐 전체', value: 'ALL', targets: [{ label: '전체', value: 'ALL' }], topics: [{ label: '☕ 자유수다', value: 'FREE' }]},
+      { label: '🏆 당첨자 인터뷰', value: 'INTERVIEW', targets: [{ label: '전체', value: 'ALL' }], 
+        topics: [{ label: '🏆 내집마련기', value: 'SUCCESS_STORY' }, { label: '🤫 당첨비결', value: 'SECRET' }]},
+      { label: '📝 서류/청약 팁', value: 'TIPS', targets: [{ label: '전체', value: 'ALL' }], 
+        topics: [{ label: '📝 서류팁', value: 'DOCUMENT' }, { label: '💰 자금계획', value: 'LOAN' }, { label: '💡 일반팁', value: 'GENERAL_TIPS' }]},
+      { label: '🏠 입주/사전점검', value: 'MOVE_IN', targets: [{ label: '전체', value: 'ALL' }], 
+        topics: [{ label: '🏠 사전점검', value: 'PRE_CHECK' }, { label: '🚚 입주후기', value: 'POST_CHECK' }]}
+    ]
+  },
+  PARTNER: {
+    name: '🤝 파트너스',
+    groups: [
+      { label: '🌐 전체', value: 'ALL', targets: [{ label: '전체', value: 'ALL' }], topics: [{ label: '☕ 자유수다', value: 'FREE' }]},
+      { label: '🚚 이사', value: 'MOVING', targets: [{ label: '전체', value: 'ALL' }], 
+        topics: [{ label: '🚚 이용후기', value: 'PARTNER_REVIEW' }, { label: '🚚 견적공유', value: 'ESTIMATE' }, { label: '🚚 체크리스트', value: 'CHECKLIST' }]},
+      { label: '🧼 청소', value: 'CLEANING', targets: [{ label: '전체', value: 'ALL' }], 
+        topics: [{ label: '🧼 이용후기', value: 'PARTNER_REVIEW' }, { label: '🧼 견적공유', value: 'ESTIMATE' }, { label: '🧼 체크리스트', value: 'CHECKLIST' }]},
+      { label: '🛋️ 인테리어', value: 'INTERIOR', targets: [{ label: '전체', value: 'ALL' }], 
+        topics: [{ label: '🛋️ 이용후기', value: 'PARTNER_REVIEW' }, { label: '🛋️ 견적공유', value: 'ESTIMATE' }, { label: '🛋️ 체크리스트', value: 'CHECKLIST' }]}
+    ]
+  }
+};
+
+// 계층형 선택 연동 로직
+watch(() => editForm.value.type, (newType) => {
+  if (isEditModalOpen.value && ADMIN_4STEP_MAP[newType]) {
+    categoryGroup.value = ADMIN_4STEP_MAP[newType].groups[0].value;
+  }
+});
+
+watch(categoryGroup, (newGroup) => {
+  if (isEditModalOpen.value && editForm.value.type && ADMIN_4STEP_MAP[editForm.value.type]) {
+    const group = ADMIN_4STEP_MAP[editForm.value.type].groups.find(g => g.value === newGroup);
+    if (group) {
+      // 2단계 선택 시 3, 4단계 기본값 세팅
+      editForm.value.subCategory = group.targets[0].value;
+      editForm.value.category = group.topics[0].value;
+    }
+  }
+});
+
+const openEditModal = (item) => { 
+  if (currentTab.value === 'posts') {
+    editForm.value = { 
+      id: item.id, title: item.title, content: item.content,
+      type: item.type, category: item.category || '', subCategory: item.subCategory || ''
+    };
+    // 현재 데이터로부터 categoryGroup 유추 (UI 동기화)
+    const board = ADMIN_4STEP_MAP[item.type];
+    if (board) {
+      for (const group of board.groups) {
+        if (group.topics.some(t => t.value === item.category)) {
+          categoryGroup.value = group.value;
+          break;
+        }
+      }
+    }
+  } else { 
+    editForm.value = { id: item.id, title: '', content: item.content, type: '', category: '', subCategory: '' }; 
+  } 
+  isEditModalOpen.value = true 
+}
+
 const handleUpdate = async () => {
   try {
-    const type = currentTab.value === 'posts' ? 'posts' : 'comments'; const payload = currentTab.value === 'posts' ? { title: editForm.value.title, content: editForm.value.content } : { content: editForm.value.content }
-    await axios.patch(`/api/admin/board/${type}/${editForm.value.id}`, payload); alert('수정되었습니다.'); fetchData(); isEditModalOpen.value = false
+    const type = currentTab.value === 'posts' ? 'posts' : 'comments'; 
+    const payload = currentTab.value === 'posts' ? { 
+      title: editForm.value.title, content: editForm.value.content,
+      type: editForm.value.type, category: editForm.value.category, subCategory: editForm.value.subCategory
+    } : { content: editForm.value.content }
+    
+    await axios.patch(`/api/admin/board/${type}/${editForm.value.id}`, payload); 
+    alert('수정되었습니다 (3단계 매핑 및 점수 재계산 완료).'); 
+    fetchData(); isEditModalOpen.value = false
   } catch (e) { alert('수정 실패') }
 }
 
@@ -454,7 +614,6 @@ const formatDate = (dateStr) => { if (!dateStr) return '-'; const date = new Dat
 const visiblePages = computed(() => { const range = []; const start = Math.max(1, currentFilter.value.page - 2); const end = Math.min(totalPages.value, start + 4); for (let i = Math.max(1, start); i <= end; i++) range.push(i); return range })
 
 watch(currentTab, () => { fetchData() })
-const isReporterModalOpen = ref(false); const selectedReporters = ref([]); const selectedTargetId = ref(null)
 const openReporterModal = (report) => { selectedReporters.value = report.reporters || []; selectedTargetId.value = report.targetId; isReporterModalOpen.value = true }
 const handleReporterKarmaChange = async (reporter) => {
   const points = prompt(`감점할 점수를 입력하세요 (예: -10):`, "-10"); if (!points || isNaN(points)) return
@@ -555,7 +714,20 @@ onMounted(() => { if (route.query.userId) postsState.value.userId = route.query.
 .modal-head h3 { margin: 0; font-size: 1.2rem; font-weight: 800; color: var(--text-primary); }
 .modal-form-body { flex: 1; min-height: 0; overflow-y: auto; padding: 20px 30px; }
 
-/* [시니어 조치] 수정 모달 내 폼 요소 스타일 명시적 복구 */
+/* [시니어 조치] 수정 모달 폼 고도화 스타일 */
+.form-row { display: flex; gap: 15px; margin-bottom: 5px; }
+.form-row-multi { display: flex; gap: 10px; margin-bottom: 5px; flex-wrap: wrap; }
+.form-group.half { flex: 1; }
+.form-group.quarter { flex: 1; min-width: 130px; }
+@media (max-width: 768px) { .form-group.quarter { min-width: 45%; } }
+@media (max-width: 480px) { .form-group.quarter { min-width: 100%; } }
+.form-select {
+  width: 100%; padding: 12px; border: 1.5px solid var(--border-color); 
+  border-radius: 10px; background: var(--header-bg); color: var(--text-primary); 
+  font-size: 0.9rem; font-weight: 700; outline: none; cursor: pointer;
+}
+.form-select:focus { border-color: var(--link-color); background: var(--card-bg); }
+
 .form-group { margin-bottom: 20px; display: flex; flex-direction: column; gap: 8px; }
 .form-group label { font-size: 0.85rem; font-weight: 800; color: var(--text-secondary); }
 .form-input, .form-textarea { 

@@ -45,16 +45,25 @@ public class KarmaService {
         User user = userRepository.findById(userId).orElseThrow();
         if (user.getKarmaPoint() >= 1000) return 0;
 
-        // [시니어] 해당 항목으로 이미 얻은 점수가 있는지 확인 (중복 획득 방지)
+        // [시니어 조치] 게시글 단위 상한선(Cap) 정밀 체크
+        // comment가 "POST_ID: 123" 형식이면 해당 게시글에서 발생한 모든 보상(좋아요 등)을 합산하여 체크함
         if (maxAllowedTotal != null && comment != null) {
-            int alreadyEarned = karmaHistoryRepository.getSumByUserIdAndComment(userId, comment);
-            if (alreadyEarned >= maxAllowedTotal) return 0;
+            // "COMMENT_ID: ..." 같은 개별 댓글 식별자를 "POST_ID: ..."로 정규화하여 게시글 전체 한도 적용
+            String groupKey = comment.startsWith("COMMENT_ID") ? extractPostKeyFromComment(comment) : comment;
+            int alreadyEarned = karmaHistoryRepository.getSumByUserIdAndComment(userId, groupKey != null ? groupKey : comment);
+            if (alreadyEarned >= maxAllowedTotal) {
+                log.info("Karma Cap Reached for {}: {}", groupKey, alreadyEarned);
+                return 0;
+            }
             points = Math.min(points, maxAllowedTotal - alreadyEarned);
         }
 
         LocalDateTime startOfDay = LocalDateTime.now().withHour(0).withMinute(0).withSecond(0).withNano(0);
         int dailyEarned = karmaHistoryRepository.getDailyEarnedPoints(userId, startOfDay);
-        if (dailyEarned >= DAILY_MAX_RECOVERY) return 0;
+        if (dailyEarned >= DAILY_MAX_RECOVERY) {
+            log.info("Daily Karma Cap Reached for user {}", userId);
+            return 0;
+        }
 
         int change = Math.min(Math.abs(points), DAILY_MAX_RECOVERY - dailyEarned);
         int newPoint = Math.min(1000, user.getKarmaPoint() + change);
@@ -71,19 +80,45 @@ public class KarmaService {
         return actualChange;
     }
 
+    private String extractPostKeyFromComment(String comment) {
+        if (comment == null) return null;
+        // "COMMENT_ID: 123 (POST_ID: 456)" 또는 "POST_ID: 456" 에서 "POST_ID: 456"만 추출
+        int startIndex = comment.indexOf("POST_ID:");
+        if (startIndex != -1) {
+            int endIndex = comment.indexOf(",", startIndex);
+            if (endIndex == -1) endIndex = comment.indexOf(")", startIndex);
+            if (endIndex == -1) endIndex = comment.length();
+            return comment.substring(startIndex, endIndex).trim();
+        }
+        return comment; 
+    }
+
     /**
      * [시니어 조치] 좋아요 취소 시 점수 회수
-     * 해당 항목(comment)으로 이전에 실제로 얻은 점수가 있을 때만 회수함
+     * 잔여 데이터가 상한선(max)을 여전히 충족한다면 점수를 회수하지 않는 '보존 로직' 적용
      */
     @Transactional
-    public int revokeKarma(Long userId, int points, String comment, KarmaReason reason) {
+    public int revokeKarma(Long userId, int points, String comment, KarmaReason reason, Integer currentTotalActiveCount, Integer maxAllowedTotal) {
         User user = userRepository.findById(userId).orElseThrow();
         
-        // [핵심] 이전에 해당 항목으로 획득한 점수의 총합 확인
+        // 1. 이전에 해당 항목으로 실제로 획득한 총 점수(Scaled) 확인
         int previouslyEarned = (comment != null) ? karmaHistoryRepository.getSumByUserIdAndComment(userId, comment) : 0;
-        if (previouslyEarned <= 0) return 0; // 얻은 점수가 없으므로 깎지 않음
+        if (previouslyEarned <= 0) return 0;
 
-        // 얻은 점수보다 더 많이 깎을 수는 없음
+        // 2. [시니어 조치] 잔여 기여도 기반 보존 로직
+        // 예: 17개 좋아요 중 10개 삭제 -> 7개 남음. 1.0P(10) 중 7개분(0.7P)은 남겨야 함.
+        if (currentTotalActiveCount != null) {
+            int maxPoints = (maxAllowedTotal != null) ? maxAllowedTotal : 10; // 기본 상한 1.0P
+            int shouldHavePoints = Math.min(currentTotalActiveCount, maxPoints); 
+            int needToRevoke = Math.max(0, previouslyEarned - shouldHavePoints);
+            
+            if (needToRevoke <= 0) {
+                log.info("잔여 활동({})이 충분하여 카르마를 보존합니다. (기존: {})", currentTotalActiveCount, previouslyEarned);
+                return 0;
+            }
+            points = needToRevoke;
+        }
+
         int pointsToRevoke = Math.min(Math.abs(points), previouslyEarned);
         int newPoint = Math.max(0, user.getKarmaPoint() - pointsToRevoke);
         int actualChange = user.getKarmaPoint() - newPoint;
@@ -93,6 +128,12 @@ public class KarmaService {
         user.setKarmaPoint(newPoint);
         karmaHistoryRepository.save(KarmaHistory.builder().user(user).reason(reason).pointChange(-actualChange).resultingPoint(newPoint).comment(comment).build());
         return actualChange;
+    }
+
+    // 기존 하위 호환성을 위한 오버로딩
+    @Transactional
+    public int revokeKarma(Long userId, int points, String comment, KarmaReason reason) {
+        return revokeKarma(userId, points, comment, reason, null, null);
     }
 
     @Transactional

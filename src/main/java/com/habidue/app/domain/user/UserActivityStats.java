@@ -8,11 +8,11 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 /**
- * 유저 활동 통계 엔티티 - 배지 부여 및 활동 지표 가시화의 기초 데이터
+ * 유저 활동 통계 엔티티 - 배지 부여 및 활동 리포트용
  */
 @Entity
 @Getter
-@Setter
+@Setter // [복구] AttendanceService 등에서 필드 수정을 위해 필요
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @AllArgsConstructor
 @Builder
@@ -22,70 +22,80 @@ public class UserActivityStats {
     @Id
     private Long userId;
 
-    @OneToOne(fetch = FetchType.LAZY)
     @MapsId
+    @OneToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id")
     private User user;
 
     @Builder.Default
-    private int totalPostCount = 0; // 총 게시글 수
+    private int totalPostCount = 0;
 
     @Builder.Default
-    private int totalCommentCount = 0; // 총 댓글 수
+    private int totalCommentCount = 0;
 
     @Builder.Default
-    private int postLikeReceivedCount = 0; // [시니어 조치] 받은 게시글 좋아요 수
+    private int postLikeReceivedCount = 0;
 
     @Builder.Default
-    private int commentLikeReceivedCount = 0; // [시니어 조치] 받은 댓글 좋아요 수
+    private int commentLikeReceivedCount = 0;
 
     @Builder.Default
-    private int totalViewReceivedCount = 0; // 받은 총 조회수
+    private int totalViewReceivedCount = 0;
 
     @Builder.Default
-    private int totalNoticeInterestCount = 0; // 관심 공고 설정 수
+    private int totalNoticeInterestCount = 0;
 
     @Builder.Default
-    private int consecutiveAttendanceDays = 0; // 연속 출석 일수
+    private int consecutiveAttendanceDays = 0;
 
     @Builder.Default
-    private int totalAttendanceCount = 0; // [시니어 조치] 총 누적 출석 일수
-
-    private LocalDate lastAttendanceDate; // 마지막 출석일
+    private int totalAttendanceCount = 0;
 
     @Builder.Default
-    private int reviewPostCount = 0; // 후기 게시판 작성 수
+    private int reviewPostCount = 0;
+
+    // [복구] 출석 체크 로직에 필수적인 필드
+    private LocalDate lastAttendanceDate;
 
     @UpdateTimestamp
     private LocalDateTime updatedAt;
 
-    /**
-     * 통계 업데이트 편의 메서드들
-     */
+    // --- 비즈니스 로직 (증감 및 안전장치) ---
+
     public void incrementPostCount() { this.totalPostCount++; }
     public void decrementPostCount() { this.totalPostCount = Math.max(0, this.totalPostCount - 1); }
-    
+
     public void incrementCommentCount() { this.totalCommentCount++; }
     public void decrementCommentCount() { this.totalCommentCount = Math.max(0, this.totalCommentCount - 1); }
-    
+
     public void incrementPostLikeReceivedCount() { this.postLikeReceivedCount++; }
     public void decrementPostLikeReceivedCount() { this.postLikeReceivedCount = Math.max(0, this.postLikeReceivedCount - 1); }
 
     public void incrementCommentLikeReceivedCount() { this.commentLikeReceivedCount++; }
     public void decrementCommentLikeReceivedCount() { this.commentLikeReceivedCount = Math.max(0, this.commentLikeReceivedCount - 1); }
-    
+
+    // [수정] 인자 없는 버전과 있는 버전 모두 지원하여 PostService 오류 해결
     public void incrementViewReceivedCount() { this.totalViewReceivedCount++; }
-    
-    public void incrementAttendanceCount() { this.totalAttendanceCount++; }
-    
+    public void incrementViewReceivedCount(int count) { this.totalViewReceivedCount += count; }
+    public void decrementViewReceivedCount(int count) { this.totalViewReceivedCount = Math.max(0, this.totalViewReceivedCount - count); }
+
     public void incrementNoticeInterestCount() { this.totalNoticeInterestCount++; }
     public void decrementNoticeInterestCount() { this.totalNoticeInterestCount = Math.max(0, this.totalNoticeInterestCount - 1); }
-    
+
+    // [복구] AttendanceService에서 사용
+    public void incrementAttendanceCount() { this.totalAttendanceCount++; }
+
+    public void updateAttendance(int consecutiveDays, int totalCount) {
+        this.consecutiveAttendanceDays = consecutiveDays;
+        this.totalAttendanceCount = totalCount;
+    }
+
     public void incrementReviewPostCount() { this.reviewPostCount++; }
     public void decrementReviewPostCount() { this.reviewPostCount = Math.max(0, this.reviewPostCount - 1); }
 
     public static UserActivityStats createEmpty(User user) {
         return UserActivityStats.builder()
+                .userId(user.getId())
                 .user(user)
                 .build();
     }

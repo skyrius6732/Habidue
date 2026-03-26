@@ -87,7 +87,9 @@ public class ExpService {
         expHistoryRepository.save(history);
 
         // 2. 유저 누적 경험치 차감 (최소 0 유지)
-        user.setTotalExp(Math.max(0, user.getTotalExp() - expToRevoke));
+        long oldExp = user.getTotalExp();
+        user.setTotalExp(Math.max(0, oldExp - expToRevoke));
+        log.info("EXP 회수 처리: UserID {}, {} -> {}", userId, oldExp, user.getTotalExp());
 
         // 3. 레벨 재계산 (레벨 다운 가능)
         int oldLevel = user.getLevel();

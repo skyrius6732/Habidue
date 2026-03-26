@@ -127,6 +127,11 @@ const router = createRouter({
           component: () => import('../views/admin/AdminCommunityView.vue')
         },
         {
+          path: 'simulation',
+          name: 'adminSimulation',
+          component: () => import('../views/admin/AdminSimulationView.vue')
+        },
+        {
           path: 'tags',
           name: 'adminTags',
           component: () => import('../views/admin/AdminTagView.vue')
