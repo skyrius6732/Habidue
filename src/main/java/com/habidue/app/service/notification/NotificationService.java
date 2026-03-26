@@ -145,6 +145,11 @@ public class NotificationService { // [시니어 조치] 클래스 레벨 @Trans
     }
 
     @Transactional(readOnly = true)
+    public List<Notification> getNotificationsByUserId(Long userId, org.springframework.data.domain.Pageable pageable) {
+        return notificationRepository.findAllByUserId(userId, pageable).getContent();
+    }
+
+    @Transactional(readOnly = true)
     public List<Notification> getNotificationsByUserId(Long userId) {
         return notificationRepository.findAllByUserIdOrderByCreatedAtDesc(userId);
     }

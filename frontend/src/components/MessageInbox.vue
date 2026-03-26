@@ -1,11 +1,13 @@
 <script setup>
 import { onMounted, onUnmounted, ref, watch, nextTick, computed } from 'vue'
+import { useRoute } from 'vue-router'
 import axios from '@/plugins/axios'
 import { useMessageStore } from '@/stores/message'
 import { useAuthStore } from '@/stores/auth'
 import { format, isToday, isSameDay } from 'date-fns'
 import { ko } from 'date-fns/locale'
 
+const route = useRoute()
 const messageStore = useMessageStore()
 const authStore = useAuthStore()
 
@@ -28,8 +30,9 @@ let activeStatusInterval = null
 const editingMessage = ref(null)
 
 const currentMobileView = ref('LIST')
-onMounted(async () => {
-  // [시니어 조치] 쪽지함 진입 시 사용자 프로필, 대화 목록 및 발송 상태 최신화
+
+// [시니어 조치] 데이터 로드 로직 통합
+const loadInitialData = async () => {
   try {
     await Promise.all([
       authStore.fetchUserProfile(),
@@ -39,6 +42,17 @@ onMounted(async () => {
   } catch (e) {
     console.error('초기 데이터 로드 실패', e);
   }
+}
+
+// [시니어 조치] 라우트 쿼리(타임스탬프 등) 변화 감시하여 즉시 새로고침
+watch(() => route.query, (newQuery) => {
+  if (newQuery.tab === 'messages') {
+    messageStore.fetchMessageRooms()
+  }
+}, { deep: true })
+
+onMounted(async () => {
+  await loadInitialData()
   
   activeStatusInterval = setInterval(async () => {
     try {
@@ -53,11 +67,16 @@ onUnmounted(() => {
 
 const getPartnerId = (room) => {
   if (!room) return null
-  if (room.isSystem && !room.sender && !room.receiverId) return null
   const myId = String(authStore.user?.id)
-  const senderId = room.sender ? String(room.sender.id) : null
-  if (senderId === myId) return room.receiverId
-  return room.sender?.id || room.receiverId
+  
+  // [시니어 조치] 시스템 메시지여도 sender나 receiverId 정보가 있으면 이를 파트너 ID로 활용하여 기존 방 유지
+  const senderId = room.sender ? String(room.sender.id) : (room.senderId ? String(room.senderId) : null)
+  const receiverId = room.receiver ? String(room.receiver.id) : (room.receiverId ? String(room.receiverId) : null)
+
+  if (senderId && senderId !== myId) return senderId
+  if (receiverId && receiverId !== myId) return receiverId
+  
+  return null
 }
 
 const selectRoom = async (room) => {
@@ -75,6 +94,7 @@ const selectRoom = async (room) => {
     scrollToBottom()
     await messageStore.fetchMessageRooms()
   } else {
+    // 파트너 ID가 없는 순수 시스템 공지방인 경우
     conversationList.value = [room]
     currentMobileView.value = 'CHAT'
     if (!room.isRead) {
@@ -169,12 +189,14 @@ const scrollToBottom = () => {
 }
 
 const handleFileChange = (e) => {
-  const files = Array.from(e.target.files)
-  if (replyFiles.value.length + files.length > 5) {
-    alert('파일은 최대 5개까지만 첨부할 수 있습니다.')
+  const { files } = e.target
+  if (!files) return
+  const newFiles = Array.from(files)
+  if (replyFiles.value.length + newFiles.length > 6) {
+    alert('파일은 최대 6개까지만 첨부할 수 있습니다.')
     return
   }
-  replyFiles.value = [...replyFiles.value, ...files]
+  replyFiles.value = [...replyFiles.value, ...newFiles]
 }
 
 const removeFile = (idx) => { replyFiles.value.splice(idx, 1) }
@@ -451,12 +473,12 @@ const vClickOutside = {
               <div class="system-guide-bubble" 
                    :class="[getSystemMessageClass(msg.content), { 'clickable': msg.relatedTargetId }]"
                    @click="scrollToMessage(msg.relatedTargetId)">
-                <p>{{ msg.content }}</p>
+                <p class="pre-wrap">{{ msg.content }}</p>
                 <small v-if="msg.relatedTargetId" class="click-info-text">클릭하여 해당 메시지 보기</small>
               </div>
             </div>
 
-            <div v-else-if="msg.isDeleted" class="deleted-msg-row">
+            <div v-else-if="msg.isDeleted && !msg.isReported" class="deleted-msg-row">
               <div class="deleted-bubble">메시지가 삭제 되었습니다.</div>
             </div>
 
@@ -646,7 +668,8 @@ const vClickOutside = {
 .system-guide-bubble { max-width: 85%; background: var(--bg-primary); border: 1px dashed var(--border-color); padding: 15px; border-radius: 15px; margin: 0 auto 20px; transition: all 0.3s; position: relative; }
 .system-guide-bubble.clickable { cursor: pointer; border-style: solid; border-color: #a855f7; }
 .system-guide-bubble.clickable:hover { background: var(--hover-bg); transform: translateY(-2px); }
-.system-guide-bubble p { font-size: 0.8rem; color: var(--text-secondary); line-height: 1.6; margin: 0; white-space: pre-wrap; text-align: center; }
+.system-guide-bubble p { font-size: 0.8rem; color: var(--text-secondary); line-height: 1.6; margin: 0; text-align: center; }
+.pre-wrap { white-space: pre-wrap !important; word-break: break-all; }
 
 /* [시니어 조치] 시스템 메시지 유형별 색상 적용 */
 .system-guide-bubble.is-caution { border-color: #ef4444; background: rgba(239, 68, 68, 0.05); }
@@ -701,6 +724,36 @@ const vClickOutside = {
 .edit-text-preview { font-size: 0.8rem; color: var(--text-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin: 0; }
 .cancel-edit-btn { background: none; border: none; font-size: 1rem; color: var(--text-muted); cursor: pointer; padding: 5px; display: flex; align-items: center; justify-content: center; }
 .cancel-edit-btn:hover { color: #ef4444; }
+
+/* 파일 첨부 미리보기 스타일 */
+.f-previews { 
+  display: flex; 
+  flex-wrap: wrap; /* PC에서 2행 이상으로 배치되도록 설정 */
+  gap: 8px; 
+  padding: 10px 15px; 
+  background: var(--bg-primary); 
+  border: 1px solid var(--border-color); 
+  border-bottom: none; 
+  border-radius: 12px 12px 0 0; 
+  max-height: 120px; /* 너무 커지지 않도록 최대 높이 설정 */
+  overflow-y: auto; /* 내용이 많으면 세로 스크롤 발생 */
+  overflow-x: hidden; 
+}
+
+/* 스크롤바 가시화 (가려져 있던 스크롤바를 보이게 설정) */
+.f-previews::-webkit-scrollbar { 
+  width: 6px; 
+  height: 6px; 
+  display: block; /* 가려져 있던 스크롤바를 강제로 노출 */
+}
+.f-previews::-webkit-scrollbar-track { background: var(--hover-bg); border-radius: 10px; }
+.f-previews::-webkit-scrollbar-thumb { background: rgba(168, 85, 247, 0.3); border-radius: 10px; }
+.f-previews::-webkit-scrollbar-thumb:hover { background: rgba(168, 85, 247, 0.5); }
+
+.f-chip { display: inline-flex; align-items: center; gap: 6px; background: var(--hover-bg); border: 1px solid var(--border-color); padding: 4px 10px; border-radius: 20px; flex-shrink: 0; }
+.f-name { font-size: 0.7rem; font-weight: 700; color: var(--text-primary); max-width: 120px; overflow: hidden; text-overflow: ellipsis; }
+.f-remove { background: none; border: none; font-size: 1.1rem; color: var(--text-muted); cursor: pointer; padding: 0; line-height: 1; display: flex; align-items: center; }
+.f-remove:hover { color: #ef4444; }
 
 .input-container { padding: 15px 20px; border-top: 1px solid var(--border-color); }
 .input-info-bar { display: flex; justify-content: space-between; align-items: center; font-size: 0.75rem; color: var(--text-secondary); margin-bottom: 12px; padding: 0 5px; }

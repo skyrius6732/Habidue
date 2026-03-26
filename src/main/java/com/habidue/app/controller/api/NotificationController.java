@@ -13,6 +13,9 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.web.PageableDefault;
 
 import java.util.List;
 import java.util.stream.Collectors;
@@ -44,21 +47,21 @@ public class NotificationController {
     }
 
     /**
-     * 내 알림 목록 조회 (캐시 방지를 위해 매번 최신화)
+     * 내 알림 목록 조회 (페이징 지원)
      */
     @GetMapping
     public ResponseEntity<ApiResponse<List<NotificationResponseDto>>> getNotifications(
-            @AuthenticationPrincipal UserPrincipal userPrincipal) {
+            @AuthenticationPrincipal UserPrincipal userPrincipal,
+            @PageableDefault(size = 20, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable) {
         if (userPrincipal == null) return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
-        
-        List<NotificationResponseDto> list = notificationService.getNotificationsByUserId(userPrincipal.getId())
+
+        List<NotificationResponseDto> list = notificationService.getNotificationsByUserId(userPrincipal.getId(), pageable)
                 .stream()
                 .map(NotificationResponseDto::from)
                 .collect(Collectors.toList());
-                
+
         return ApiResponse.success(list);
     }
-
     @GetMapping("/unread-count")
     public ResponseEntity<ApiResponse<Long>> getUnreadCount(
             @AuthenticationPrincipal UserPrincipal userPrincipal) {

@@ -115,6 +115,16 @@ const handleNotiClick = async (noti) => {
 }
 const timeAgo = (date) => formatDistanceToNow(new Date(date), { addSuffix: true, locale: ko })
 
+const handleNotiScroll = (e) => {
+  const { scrollTop, scrollHeight, clientHeight } = e.target
+  // 바닥에서 10px 정도 여유를 두고 감지
+  if (scrollTop + clientHeight >= scrollHeight - 10) {
+    if (notificationStore.hasMore && !notificationStore.isLoadingMore) {
+      notificationStore.fetchNotifications(false)
+    }
+  }
+}
+
 const isFullMenuVisible = computed(() => authStore.isAuthenticated && !['home', 'withdrawalSuccess', 'blocked'].includes(route.name))
 const isLoginButtonVisible = computed(() => !authStore.isAuthenticated && !['home', 'withdrawalSuccess', 'blocked'].includes(route.name))
 
@@ -129,8 +139,13 @@ const vClickOutside = {
   unmounted(el) { document.removeEventListener("click", el.clickOutsideEvent) },
 }
 
+const isMobile = ref(false)
+const updateIsMobile = () => { isMobile.value = window.innerWidth <= 768 }
+
 onMounted(() => {
   applyTheme()
+  updateIsMobile()
+  window.addEventListener('resize', updateIsMobile)
   window.addEventListener('scroll', handleScroll)
   if (authStore.isAuthenticated) {
     notificationStore.initialize((noti) => triggerToast(noti))
@@ -147,6 +162,7 @@ watch(() => authStore.isAuthenticated, (val) => {
 })
 
 onUnmounted(() => {
+  window.removeEventListener('resize', updateIsMobile)
   window.removeEventListener('scroll', handleScroll)
   notificationStore.disconnectSse()
   notificationStore.stopPolling()
@@ -172,7 +188,7 @@ onUnmounted(() => {
             <RouterLink to="/about">HabiDue 소개</RouterLink>
             <RouterLink v-if="authStore.isAdmin" to="/admin" class="admin-link-highlight">관리자 페이지</RouterLink>
           </div>
-          <div class="header-noti-container" v-click-outside="() => isNotiOpen = false">
+          <div v-if="!isMobile" class="header-noti-container" v-click-outside="() => isNotiOpen = false">
             <button class="header-icon-btn noti-btn" @click="toggleNoti">
               <span class="noti-icon">🔔</span>
               <span v-if="notificationStore.unreadCount > 0" class="unread-badge">{{ notificationStore.unreadCount > 99 ? '99+' : notificationStore.unreadCount }}</span>
@@ -180,12 +196,16 @@ onUnmounted(() => {
             <Transition name="fade-down">
               <div v-if="isNotiOpen" class="noti-dropdown">
                 <div class="noti-header"><span class="noti-title">알림</span><button v-if="notificationStore.notifications.some(n => !n.isRead)" class="all-read-btn" @click="notificationStore.markAllAsRead">모두 읽음</button></div>
-                <div class="noti-list thin-scrollbar">
+                <div class="noti-list thin-scrollbar" @scroll="handleNotiScroll">
                   <div v-if="notificationStore.notifications.length === 0" class="empty-noti">새로운 알림이 없습니다.</div>
                   <div v-for="noti in notificationStore.notifications" :key="noti.id" class="noti-item" :class="{ 'is-unread': !noti.isRead }" @click="handleNotiClick(noti)">
                     <span class="noti-type-icon">{{ noti.icon }}</span>
                     <div class="noti-body"><p class="noti-content">{{ noti.content }}</p><span class="noti-time">{{ timeAgo(noti.createdAt) }}</span></div>
                     <span v-if="!noti.isRead" class="unread-dot"></span>
+                  </div>
+                  <!-- 로딩 인디케이터 (무한 스크롤용) -->
+                  <div v-if="notificationStore.isLoadingMore" class="noti-more-container">
+                    <span class="loading-spinner-small"></span>
                   </div>
                 </div>
               </div>
@@ -195,7 +215,33 @@ onUnmounted(() => {
         </div>
         <button v-else-if="isLoginButtonVisible" @click="goToLogin" class="pc-action-btn login">로그인</button>
       </nav>
-      <div v-if="!isFullMenuVisible" class="header-right-group mobile-only-flex"><button @click="toggleTheme" class="theme-toggle-btn">{{ isDarkMode ? '☀️' : '🌙' }}</button></div>
+
+      <!-- [시니어 조치] 모바일 전용 우측 그룹 (알림만 노출) -->
+      <div class="header-right-group mobile-only-flex">
+        <div v-if="isFullMenuVisible && isMobile" class="header-noti-container" v-click-outside="() => isNotiOpen = false">
+          <button class="header-icon-btn noti-btn" @click="toggleNoti">
+            <span class="noti-icon">🔔</span>
+            <span v-if="notificationStore.unreadCount > 0" class="unread-badge">{{ notificationStore.unreadCount > 99 ? '99+' : notificationStore.unreadCount }}</span>
+          </button>
+          <Transition name="fade-down">
+            <div v-if="isNotiOpen" class="noti-dropdown">
+              <div class="noti-header"><span class="noti-title">알림</span><button v-if="notificationStore.notifications.some(n => !n.isRead)" class="all-read-btn" @click="notificationStore.markAllAsRead">모두 읽음</button></div>
+              <div class="noti-list thin-scrollbar" @scroll="handleNotiScroll">
+                <div v-if="notificationStore.notifications.length === 0" class="empty-noti">새로운 알림이 없습니다.</div>
+                <div v-for="noti in notificationStore.notifications" :key="noti.id" class="noti-item" :class="{ 'is-unread': !noti.isRead }" @click="handleNotiClick(noti)">
+                  <span class="noti-type-icon">{{ noti.icon }}</span>
+                  <div class="noti-body"><p class="noti-content">{{ noti.content }}</p><span class="noti-time">{{ timeAgo(noti.createdAt) }}</span></div>
+                  <span v-if="!noti.isRead" class="unread-dot"></span>
+                </div>
+                <!-- 로딩 인디케이터 (무한 스크롤용) -->
+                <div v-if="notificationStore.isLoadingMore" class="noti-more-container">
+                  <span class="loading-spinner-small"></span>
+                </div>
+              </div>
+            </div>
+          </Transition>
+        </div>
+      </div>
     </div>
   </header>
 
@@ -349,6 +395,11 @@ body { margin: 0; padding: 0; display: block !important; background-color: var(-
 .noti-item:last-child { border-bottom: none; }
 .noti-item:hover { background: var(--hover-bg); }
 .noti-item.is-unread { background: rgba(0, 149, 246, 0.03); }
+.noti-more-container { padding: 10px; text-align: center; border-top: 1px solid var(--divider-color); }
+.noti-more-btn { background: none; border: none; color: var(--link-color); font-size: 0.75rem; font-weight: 700; cursor: pointer; width: 100%; padding: 5px; transition: opacity 0.2s; }
+.noti-more-btn:disabled { opacity: 0.5; cursor: default; }
+.loading-spinner-small { display: inline-block; width: 12px; height: 12px; border: 2px solid rgba(0, 149, 246, 0.2); border-radius: 50%; border-top-color: var(--link-color); animation: spin 0.8s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
 .noti-type-icon { font-size: 1.1rem; flex-shrink: 0; }
 .noti-body { flex: 1; min-width: 0; }
 .noti-content { font-size: 0.8rem; color: var(--text-primary); margin: 0 0 3px; line-height: 1.4; }
@@ -397,9 +448,20 @@ body { margin: 0; padding: 0; display: block !important; background-color: var(-
 .fade-enter-active, .fade-leave-active { transition: opacity 0.4s ease; }
 .fade-enter-from, .fade-leave-to { opacity: 0; }
 
+.header-right-group { display: none; }
+
 @media (max-width: 768px) {
-  .hamburger-btn { display: flex; }
-  .header-left-group { position: absolute; left: 50%; transform: translateX(-50%); }
+  .hamburger-btn { display: flex; z-index: 101; }
+  .header-left-group { position: absolute; left: 50%; transform: translateX(-50%); z-index: 100; }
+  .header-right-group.mobile-only-flex { display: flex; align-items: center; gap: 8px; z-index: 101; margin-left: auto; }
   .desktop-only { display: none !important; }
+  .noti-dropdown { right: -10px; width: 260px; max-width: 85vw; border-radius: 16px; }
+  .noti-header { padding: 10px 12px; }
+  .noti-title { font-size: 0.8rem; }
+  .noti-item { padding: 10px 12px; gap: 8px; }
+  .noti-type-icon { font-size: 1rem; }
+  .noti-content { font-size: 0.75rem; line-height: 1.3; }
+  .noti-time { font-size: 0.6rem; }
+  .unread-dot { width: 5px; height: 5px; right: 8px; }
 }
 </style>

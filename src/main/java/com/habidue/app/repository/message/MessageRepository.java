@@ -73,14 +73,20 @@ public interface MessageRepository extends JpaRepository<Message, Long> {
            "ORDER BY m.createdAt ASC")
     List<Message> findConversationWithPartnerWithTime(@Param("user") User user, @Param("partner") User partner, @Param("since") java.time.LocalDateTime since);
 
-    // 특정 유저와의 전체 대화 내역 조회 (삭제/관리용) - Fetch Join 추가
+    // 특정 유저와의 전체 대화 내역 조회 (삭제/관리용) - [시니어 최종 정밀 보정]
+    // 핵심 로직: 
+    // 1. 내가 삭제하지 않은 메시지는 모두 노출 (삭제 버튼 누른 이후에 온 메시지들은 자동 노출됨)
+    // 2. 내가 삭제했더라도 '신고된 특정 메시지'나 '시스템 결과 메시지'는 증거 확인을 위해 예외 노출
     @Query("SELECT m FROM Message m " +
            "LEFT JOIN FETCH m.sender " +
            "LEFT JOIN FETCH m.receiver " +
            "LEFT JOIN FETCH m.attachments " +
-           "WHERE ((m.sender = :user AND m.receiver = :partner) " +
-           "OR (m.sender = :partner AND m.receiver = :user)) " +
-           "AND m.isDeleted = false")
+           "WHERE ( " +
+           "  (m.sender = :user AND m.receiver = :partner AND (m.deletedBySender = false OR m.isSystem = true)) " +
+           "  OR " +
+           "  (m.sender = :partner AND m.receiver = :user AND (m.deletedByReceiver = false OR m.isReported = true OR m.isSystem = true)) " +
+           ") " +
+           "AND (m.isDeleted = false OR m.isReported = true OR m.isSystem = true)")
     List<Message> findConversationWithPartner(@Param("user") User user, @Param("partner") User partner);
 
     // 특정 유저에게 온 AI 위험 메시지 조회 (관리자용)

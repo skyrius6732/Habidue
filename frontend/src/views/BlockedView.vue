@@ -32,11 +32,16 @@ const authStore = useAuthStore()
 const reason = ref('')
 
 onMounted(() => {
-  // query.reason이 있으면 우선 사용, 없으면 query.error 확인
-  reason.value = route.query.reason || route.query.error || '관리자의 판단에 의해 계정이 차단되었습니다.'
+  // query.reason이 있으면 최우선 사용, 그 외에는 기본 메시지 사용
+  const queryReason = route.query.reason || route.query.error
+  if (queryReason && queryReason.trim()) {
+    reason.value = queryReason
+  } else {
+    reason.value = '관리자의 판단에 의해 계정이 차단되었습니다.'
+  }
   
   // 모든 인증 정보 삭제 (확실하게 즉시 튕겨내기)
-  authStore.clearTokens() // Store 상태 즉시 초기화 (헤더 메뉴 숨김)
+  authStore.clearTokens()
   localStorage.clear() 
 })
 

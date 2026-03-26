@@ -12,19 +12,58 @@ export const useNotificationStore = defineStore('notification', {
     isInitializing: false,
     isConnecting: false,
     reconnectTimer: null,
-    pollingTimer: null
+    pollingTimer: null,
+    currentPage: 0,
+    hasMore: true,
+    isLoadingMore: false
   }),
 
   actions: {
-    // [시니어 조치] 통합 상태 동기화
+    // [시니어 조치] 초기 로딩 및 다음 페이지 로딩 통합
+    async fetchNotifications(isInitial = true) {
+      if (isInitial) {
+        this.currentPage = 0
+        this.hasMore = true
+      }
+      if (!this.hasMore || this.isLoadingMore) return
+      
+      this.isLoadingMore = true
+      try {
+        const res = await axios.get(`/api/notifications?page=${this.currentPage}&size=20&_t=${Date.now()}`)
+        const fetchedNotis = (res.data.data || []).map(n => ({
+          ...n,
+          isRead: n.isRead === true || n.read === true || n.isRead === 1 || n.read === 1 || n.isRead === 'true' || n.read === 'true'
+        }))
+
+        if (isInitial) {
+          this.notifications = fetchedNotis
+        } else {
+          // 중복 제거하며 추가
+          const existingIds = new Set(this.notifications.map(n => n.id))
+          const newUniqueNotis = fetchedNotis.filter(n => !existingIds.has(n.id))
+          this.notifications = [...this.notifications, ...newUniqueNotis]
+        }
+
+        this.hasMore = fetchedNotis.length === 20
+        this.currentPage++
+        this.isLoaded = true
+      } catch (e) {
+        console.warn('알림 페칭 실패', e)
+      } finally {
+        this.isLoadingMore = false
+      }
+    },
+
+    // [시니어 조치] 통합 상태 동기화 (기존 코드를 fetchNotifications 활용으로 대체 가능하나 하위 호환 위해 유지)
     async syncState() {
       if (this.isMarkingAll) return
       const authStore = useAuthStore()
       if (!authStore.isAuthenticated) return
 
       try {
+        // 동기화는 항상 최신 첫 페이지만 갱신
         const [listRes, countRes] = await Promise.all([
-          axios.get(`/api/notifications?_t=${Date.now()}`),
+          axios.get(`/api/notifications?page=0&size=20&_t=${Date.now()}`),
           axios.get(`/api/notifications/unread-count?_t=${Date.now()}`)
         ])
 
@@ -33,9 +72,12 @@ export const useNotificationStore = defineStore('notification', {
           isRead: n.isRead === true || n.read === true || n.isRead === 1 || n.read === 1 || n.isRead === 'true' || n.read === 'true'
         }))
         
+        // 실시간성 유지를 위해 기존 목록의 첫 페이지 부분만 교체하거나 병합
         this.notifications = newItems
         this.unreadCount = Number(countRes.data.data) || 0
         this.isLoaded = true
+        this.currentPage = 1 // 첫 페이지 로드 완료 상태
+        this.hasMore = newItems.length === 20
       } catch (e) {
         console.warn('[알림-DEBUG] 동기화 중 일시적 오류 발생 (자동 재시도 예정)')
       }

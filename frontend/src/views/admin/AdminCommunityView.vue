@@ -39,7 +39,9 @@
             <option value="ALL">모든 상태</option>
             <option value="ACTIVE">정상 (ACTIVE)</option>
             <option value="BLINDED">숨김 (BLINDED)</option>
-            <option value="DELETED">삭제 (DELETED)</option>
+            <option value="DELETED">관리자 삭제 (DELETED)</option>
+            <option value="USER_DELETED">사용자 삭제 (USER_DELETED)</option>
+            
           </template>
         </select>
 
@@ -76,7 +78,8 @@
     <div class="content-body scrollable">
       <!-- 게시글 리스트 -->
       <div v-if="currentTab === 'posts'" class="list-wrapper">
-        <div v-for="post in postsState.list" :key="post.id" class="content-card" :class="{ 'is-blinded': post.status === 'BLINDED', 'is-deleted': post.status === 'DELETED' }">
+        <div v-for="post in postsState.list" :key="post.id" class="content-card" 
+        :class="{ 'is-blinded': post.status === 'BLINDED', 'is-deleted': post.status === 'DELETED', 'is-user-deleted': post.status === 'USER_DELETED' }">
           <div class="card-header">
             <span class="id-tag">#{{ post.id }}</span>
             <span class="type-badge" :class="post.type">{{ getPostTypeLabel(post.type) }}</span>
@@ -101,7 +104,8 @@
 
       <!-- 댓글 리스트 -->
       <div v-else-if="currentTab === 'comments'" class="list-wrapper">
-        <div v-for="comment in commentsState.list" :key="comment.id" class="content-card comment-card" :class="{ 'is-blinded': comment.status === 'BLINDED', 'is-deleted': comment.status === 'DELETED' }">
+        <div v-for="comment in commentsState.list" :key="comment.id" class="content-card comment-card" :class="{ 'is-blinded': comment.status === 'BLINDED', 
+        'is-deleted': comment.status === 'DELETED', 'is-user-deleted': comment.status === 'USER_DELETED' }">
           <div class="card-header">
             <span class="id-tag">#{{ comment.id }}</span>
             <span class="status-badge" :class="comment.status">{{ getStatusLabel(comment.status) }}</span>
@@ -482,7 +486,7 @@ const getPostTypeLabel = (type) => {
 }
 
 const getStatusLabel = (status) => {
-  const labels = { ACTIVE: '정상', BLINDED: '숨김', DELETED: '삭제' }
+  const labels = { ACTIVE: '정상', BLINDED: '숨김', DELETED: '관리자 삭제', USER_DELETED:'사용자 삭제' }
   return labels[status] || status
 }
 
@@ -684,6 +688,8 @@ onMounted(() => { if (route.query.userId) postsState.value.userId = route.query.
 .report-status-badge.REJECTED { background: #ffebee; color: #c62828; }
 .report-status-badge.DELETE_COMPLETE { background: rgba(142, 68, 173, 0.1); color: #8e44ad; border: 1px solid #8e44ad; }
 .status-badge.DELETED { background: #8e44ad; color: #fff; font-weight: 900; }
+.status-badge.USER_DELETED { background: #6c757d; color: #fff; font-weight: 900; }
+
 .report-count-badge { font-size: 0.65rem; font-weight: 850; padding: 3px 8px; border-radius: 4px; background: #f0f2f5; color: var(--link-color); }
 .report-count-badge.clickable { cursor: pointer; border: 1px solid var(--link-color); transition: all 0.2s; }
 .report-count-badge.clickable:hover { background: var(--link-color); color: white; }

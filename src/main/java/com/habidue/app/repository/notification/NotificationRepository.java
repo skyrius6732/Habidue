@@ -10,6 +10,9 @@ import java.util.List;
 
 public interface NotificationRepository extends JpaRepository<Notification, Long> {
 
+    @Query("SELECT n FROM Notification n WHERE n.user.id = :userId")
+    org.springframework.data.domain.Page<Notification> findAllByUserId(@Param("userId") Long userId, org.springframework.data.domain.Pageable pageable);
+
     @Query("SELECT n FROM Notification n WHERE n.user.id = :userId ORDER BY n.createdAt DESC")
     List<Notification> findAllByUserIdOrderByCreatedAtDesc(@Param("userId") Long userId);
 

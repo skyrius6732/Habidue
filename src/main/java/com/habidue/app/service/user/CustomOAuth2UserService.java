@@ -53,7 +53,14 @@ public class CustomOAuth2UserService extends DefaultOAuth2UserService {
 
             // [추가] 차단된 사용자인지 확인
             if (user.getStatus() == UserStatus.BLOCKED) {
-                throw new OAuth2AuthenticationException("관리자에 의해 차단된 계정입니다. 사유: " + user.getBlockedReason());
+                String reason = user.getBlockedReason();
+                if (reason == null || reason.trim().isEmpty()) {
+                    reason = "관리자의 판단에 의해 계정이 차단되었습니다.";
+                }
+                // OAuth2Error를 사용하여 사유(Description)를 명확히 전달
+                org.springframework.security.oauth2.core.OAuth2Error oauth2Error = 
+                    new org.springframework.security.oauth2.core.OAuth2Error("user_blocked", reason, null);
+                throw new OAuth2AuthenticationException(oauth2Error);
             }
 
             // 기존 계정에 소셜 정보가 없다면 업데이트 (연동)
