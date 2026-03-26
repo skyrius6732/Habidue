@@ -199,6 +199,83 @@ onUnmounted(() => {
     </div>
   </header>
 
+  <!-- [시니어 조치] 모바일 전용 사이드바 메뉴 및 오버레이 -->
+  <Transition name="fade">
+    <div v-if="isMenuOpen" class="sidebar-overlay" @click="toggleMenu"></div>
+  </Transition>
+  <Transition name="slide">
+    <aside v-if="isMenuOpen" class="app-sidebar insta-style">
+      <div class="sidebar-inner">
+        <div class="sidebar-header">
+          <span class="sidebar-id">habidue_official</span>
+          <button class="sidebar-close-btn" @click="toggleMenu">
+            <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2" fill="none"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+          </button>
+        </div>
+        
+        <div class="sidebar-profile-section" v-if="authStore.isAuthenticated">
+          <div class="profile-avatar">
+            {{ authStore.user?.nickname?.charAt(0) || 'U' }}
+          </div>
+          <div class="profile-info">
+            <span class="profile-nickname">{{ authStore.user?.nickname }}</span>
+            <span class="profile-sub">Level {{ authStore.user?.level || 1 }} Active Member</span>
+          </div>
+        </div>
+
+        <nav class="sidebar-nav-grid">
+          <template v-if="isFullMenuVisible">
+            <RouterLink to="/notices" @click="isMenuOpen = false" class="nav-item">
+              <span class="nav-icon">📋</span>
+              <span class="nav-text">공고 리스트</span>
+            </RouterLink>
+            <RouterLink to="/board" @click="isMenuOpen = false" class="nav-item">
+              <span class="nav-icon">💬</span>
+              <span class="nav-text">커뮤니티</span>
+            </RouterLink>
+            <RouterLink to="/calendar" @click="isMenuOpen = false" class="nav-item">
+              <span class="nav-icon">📅</span>
+              <span class="nav-text">캘린더</span>
+            </RouterLink>
+            <RouterLink to="/interests" @click="isMenuOpen = false" class="nav-item">
+              <span class="nav-icon">⭐</span>
+              <span class="nav-text">관심 공고</span>
+            </RouterLink>
+            <RouterLink to="/keywords" @click="isMenuOpen = false" class="nav-item">
+              <span class="nav-icon">👤</span>
+              <span class="nav-text">마이 페이지</span>
+            </RouterLink>
+            <RouterLink to="/about" @click="isMenuOpen = false" class="nav-item">
+              <span class="nav-icon">ℹ️</span>
+              <span class="nav-text">HabiDue 소개</span>
+            </RouterLink>
+          </template>
+        </nav>
+
+        <div class="sidebar-footer">
+          <button @click="toggleTheme" class="footer-action-btn">
+            <span class="footer-icon">{{ isDarkMode ? '☀️' : '🌙' }}</span>
+            <span>{{ isDarkMode ? '라이트 모드' : '다크 모드' }}</span>
+          </button>
+          <div v-if="authStore.isAdmin" class="footer-divider"></div>
+          <RouterLink v-if="authStore.isAdmin" to="/admin" class="footer-action-btn admin" @click="isMenuOpen = false">
+            <span class="footer-icon">⚙️</span>
+            <span>관리자 도구</span>
+          </RouterLink>
+          <div class="footer-divider"></div>
+          <button v-if="authStore.isAuthenticated" @click="logout" class="footer-action-btn logout">
+            <span class="footer-icon">👋</span>
+            <span>로그아웃</span>
+          </button>
+          <button v-else-if="isLoginButtonVisible" @click="goToLogin" class="footer-action-btn login">
+            <span class="footer-icon">🔑</span>
+            <span>로그인</span>
+          </button>
+        </div>
+      </div>
+    </aside>
+  </Transition>
+
   <main class="app-main"><div class="content-wrapper"><RouterView /></div></main>
 
   <Transition name="fade-top"><button v-if="showTopBtn" class="floating-top-btn" @click="scrollToTop"><div class="top-arrow-icon"><span class="arrow-line"></span><span class="arrow-line"></span></div></button></Transition>
@@ -283,6 +360,42 @@ body { margin: 0; padding: 0; display: block !important; background-color: var(-
 .fade-down-enter-from, .fade-down-leave-to { opacity: 0; transform: translateY(-10px); }
 .thin-scrollbar::-webkit-scrollbar { width: 4px; }
 .thin-scrollbar::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.1); border-radius: 10px; }
+
+/* [시니어 조치] 인스타그램 감성 모바일 사이드바 리뉴얼 */
+.sidebar-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.4); z-index: 1500; backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); }
+.app-sidebar.insta-style { position: fixed; top: 12px; left: 12px; width: calc(100% - 70px); max-width: 300px; height: calc(100% - 24px); background-color: var(--header-bg); z-index: 1600; border-radius: 28px; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25); overflow: hidden; border: 1px solid var(--border-color); display: flex; flex-direction: column; }
+.sidebar-inner { height: 100%; display: flex; flex-direction: column; }
+.sidebar-header { padding: 20px 20px 15px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color); }
+.sidebar-id { font-size: 0.95rem; font-weight: 800; color: var(--text-primary); letter-spacing: -0.3px; }
+.sidebar-close-btn { background: none; border: none; padding: 4px; cursor: pointer; color: var(--text-primary); display: flex; align-items: center; opacity: 0.7; }
+
+.sidebar-profile-section { padding: 25px 20px; display: flex; align-items: center; gap: 15px; background: linear-gradient(to bottom, var(--hover-bg), transparent); }
+.profile-avatar { width: 52px; height: 52px; border-radius: 50%; background: linear-gradient(45deg, #f09433 0%, #e6683c 25%, #dc2743 50%, #cc2366 75%, #bc1888 100%); display: flex; align-items: center; justify-content: center; color: white; font-size: 1.4rem; font-weight: 800; border: 2.5px solid var(--header-bg); box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
+.profile-info { display: flex; flex-direction: column; gap: 1px; }
+.profile-nickname { font-size: 1.05rem; font-weight: 800; color: var(--text-primary); }
+.profile-sub { font-size: 0.7rem; color: var(--text-secondary); font-weight: 600; opacity: 0.8; }
+
+.sidebar-nav-grid { padding: 12px; display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; flex: 1; overflow-y: auto; }
+.nav-item { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 20px 10px; background: var(--hover-bg); border-radius: 20px; text-decoration: none; color: var(--text-primary); transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1); gap: 8px; border: 1px solid transparent; }
+.nav-item:active { transform: scale(0.92); background: var(--border-color); }
+.nav-item.router-link-active { background: var(--header-bg); border-color: var(--link-color); box-shadow: 0 8px 20px rgba(0, 149, 246, 0.12); }
+.nav-icon { font-size: 1.5rem; }
+.nav-text { font-size: 0.75rem; font-weight: 700; text-align: center; }
+
+.sidebar-footer { padding: 16px; border-top: 1px solid var(--border-color); background: var(--bg-color); display: flex; flex-direction: column; gap: 4px; }
+.footer-action-btn { width: 100%; padding: 10px 12px; border-radius: 12px; border: none; background: transparent; display: flex; align-items: center; gap: 12px; color: var(--text-primary); font-size: 0.85rem; font-weight: 700; cursor: pointer; transition: all 0.2s; text-decoration: none; }
+.footer-action-btn:active { background: var(--hover-bg); transform: translateX(5px); }
+.footer-icon { font-size: 1.1rem; width: 20px; text-align: center; }
+.footer-divider { height: 1px; background: var(--border-color); margin: 6px 8px; opacity: 0.6; }
+.footer-action-btn.admin { color: #ed4956; }
+.footer-action-btn.logout { color: var(--text-secondary); }
+.footer-action-btn.login { background: var(--link-color); color: white; justify-content: center; margin-top: 4px; box-shadow: 0 4px 12px rgba(0, 149, 246, 0.3); }
+
+/* 사이드바 트랜지션 애니메이션 (인스타 스타일의 팝핑 효과) */
+.slide-enter-active, .slide-leave-active { transition: all 0.5s cubic-bezier(0.34, 1.56, 0.64, 1); }
+.slide-enter-from, .slide-leave-to { transform: translateX(-120%) scale(0.9) rotate(-8deg); opacity: 0; }
+.fade-enter-active, .fade-leave-active { transition: opacity 0.4s ease; }
+.fade-enter-from, .fade-leave-to { opacity: 0; }
 
 @media (max-width: 768px) {
   .hamburger-btn { display: flex; }
