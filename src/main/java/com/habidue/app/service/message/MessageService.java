@@ -143,63 +143,14 @@ public class MessageService {
 
     @Transactional
     public void sendAdminResultSystemMessage(User sender, User receiver, String content, Long visibleToUserId, boolean isRoomRestricted, Long relatedTargetId) {
-        StringBuilder finalContentBuilder = new StringBuilder();
+        // [시니어 조치] AI 분석 리포트 섹션 제거 및 호출자가 전달한 content 직접 사용
+        // 이전에는 여기서 AI 분석 결과를 바탕으로 메시지를 재조립했으나, 
+        // 이제는 AdminBoardService에서 정교하게 생성된 content를 그대로 발송함.
         
-        // [시니어 조치] 원본 메시지를 통해 신고자/피신고자 판별 및 위반 정보 추출
-        Message origin = relatedTargetId != null ? messageRepository.findById(relatedTargetId).orElse(null) : null;
-        boolean hasAiAnalysis = origin != null && origin.getAiAnalysis() != null && !origin.getAiAnalysis().trim().isEmpty();
-
-        if (hasAiAnalysis && origin != null) {
-            try {
-                com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
-                com.fasterxml.jackson.databind.JsonNode node = mapper.readTree(origin.getAiAnalysis());
-                
-                String violation = node.path("violationPoint").asText("운영원칙 위반");
-                String summary = node.path("summary").asText("");
-                double score = node.path("score").asDouble() * 100;
-
-                // 수신자가 피신고자(원본 메시지 발신자)인지 확인
-                boolean isReportee = receiver.getId().equals(origin.getSender().getId());
-
-                if (isReportee) {
-                    // 피신고자용 템플릿
-                    if (isRoomRestricted) {
-                        finalContentBuilder.append("🚫 [주의] ").append(receiver.getNickname()).append("님, 회원님께서 사용하신 표현은 '").append(violation).append("' 심각한 운영원칙 위반이 확인되어 본 대화방에서의 메시지 발송이 영구적으로 제한됩니다.");
-                    } else {
-                        finalContentBuilder.append("⚠️ [경고] ").append(receiver.getNickname()).append("님, 회원님께서 사용하신 표현은 '").append(violation).append("' 정황이 확인되어 제재가 적용되었으며, 본 대화방에서의 메시지 발송이 제한됩니다.");
-                    }
-                } else {
-                    // 신고자용 템플릿
-                    if (isRoomRestricted) {
-                        finalContentBuilder.append("📢 [안내] 신고하신 대화방에 대해 '").append(violation).append("' 심각한 위반이 확인되어 영구 제한 및 상대방 차단 조치가 완료되었습니다.");
-                    } else {
-                        finalContentBuilder.append("📢 [안내] 신고하신 내용에 대해 관리자 검토가 완료되었습니다. 해당 대화방은 '").append(violation).append("'로 인해 발송 제한 조치가 취해졌습니다.");
-                    }
-                }
-
-                // AI 리포트 결합 (하단 구분선 포함)
-                finalContentBuilder.append("\n\n------------------------------\n");
-                finalContentBuilder.append("🔍 AI 정밀 분석 리포트\n");
-                finalContentBuilder.append("● 위험 지수: ").append(String.format("%.0f", score)).append("%\n");
-                finalContentBuilder.append("● 위반 항목: ").append(violation).append("\n");
-                if (!summary.isEmpty()) {
-                    finalContentBuilder.append("● 상세 분석: ").append(summary).append("\n");
-                }
-                finalContentBuilder.append("------------------------------");
-
-            } catch (Exception e) {
-                // 파싱 오류 시 전달받은 기본 메시지 사용
-                finalContentBuilder.append(content);
-            }
-        } else {
-            // AI 분석 결과가 없는 경우: 관리자가 입력한 기본 시스템 메시지 발송
-            finalContentBuilder.append(content);
-        }
-
         Message msg = Message.builder()
                 .sender(sender) // 기존 대화방 유지를 위해 파트너 정보를 sender로 설정
                 .receiver(receiver)
-                .content(finalContentBuilder.toString())
+                .content(content)
                 .isSystem(true)
                 .isRead(false)
                 .visibleToUserId(visibleToUserId)

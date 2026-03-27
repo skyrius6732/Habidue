@@ -5,5 +5,5 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 
 public interface CommentRepositoryCustom {
-    Page<Comment> findComments(Long userId, String keyword, String status, Pageable pageable);
+    Page<Comment> findComments(Long userId, Long commentId, String keyword, String status, Pageable pageable);
 }

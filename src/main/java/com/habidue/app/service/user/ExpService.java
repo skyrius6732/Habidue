@@ -81,15 +81,18 @@ public class ExpService {
         if (user == null) return;
 
         int expToRevoke = reason.getDefaultExp();
-        
-        // 1. 경험치 회수 이력 저장 (음수 값)
-        ExpHistory history = ExpHistory.create(user, -expToRevoke, reason, "[회수] " + description);
-        expHistoryRepository.save(history);
 
         // 2. 유저 누적 경험치 차감 (최소 0 유지)
         long oldExp = user.getTotalExp();
-        user.setTotalExp(Math.max(0, oldExp - expToRevoke));
-        log.info("EXP 회수 처리: UserID {}, {} -> {}", userId, oldExp, user.getTotalExp());
+        long newExp = Math.max(0, oldExp - expToRevoke);
+        int actualRevoked = (int)(oldExp - newExp); // 실제로 차감되는 양 (클리핑 반영)
+
+        // 1. 경험치 회수 이력 저장 - 실제 차감된 양으로 저장해야 totalExp와 이력 합산이 일치
+        ExpHistory history = ExpHistory.create(user, -actualRevoked, reason, "[회수] " + description);
+        expHistoryRepository.save(history);
+
+        user.setTotalExp(newExp);
+        log.info("EXP 회수 처리: UserID {}, {} -> {} (요청:{}, 실제:{})", userId, oldExp, newExp, expToRevoke, actualRevoked);
 
         // 3. 레벨 재계산 (레벨 다운 가능)
         int oldLevel = user.getLevel();

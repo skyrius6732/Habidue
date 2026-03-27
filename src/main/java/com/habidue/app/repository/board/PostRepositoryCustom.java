@@ -9,7 +9,7 @@ import java.util.List;
 
 public interface PostRepositoryCustom {
     // 타입별, 카테고리별, 공고별, 상태별 게시글 조회 (Fetch Join 적용)
-    Page<Post> findPosts(PostType type, Long noticeId, String category, String subCategory, String keyword, String status, String regionTag, String tagName, Pageable pageable, Long currentUserId, boolean isAdmin);
+    Page<Post> findPosts(PostType type, Long noticeId, String category, String subCategory, String keyword, String status, String regionTag, String tagName, Pageable pageable, Long currentUserId, Long targetPostId, boolean isAdmin);
 
     // 작성자 ID 기준 게시글 조회 (Fetch Join 적용)
     Page<Post> findPostsByAuthor(Long authorId, String keyword, String status, Pageable pageable);

@@ -22,12 +22,17 @@ public class CommentRepositoryImpl implements CommentRepositoryCustom {
     private final JPAQueryFactory queryFactory;
 
     @Override
-    public Page<Comment> findComments(Long userId, String keyword, String status, Pageable pageable) {
+    public Page<Comment> findComments(Long userId, Long commentId, String keyword, String status, Pageable pageable) {
         QComment comment = QComment.comment;
         QUser author = QUser.user;
         QPost post = QPost.post;
 
         BooleanBuilder builder = new BooleanBuilder();
+
+        // [시니어 조치] 특정 댓글 ID 직접 조회 필터 (최우선)
+        if (commentId != null) {
+            builder.and(comment.id.eq(commentId));
+        }
 
         // 1. 사용자 ID 필터
         if (userId != null) {

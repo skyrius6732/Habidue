@@ -43,9 +43,9 @@ public class CommentResponseDto {
 
         String finalContent = comment.getContent();
         if ("USER_DELETED".equalsIgnoreCase(comment.getStatus())) {
-            finalContent = "작성자에 의해 삭제된 댓글입니다.";
+            finalContent = isAdmin ? comment.getContent() : "작성자에 의해 삭제된 댓글입니다.";
         } else if ("DELETED".equalsIgnoreCase(comment.getStatus())) {
-            finalContent = "운영 정책 위반으로 영구 삭제된 댓글입니다.";
+            finalContent = isAdmin ? comment.getContent() : "운영 정책 위반으로 영구 삭제된 댓글입니다.";
         }
 
         CommentResponseDto dto = CommentResponseDto.builder()

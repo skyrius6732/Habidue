@@ -257,14 +257,16 @@ watch(() => route.query.q, () => fetchSearchResults())
                   <h4 class="post-title">
                     <span class="category-badge">{{ categoryInfo[item.post.type]?.icon }} {{ categoryInfo[item.post.type]?.name }}</span>
                     <template v-if="item.post.status === 'BLINDED'">
-                      <span v-if="isAdmin" class="blinded-status-badge admin-hidden">모니터링: 숨김</span>
+                      <span v-if="isAdmin" class="blinded-status-badge admin-hidden">모니터링: 관리자숨김</span>
                     </template>
                     <template v-if="item.post.status === 'DELETED'">
-                      <span v-if="isAdmin" class="blinded-status-badge admin-deleted">모니터링: 삭제</span>
+                      <span v-if="isAdmin" class="blinded-status-badge admin-deleted">모니터링: 관리자삭제</span>
+                    </template>
+                    <template v-if="item.post.status === 'USER_DELETED'">
+                      <span v-if="isAdmin" class="blinded-status-badge admin-user-deleted">모니터링: 사용자삭제</span>
                     </template>
                     <span class="title-text" v-html="highlightKeyword(item.post.title)"></span>
-                  </h4>
-                  <p class="post-summary" v-html="highlightKeyword(item.snippet)"></p>
+                    </h4>                  <p class="post-summary" v-html="highlightKeyword(item.snippet)"></p>
                   
                   <!-- [시니어 조치] 게시글 태그 노출 및 하이라이트 -->
                   <div v-if="item.post.tags && item.post.tags.length > 0" class="post-tags-v2">
@@ -369,6 +371,7 @@ watch(() => route.query.q, () => fetchSearchResults())
 }
 .blinded-status-badge.admin-hidden { background: #e74c3c; }
 .blinded-status-badge.admin-deleted { background: #8e44ad; box-shadow: 0 2px 5px rgba(142, 68, 173, 0.3); }
+.blinded-status-badge.admin-user-deleted { background: #d35400; box-shadow: 0 2px 5px rgba(211, 84, 0, 0.3); }
 
 .post-summary { font-size: 0.9rem; color: var(--text-secondary); margin: 0; overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; line-height: 1.6; }
 

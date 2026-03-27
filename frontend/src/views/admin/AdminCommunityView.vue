@@ -46,7 +46,15 @@
         </select>
 
         <button v-if="currentFilter.userId" class="btn-clear-user" @click="clearUserFilter">
-          👤 해제 (ID: {{ currentFilter.userId }})
+          👤 유저 해제 (ID: {{ currentFilter.userId }})
+        </button>
+
+        <button v-if="currentTab === 'posts' && postsState.postId" class="btn-clear-user btn-id-filter" @click="clearIdFilter">
+          📄 글번호 해제 (#{{ postsState.postId }})
+        </button>
+
+        <button v-if="currentTab === 'comments' && commentsState.commentId" class="btn-clear-user btn-id-filter" @click="clearIdFilter">
+          💬 댓글번호 해제 (#{{ commentsState.commentId }})
         </button>
       </div>
     </div>
@@ -141,7 +149,7 @@
             </div>
             <div class="card-main">
               <div class="report-content-preview" @click="viewReportTarget(report)">
-                <p class="target-title">[{{ report.targetStatus }}] {{ report.targetTitle }}</p>
+                <p class="target-title">{{ report.targetTitle }}</p>
                 <p class="latest-reason">사유: {{ report.latestReason }}</p>
                 <p class="target-author">대상: {{ report.authorName }}</p>
               </div>
@@ -337,10 +345,22 @@ const route = useRoute()
 const currentTab = ref('posts')
 const selectedIds = ref([]) 
 
-const postsState = ref({ list: [], keyword: '', status: 'ALL', userId: null, page: 0, totalPages: 0, totalElements: 0 })
-const commentsState = ref({ list: [], keyword: '', status: 'ALL', userId: null, page: 0, totalPages: 0, totalElements: 0 })
+const postsState = ref({ list: [], keyword: '', status: 'ALL', userId: null, postId: null, page: 0, totalPages: 0, totalElements: 0 })
+const commentsState = ref({ list: [], keyword: '', status: 'ALL', userId: null, commentId: null, page: 0, totalPages: 0, totalElements: 0 })
 const reportsState = ref({ list: [], keyword: '', status: 'ALL', targetType: 'ALL', page: 0, totalPages: 0, totalElements: 0 })
 const groupedMessagesList = ref([])
+
+onMounted(() => {
+  // [시니어 조치] URL 파라미터(postId, commentId)가 넘어온 경우 해당 탭 및 필터 자동 설정
+  if (route.query.postId) {
+    currentTab.value = 'posts';
+    postsState.value.postId = route.query.postId;
+  } else if (route.query.commentId) {
+    currentTab.value = 'comments';
+    commentsState.value.commentId = route.query.commentId;
+  }
+  fetchData();
+});
 
 const reportTargetFilter = computed({ get: () => reportsState.value.targetType, set: (val) => { reportsState.value.targetType = val } })
 const currentFilter = computed(() => { if (currentTab.value === 'posts') return postsState.value; if (currentTab.value === 'comments') return commentsState.value; return reportsState.value })
@@ -362,14 +382,26 @@ const selectedReporters = ref([])
 const selectedTargetId = ref(null)
 const currentCountInfo = computed(() => `${filteredCount.value}건 / ${totalCount.value}건`)
 
-const getPlaceholder = computed(() => { if (currentTab.value === 'posts') return '제목, 내용 또는 닉네임...'; if (currentTab.value === 'comments') return '내용 또는 닉네임...'; return '신고 사유 검색...' })
+const getPlaceholder = computed(() => { if (currentTab.value === 'posts') return '제목, 내용, 닉네임 또는 #ID...'; if (currentTab.value === 'comments') return '내용, 닉네임 또는 #ID...'; return '신고 사유 검색...' })
 const isItemActive = (item) => item && item.status && item.status.toString().toUpperCase() === 'ACTIVE'
 
 const fetchData = async () => {
   try {
     let endpoint = ''; let params = { page: currentFilter.value.page, size: 20 }
-    if (currentTab.value === 'posts') { endpoint = '/api/admin/board/posts'; params.userId = postsState.value.userId; params.keyword = postsState.value.keyword; params.status = postsState.value.status === 'ALL' ? null : postsState.value.status }
-    else if (currentTab.value === 'comments') { endpoint = '/api/admin/board/comments'; params.userId = commentsState.value.userId; params.keyword = commentsState.value.keyword; params.status = commentsState.value.status === 'ALL' ? null : commentsState.value.status }
+    if (currentTab.value === 'posts') { 
+      endpoint = '/api/admin/board/posts'; 
+      params.userId = postsState.value.userId; 
+      params.postId = postsState.value.postId; // [시니어 조치] ID 필터 추가
+      params.keyword = postsState.value.keyword; 
+      params.status = postsState.value.status === 'ALL' ? null : postsState.value.status 
+    }
+    else if (currentTab.value === 'comments') { 
+      endpoint = '/api/admin/board/comments'; 
+      params.userId = commentsState.value.userId; 
+      params.commentId = commentsState.value.commentId; // [시니어 조치] ID 필터 추가
+      params.keyword = commentsState.value.keyword; 
+      params.status = commentsState.value.status === 'ALL' ? null : commentsState.value.status 
+    }
     else { 
       if (reportsState.value.targetType === 'MESSAGE') {
         endpoint = '/api/admin/board/reports/grouped-messages';
@@ -491,7 +523,24 @@ const getStatusLabel = (status) => {
 }
 
 const changePage = (page) => { currentFilter.value.page = page; fetchData() }
-const handleFilterChange = () => { currentFilter.value.page = 0; fetchData() }
+const handleFilterChange = () => {
+  // #숫자 or 순수 숫자 입력 시 ID 필터로 처리
+  const kw = currentFilter.value.keyword?.trim() || ''
+  const idMatch = kw.match(/^#?(\d+)$/)
+  if (idMatch && currentTab.value === 'posts') {
+    postsState.value.postId = idMatch[1]
+    postsState.value.keyword = ''
+  } else if (idMatch && currentTab.value === 'comments') {
+    commentsState.value.commentId = idMatch[1]
+    commentsState.value.keyword = ''
+  } else {
+    // 일반 검색 시 ID 필터 초기화
+    if (currentTab.value === 'posts') postsState.value.postId = null
+    else if (currentTab.value === 'comments') commentsState.value.commentId = null
+  }
+  currentFilter.value.page = 0
+  fetchData()
+}
 const toggleStatus = async (item) => {
   const newStatus = item.status === 'ACTIVE' ? 'BLINDED' : 'ACTIVE'; const type = currentTab.value === 'posts' ? 'posts' : 'comments'
   if (!confirm(`${newStatus === 'BLINDED' ? '블라인드 처리' : '정상 상태로 복구'} 하시겠습니까?`)) return
@@ -510,7 +559,7 @@ const ADMIN_4STEP_MAP = {
     name: '🏛️ 통합광장',
     groups: [
       { label: '🌐 전체', value: 'ALL', targets: [{ label: '전체', value: 'ALL' }], topics: [
-        { label: '☕ 자유수다', value: 'FREE' }, { label: '📢 정보공유', value: 'INFO' }
+        { label: '☕ 자유수다', value: 'FREE' }
       ]},
       { label: '📍 지역별 소통', value: 'REGION', 
         targets: [
@@ -614,6 +663,11 @@ const handleUpdate = async () => {
 
 const setUserFilter = (id) => { currentFilter.value.userId = id; handleFilterChange() }
 const clearUserFilter = () => { currentFilter.value.userId = null; handleFilterChange() }
+const clearIdFilter = () => {
+  if (currentTab.value === 'posts') postsState.value.postId = null
+  else if (currentTab.value === 'comments') commentsState.value.commentId = null
+  fetchData()
+}
 const formatDate = (dateStr) => { if (!dateStr) return '-'; const date = new Date(dateStr); return date.toLocaleString('ko-KR', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) }
 const visiblePages = computed(() => { const range = []; const start = Math.max(1, currentFilter.value.page - 2); const end = Math.min(totalPages.value, start + 4); for (let i = Math.max(1, start); i <= end; i++) range.push(i); return range })
 

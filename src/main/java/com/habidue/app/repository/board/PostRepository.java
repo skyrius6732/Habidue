@@ -45,6 +45,14 @@ public interface PostRepository extends JpaRepository<Post, Long>, PostRepositor
     @Query("UPDATE Post p SET p.likeCount = CASE WHEN p.likeCount > 0 THEN p.likeCount - 1 ELSE 0 END WHERE p.id = :id")
     int decrementLikeCount(@Param("id") Long id);
 
+    // 게시글 좋아요 수 직접 조회 (JPQL → DB 직접 읽기, @Modifying 후에도 정확한 값 반환)
+    @Query("SELECT COALESCE(p.likeCount, 0) FROM Post p WHERE p.id = :id")
+    Integer getPostLikeCount(@Param("id") Long id);
+
+    // 특정 작성자의 게시글인 경우에만 좋아요 수 반환 (유저별 정밀 카르마 계산용)
+    @Query("SELECT COALESCE(p.likeCount, 0) FROM Post p WHERE p.id = :id AND p.author.id = :authorId")
+    Integer getPostLikeCountForAuthor(@Param("id") Long id, @Param("authorId") Long authorId);
+
     @Query(value = "SELECT id FROM posts WHERE id > :id AND type = :type AND (notice_id = :noticeId OR (:noticeId IS NULL AND notice_id IS NULL)) ORDER BY id ASC LIMIT 1", nativeQuery = true)
     Long findPrevId(@Param("id") Long id, @Param("type") String type, @Param("noticeId") Long noticeId);
 

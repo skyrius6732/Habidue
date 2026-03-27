@@ -1,5 +1,14 @@
 <template>
   <div class="board-view-container">
+    <!-- 스크롤 복원 중 토스트 -->
+    <Transition name="restore-toast">
+      <div v-if="isRestoring" class="restore-toast-bar">
+        <span class="restore-dots">
+          <span></span><span></span><span></span>
+        </span>
+        이전 게시글로 이동 중...
+      </div>
+    </Transition>
     <PageHeader 
       :icon="currentMenuIcon" 
       :title="isMobile && noticeId ? '공고 커뮤니티' : currentMenuTitle" 
@@ -329,9 +338,13 @@ const fetchPosts = async (isMore = false) => {
     const data = res.data.data
     totalElements.value = data.totalElements || 0
     if (isMore) posts.value = [...posts.value, ...data.content]
-    else { 
+    else {
       posts.value = data.content
-      if (route.query.lastPostId) scrollToPost(route.query.lastPostId)
+      const targetId = route.query.lastPostId || sessionStorage.getItem('lastViewedPostId')
+      if (targetId) {
+        sessionStorage.removeItem('lastViewedPostId')
+        scrollToPost(targetId)
+      }
     }
     hasMore.value = !data.last; currentPage.value++
   } catch (e) { console.error(e) } finally { loading.value = false }
@@ -510,4 +523,57 @@ watch(() => [route.params.noticeId, route.query.menu, route.query.sub, route.que
 }
 .load-more-trigger { height: 20px; margin-top: 10px; }
 @media (max-width: 992px) { .board-layout { flex-direction: column; gap: 8px; } .btn-scroll-top { display: none; } }
+
+/* 스크롤 복원 토스트 */
+.restore-toast-bar {
+  position: fixed;
+  top: 64px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: rgba(30, 30, 30, 0.88);
+  color: #fff;
+  font-size: 0.875rem;
+  font-weight: 500;
+  padding: 10px 20px;
+  border-radius: 99px;
+  backdrop-filter: blur(8px);
+  box-shadow: 0 4px 20px rgba(0,0,0,0.18);
+  white-space: nowrap;
+  pointer-events: none;
+}
+:global(.dark-mode .restore-toast-bar) {
+  background: rgba(255, 255, 255, 0.95);
+  color: #1a1a1a;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+}
+:global(.dark-mode .restore-dots span) {
+  background: #1a1a1a;
+}
+.restore-dots {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+}
+.restore-dots span {
+  display: block;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: #fff;
+  animation: restore-bounce 0.9s ease-in-out infinite;
+}
+.restore-dots span:nth-child(2) { animation-delay: 0.15s; }
+.restore-dots span:nth-child(3) { animation-delay: 0.3s; }
+@keyframes restore-bounce {
+  0%, 80%, 100% { opacity: 0.3; transform: scale(0.8); }
+  40% { opacity: 1; transform: scale(1.2); }
+}
+.restore-toast-enter-active { transition: opacity 0.2s ease, transform 0.2s ease; }
+.restore-toast-leave-active { transition: opacity 0.3s ease, transform 0.3s ease; }
+.restore-toast-enter-from { opacity: 0; transform: translateX(-50%) translateY(-10px); }
+.restore-toast-leave-to { opacity: 0; transform: translateX(-50%) translateY(-10px); }
 </style>

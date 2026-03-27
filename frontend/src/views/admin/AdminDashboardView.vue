@@ -65,9 +65,11 @@
         <RouterLink to="/admin/notices" class="link-card">🏠 공고 관리</RouterLink>
         <RouterLink to="/admin/community" class="link-card">💬 커뮤니티 관리</RouterLink>
         <RouterLink to="/admin/users" class="link-card">👥 사용자 관리</RouterLink>
+        <RouterLink to="/admin/simulation" class="link-card">🔬 보상 시뮬레이션</RouterLink>
         <RouterLink to="/admin/tags" class="link-card">🏷️ 태그 관리</RouterLink>
         <RouterLink to="/admin/metadata" class="link-card">🗂️ 메타데이터 관리</RouterLink>
-        <RouterLink to="/admin/about" class="link-card">ℹ️ 앱 정보 관리</RouterLink>
+        <RouterLink to="/admin/badges" class="link-card">🎖️ 배지 마스터리 관리</RouterLink>
+        <RouterLink to="/admin/about" class="link-card">📢 공지 및 패치 관리</RouterLink>
       </div>
     </div>
   </div>
@@ -149,5 +151,22 @@ onMounted(fetchStats)
 
 @media (max-width: 992px) {
   .dashboard-charts { grid-template-columns: 1fr; }
+  
+  /* [시니어 조치] 모바일 요약 카드 3열 강제 배치 */
+  .stats-grid { 
+    grid-template-columns: repeat(3, 1fr); 
+    gap: 8px; 
+  }
+  .stats-card { padding: 12px 8px; text-align: center; }
+  .card-label { font-size: 0.65rem; margin-bottom: 4px; }
+  .card-value { font-size: 1.1rem; }
+  .card-sub { font-size: 0.6rem; }
+
+  /* [시니어 조치] 모바일 퀵 액션 2열 배치 */
+  .link-grid { 
+    grid-template-columns: repeat(2, 1fr); 
+    gap: 10px; 
+  }
+  .link-card { padding: 12px 8px; font-size: 0.8rem; }
 }
 </style>

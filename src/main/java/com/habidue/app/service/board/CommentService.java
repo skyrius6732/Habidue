@@ -203,8 +203,9 @@ public class CommentService {
             // [시니어 조치] 댓글 좋아요 취소 시 경험치 회수
             expService.revokeExp(author.getId(), ExpReason.RECEIVED_LIKE, "댓글 좋아요 취소: " + comment.getId());
             
-            // [시니어 조치] 특정 게시글 내의 상한선 회수 (취소 후 남은 개수 전달)
-            karmaService.revokeKarma(author.getId(), 1, postKey, com.habidue.app.domain.user.KarmaReason.LIKE_CANCELED, comment.getLikeCount(), 10);
+            // [시니어 조치] KarmaService가 DB에서 직접 잔여 좋아요를 계산 (null 전달)
+            // comment.decrementLikeCount()로 영속성 컨텍스트 반영 → JPA auto-flush로 DB에도 반영됨
+            karmaService.revokeKarma(author.getId(), 1, postKey, com.habidue.app.domain.user.KarmaReason.LIKE_CANCELED, null, 10);
         } else {
             commentLikeRepository.save(com.habidue.app.domain.board.CommentLike.builder().comment(comment).user(currentUser).build());
             comment.incrementLikeCount();
@@ -262,9 +263,9 @@ public class CommentService {
         Comment comment = commentRepository.findById(commentId).orElseThrow();
         if (!comment.getAuthor().getId().equals(currentUser.getId())) throw new IllegalArgumentException("권한 없음");
         
-        // [시니어 조치] 중복 회수 방지 가드: 이미 삭제된 상태라면 로직을 수행하지 않음
-        if ("DELETED".equals(comment.getStatus())) {
-            log.info("이미 삭제된 댓글이므로 회수 로직을 건너뜁니다. ID: {}", commentId);
+        // [시니어 조치] 중복 회수 방지 가드: ACTIVE 상태가 아니면 (USER_DELETED, DELETED, BLINDED 등) 모두 스킵
+        if (!"ACTIVE".equals(comment.getStatus())) {
+            log.info("ACTIVE 상태가 아닌 댓글이므로 회수 로직을 건너뜁니다. ID: {}, status: {}", commentId, comment.getStatus());
             return;
         }
         
@@ -277,10 +278,16 @@ public class CommentService {
             expService.revokeExp(author.getId(), ExpReason.RECEIVED_LIKE, "댓글 삭제에 따른 좋아요 경험치 회수");
         }
 
-        // [시니어 조치] 카르마 회수 (게시글 단위 상한선 키와 일치시킴)
-        if (comment.getLikeCount() > 0) {
+        // [시니어 조치] 카르마 회수 - 상태를 먼저 USER_DELETED로 변경 + flush하여
+        // KarmaService.computeRemainingHeartsForPostKey()의 DB 쿼리에서 이 댓글이 제외되도록 함
+        int originalLikeCount = comment.getLikeCount();
+        comment.changeStatus("USER_DELETED");
+        comment.getCommentLikes().clear(); // 연관된 좋아요 물리 삭제
+        commentRepository.saveAndFlush(comment);
+
+        if (originalLikeCount > 0) {
             String postKey = "POST_ID: " + comment.getPost().getId();
-            karmaService.revokeKarma(author.getId(), comment.getLikeCount(), postKey, com.habidue.app.domain.user.KarmaReason.LIKE_CANCELED);
+            karmaService.revokeKarma(author.getId(), originalLikeCount, postKey, com.habidue.app.domain.user.KarmaReason.LIKE_CANCELED, null, 10);
         }
 
         // [시니어 조치] 실시간 급상승 랭킹 점수 차감 (공고글일 경우)
@@ -292,17 +299,12 @@ public class CommentService {
         if (stats != null) {
             stats.decrementCommentCount();
             // 댓글이 받았던 좋아요 수만큼 통계 차감
-            for (int i = 0; i < comment.getLikeCount(); i++) {
+            for (int i = 0; i < originalLikeCount; i++) {
                 stats.decrementCommentLikeReceivedCount();
             }
             userActivityStatsRepository.save(stats);
         }
 
         postRepository.decrementCommentCount(comment.getPost().getId());
-        
-        // [시니어 조치] 상태값 세분화: 사용자가 직접 삭제한 경우 USER_DELETED 사용
-        comment.changeStatus("USER_DELETED");
-        comment.getCommentLikes().clear(); // 연관된 좋아요 물리 삭제
-        commentRepository.save(comment);
     }
 }

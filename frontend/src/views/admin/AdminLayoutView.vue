@@ -57,7 +57,7 @@
           <span class="admin-name desktop-only">{{ authStore.user?.username }}님</span>
         </div>
       </header>
-      <section class="admin-content">
+      <section class="admin-content" :class="{ 'content-fullscreen': isSimulation }">
         <RouterView />
       </section>
     </main>
@@ -72,6 +72,8 @@ import { useAuthStore } from '@/stores/auth'
 const route = useRoute()
 const authStore = useAuthStore()
 const isSidebarOpen = ref(false)
+
+const isSimulation = computed(() => route.path.includes('simulation'))
 
 const currentMenuName = computed(() => {
   if (route.path.includes('dashboard')) return '대시보드'
@@ -170,6 +172,7 @@ const currentMenuName = computed(() => {
 .admin-name { font-weight: 600; font-size: 0.85rem; color: var(--text-primary); }
 
 .admin-content { flex: 1; padding: 15px; display: flex; flex-direction: column; min-height: 0; }
+.admin-content.content-fullscreen { padding: 0; overflow: hidden; }
 
 /* 스크롤바 스타일 통일 */
 .scrollable { scrollbar-width: thin; }
@@ -200,6 +203,7 @@ const currentMenuName = computed(() => {
   .menu-toggle-btn { display: flex; }
   .admin-top-bar { padding: 0 15px; height: 56px; z-index: 100; }
   .admin-content { padding: 20px 15px; overflow-y: auto; }
+  .admin-content.content-fullscreen { padding: 0; overflow: visible; }
   .desktop-only { display: none; }
   .admin-main { width: 100%; min-height: 100vh; z-index: 1; }
 }

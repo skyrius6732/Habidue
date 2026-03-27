@@ -159,7 +159,7 @@ public class PostService {
     public Page<PostResponseDto> getPosts(PostType type, Long noticeId, String category, String subCategory, String keyword, String regionTag, String tagName, UserPrincipal currentUser, Pageable pageable) {
         Long currentUserId = currentUser != null ? currentUser.getId() : null;
         boolean isAdmin = currentUser != null && currentUser.getAuthorities().stream().anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN"));
-        Page<Post> posts = postRepository.findPosts(type, noticeId, category, subCategory, keyword, "ACTIVE", regionTag, tagName, pageable, currentUserId, isAdmin);
+        Page<Post> posts = postRepository.findPosts(type, noticeId, category, subCategory, keyword, "ACTIVE", regionTag, tagName, pageable, currentUserId, null, isAdmin);
         return posts.map(post -> {
             post.getImages().size();
             post.getTags().forEach(pt -> pt.getTag().getName());
@@ -209,6 +209,11 @@ public class PostService {
 
         PostResponseDto dto = PostResponseDto.from(post);
         fillAuthorBadgeInfo(dto, post.getAuthor());
+        
+        // [시니어 조치] 이전글/다음글 ID 조회 추가
+        Long noticeId = post.getNotice() != null ? post.getNotice().getId() : null;
+        dto.setPrevId(postRepository.findPrevId(post.getId(), post.getType().name(), noticeId));
+        dto.setNextId(postRepository.findNextId(post.getId(), post.getType().name(), noticeId));
         
         // [시니어 조치] ID 0 또는 null 방지 로직 적용
         if (currentUser != null && currentUser.getId() != null && currentUser.getId() > 0) {
@@ -273,8 +278,9 @@ public class PostService {
                     notificationService.send(author, NotificationType.SYSTEM, notiContent + ": \"" + post.getTitle() + "\"", post.getId(), post.getId());
                 }
             } else {
-                // [시니어 조치] 취소 후 남은 좋아요 개수를 넘겨서 상한선 보존 로직 가동
-                karmaService.revokeKarma(author.getId(), 1, "POST_ID: " + postId, com.habidue.app.domain.user.KarmaReason.LIKE_CANCELED, post.getLikeCount(), 10);
+                // [시니어 조치] KarmaService가 DB에서 직접 잔여 좋아요를 계산 (null 전달)
+                // decrementLikeCount()가 @Modifying JPQL로 DB 직접 갱신 → getPostLikeCount() JPQL이 정확한 값 읽음
+                karmaService.revokeKarma(author.getId(), 1, "POST_ID: " + postId, com.habidue.app.domain.user.KarmaReason.LIKE_CANCELED, null, 10);
             }
         }
         return isNowLiked;
@@ -283,7 +289,7 @@ public class PostService {
     @Transactional(readOnly = true)
     public com.habidue.app.dto.search.SearchResponseDto searchAll(String keyword, Pageable pageable, UserPrincipal currentUser) {
         boolean isAdmin = currentUser != null && currentUser.getAuthorities().stream().anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN"));
-        Page<Post> postsPage = postRepository.findPosts(null, null, null, null, keyword, "ACTIVE", null, null, pageable, currentUser != null ? currentUser.getId() : null, isAdmin);
+        Page<Post> postsPage = postRepository.findPosts(null, null, null, null, keyword, "ACTIVE", null, null, pageable, currentUser != null ? currentUser.getId() : null, null, isAdmin);
         return com.habidue.app.dto.search.SearchResponseDto.builder().keyword(keyword).totalCount((int) postsPage.getTotalElements()).build();
     }
 

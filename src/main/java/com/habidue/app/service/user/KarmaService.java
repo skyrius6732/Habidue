@@ -1,6 +1,8 @@
 package com.habidue.app.service.user;
 
 import com.habidue.app.domain.user.*;
+import com.habidue.app.repository.board.CommentRepository;
+import com.habidue.app.repository.board.PostRepository;
 import com.habidue.app.repository.user.KarmaHistoryRepository;
 import com.habidue.app.repository.user.UserRepository;
 import com.habidue.app.service.notification.NotificationService;
@@ -22,6 +24,8 @@ public class KarmaService {
     private final UserRepository userRepository;
     private final KarmaHistoryRepository karmaHistoryRepository;
     private final NotificationService notificationService;
+    private final PostRepository postRepository;
+    private final CommentRepository commentRepository;
 
     public static final int KARMA_SCALE = 10;
     public static final int DAILY_MAX_RECOVERY = 50;
@@ -50,7 +54,8 @@ public class KarmaService {
         if (maxAllowedTotal != null && comment != null) {
             // "COMMENT_ID: ..." 같은 개별 댓글 식별자를 "POST_ID: ..."로 정규화하여 게시글 전체 한도 적용
             String groupKey = comment.startsWith("COMMENT_ID") ? extractPostKeyFromComment(comment) : comment;
-            int alreadyEarned = karmaHistoryRepository.getSumByUserIdAndComment(userId, groupKey != null ? groupKey : comment);
+            Integer sumResult = karmaHistoryRepository.getSumByUserIdAndComment(userId, groupKey != null ? groupKey : comment);
+            int alreadyEarned = sumResult != null ? sumResult : 0;
             if (alreadyEarned >= maxAllowedTotal) {
                 log.info("Karma Cap Reached for {}: {}", groupKey, alreadyEarned);
                 return 0;
@@ -59,7 +64,8 @@ public class KarmaService {
         }
 
         LocalDateTime startOfDay = LocalDateTime.now().withHour(0).withMinute(0).withSecond(0).withNano(0);
-        int dailyEarned = karmaHistoryRepository.getDailyEarnedPoints(userId, startOfDay);
+        Integer dailyResult = karmaHistoryRepository.getDailyEarnedPoints(userId, startOfDay);
+        int dailyEarned = dailyResult != null ? dailyResult : 0;
         if (dailyEarned >= DAILY_MAX_RECOVERY) {
             log.info("Daily Karma Cap Reached for user {}", userId);
             return 0;
@@ -94,40 +100,78 @@ public class KarmaService {
     }
 
     /**
-     * [시니어 조치] 좋아요 취소 시 점수 회수
-     * 잔여 데이터가 상한선(max)을 여전히 충족한다면 점수를 회수하지 않는 '보존 로직' 적용
+     * [시니어 조치] 좋아요 취소/댓글 삭제 시 점수 회수
+     * 게시글 내 잔여 좋아요가 상한선(cap) 이상이면 보존, 미만이면 차액만 회수
+     *
+     * currentTotalActiveCount:
+     *   null → KarmaService가 DB에서 직접 조회 (권장)
+     *   명시값 → 호출자가 제공 (게시글 삭제 시 0 전달 등 특수 케이스)
      */
     @Transactional
     public int revokeKarma(Long userId, int points, String comment, KarmaReason reason, Integer currentTotalActiveCount, Integer maxAllowedTotal) {
         User user = userRepository.findById(userId).orElseThrow();
-        
-        // 1. 이전에 해당 항목으로 실제로 획득한 총 점수(Scaled) 확인
-        int previouslyEarned = (comment != null) ? karmaHistoryRepository.getSumByUserIdAndComment(userId, comment) : 0;
+
+        // 1. 이 postKey로 실제 획득한 순수 점수 (부여 - 회수 합산)
+        Integer sumResult = (comment != null) ? karmaHistoryRepository.getSumByUserIdAndComment(userId, comment) : 0;
+        int previouslyEarned = sumResult != null ? sumResult : 0;
         if (previouslyEarned <= 0) return 0;
 
-        // 2. [시니어 조치] 잔여 기여도 기반 보존 로직
-        // 예: 17개 좋아요 중 10개 삭제 -> 7개 남음. 1.0P(10) 중 7개분(0.7P)은 남겨야 함.
-        if (currentTotalActiveCount != null) {
-            int maxPoints = (maxAllowedTotal != null) ? maxAllowedTotal : 10; // 기본 상한 1.0P
-            int shouldHavePoints = Math.min(currentTotalActiveCount, maxPoints); 
+        // 2. 보존 로직: 잔여 좋아요 수 기반으로 유지해야 할 점수 계산
+        if (maxAllowedTotal != null && comment != null) {
+            // currentTotalActiveCount가 null이면 DB에서 해당 유저의 콘텐츠 좋아요만 직접 계산
+            int remaining = (currentTotalActiveCount != null)
+                ? currentTotalActiveCount
+                : computeRemainingHeartsForUser(comment, userId);
+
+            int shouldHavePoints = Math.min(remaining, maxAllowedTotal);
             int needToRevoke = Math.max(0, previouslyEarned - shouldHavePoints);
-            
-            if (needToRevoke <= 0) {
-                log.info("잔여 활동({})이 충분하여 카르마를 보존합니다. (기존: {})", currentTotalActiveCount, previouslyEarned);
-                return 0;
-            }
+
+            log.info("카르마 회수 판단: postKey={}, previouslyEarned={}, remaining={}, shouldHave={}, needToRevoke={}",
+                    comment, previouslyEarned, remaining, shouldHavePoints, needToRevoke);
+
+            if (needToRevoke <= 0) return 0;
             points = needToRevoke;
         }
 
         int pointsToRevoke = Math.min(Math.abs(points), previouslyEarned);
         int newPoint = Math.max(0, user.getKarmaPoint() - pointsToRevoke);
         int actualChange = user.getKarmaPoint() - newPoint;
-        
+
         if (actualChange <= 0) return 0;
 
         user.setKarmaPoint(newPoint);
         karmaHistoryRepository.save(KarmaHistory.builder().user(user).reason(reason).pointChange(-actualChange).resultingPoint(newPoint).comment(comment).build());
+        log.info("카르마 회수 완료: userId={}, revoked={}, newPoint={}", userId, actualChange, newPoint);
         return actualChange;
+    }
+
+    /**
+     * POST_ID 키에서 postId를 추출하여 해당 유저가 작성한 콘텐츠의 잔여 좋아요만 DB에서 조회
+     * (다른 유저가 받은 좋아요는 제외하여 유저별 정밀 카르마 계산)
+     */
+    private int computeRemainingHeartsForUser(String postKey, Long userId) {
+        Long postId = extractPostIdFromKey(postKey);
+        if (postId == null) return 0;
+        Integer postLikes = postRepository.getPostLikeCountForAuthor(postId, userId);
+        Integer commentLikes = commentRepository.sumActiveLikeCountByPostIdAndAuthorId(postId, userId);
+        
+        return (postLikes != null ? postLikes : 0) + (commentLikes != null ? commentLikes : 0);
+    }
+
+    private Long extractPostIdFromKey(String key) {
+        if (key == null) return null;
+        String prefix = "POST_ID: ";
+        int startIdx = key.indexOf(prefix);
+        if (startIdx == -1) return null;
+        try {
+            String idStr = key.substring(startIdx + prefix.length()).trim();
+            int endIdx = idStr.indexOf(',');
+            if (endIdx == -1) endIdx = idStr.indexOf(')');
+            if (endIdx != -1) idStr = idStr.substring(0, endIdx).trim();
+            return Long.parseLong(idStr);
+        } catch (NumberFormatException e) {
+            return null;
+        }
     }
 
     // 기존 하위 호환성을 위한 오버로딩

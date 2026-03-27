@@ -42,11 +42,11 @@ public class AdminBoardService {
     private final MessageRepository messageRepository;
 
     @Transactional(readOnly = true)
-    public Page<PostResponseDto> getAdminPosts(Long userId, String keyword, String status, Pageable pageable) {
+    public Page<PostResponseDto> getAdminPosts(Long userId, Long postId, String keyword, String status, Pageable pageable) {
         if (userId != null) {
             return postRepository.findPostsByAuthor(userId, keyword, status, pageable).map(PostResponseDto::from);
         }
-        return postRepository.findPosts(null, null, null, null, keyword, status, null, null, pageable, null, true)
+        return postRepository.findPosts(null, null, null, null, keyword, status, null, null, pageable, null, postId, true)
                 .map(PostResponseDto::from);
     }
 
@@ -86,8 +86,8 @@ public class AdminBoardService {
     }
 
     @Transactional(readOnly = true)
-    public Page<CommentResponseDto> getAdminComments(Long userId, String keyword, String status, Pageable pageable) {
-        return commentRepository.findComments(userId, keyword, status, pageable).map(comment -> {
+    public Page<CommentResponseDto> getAdminComments(Long userId, Long commentId, String keyword, String status, Pageable pageable) {
+        return commentRepository.findComments(userId, commentId, keyword, status, pageable).map(comment -> {
             CommentResponseDto dto = CommentResponseDto.from(comment, true);
             dto.setChildren(new java.util.ArrayList<>());
             return dto;
@@ -218,12 +218,17 @@ public class AdminBoardService {
             List<Report> reports = reportRepository.findAllByTargetIdAndTargetType(targetId, ReportTargetType.MESSAGE);
             List<User> reporters = reports.stream().map(Report::getReporter).distinct().collect(Collectors.toList());
             
-            String violation = "운영원칙 위반";
+            // [시니어 조치] AI 분석 결과 존재 여부에 따른 위반 항목 및 메시지 워딩 최적화
+            String violation = "운영 정책 위반 항목";
+            boolean hasAiAnalysis = false;
             if (m.getAiAnalysis() != null && !m.getAiAnalysis().isEmpty()) {
                 try {
                     com.fasterxml.jackson.databind.JsonNode node = new com.fasterxml.jackson.databind.ObjectMapper().readTree(m.getAiAnalysis());
                     String p = node.path("violationPoint").asText();
-                    if (p != null && !p.isEmpty()) violation = p;
+                    if (p != null && !p.isEmpty()) {
+                        violation = p;
+                        hasAiAnalysis = true;
+                    }
                 } catch (Exception e) {}
             }
             String preview = m.getContent().length() > 25 ? m.getContent().substring(0, 25) + "..." : m.getContent();
@@ -231,18 +236,37 @@ public class AdminBoardService {
             if (status == ReportStatus.BLIND_COMPLETE) {
                 karmaService.deductKarma(suspect.getId(), 30, KarmaReason.REPORT_MESSAGE_APPROVED, "신고 승인에 따른 제재 (ID: " + targetId + ")", null, true);
                 notificationService.send(suspect, NotificationType.SYSTEM, "⚠️ 보내신 쪽지가 운영 정책 위반으로 블라인드 처리되었습니다: \"" + preview + "\"", suspect.getId(), null);
-                messageService.sendAdminResultSystemMessage(partner, suspect, "⚠️ [경고] 운영 정책 위반 표현 사용으로 제재가 적용되었습니다. ('" + violation + "')", suspect.getId(), false, targetId);
+                
+                // 피신고자 대상 시스템 메시지 (partner 대화방에 노출)
+                String suspectMsg = hasAiAnalysis 
+                    ? "⚠️ [경고] 운영 정책 위반 표현('" + violation + "') 사용으로 서비스 이용 제재가 적용되었습니다."
+                    : "⚠️ [경고] 운영 정책 위반 정황이 확인되어 서비스 이용 제재가 적용되었습니다.";
+                messageService.sendAdminResultSystemMessage(partner, suspect, suspectMsg, suspect.getId(), false, targetId);
+                
+                // 신고자 대상 시스템 메시지
                 for (User reporter : reporters) {
-                    messageService.sendAdminResultSystemMessage(suspect, reporter, "📢 [안내] 신고하신 내용에 대해 조치가 완료되었습니다. ('" + violation + "')", reporter.getId(), false, targetId);
+                    String reporterMsg = hasAiAnalysis
+                        ? "📢 [안내] 신고하신 내용에 대해 운영 정책 위반('" + violation + "')이 확인되어 발송 제한 조치가 완료되었습니다."
+                        : "📢 [안내] 신고하신 내용에 대해 운영 정책 위반 사항이 확인되어 적절한 조치가 완료되었습니다.";
+                    messageService.sendAdminResultSystemMessage(suspect, reporter, reporterMsg, reporter.getId(), false, targetId);
                 }
             } else if (status == ReportStatus.DELETE_COMPLETE) {
                 karmaService.deductKarma(suspect.getId(), 70, KarmaReason.REPORT_MESSAGE_APPROVED, "심각한 위반으로 인한 영구 제한 (ID: " + targetId + ")", null, true);
                 notificationService.send(suspect, NotificationType.SYSTEM, "🚫 보내신 쪽지가 심각한 운영 정책 위반으로 영구 제한되었습니다: \"" + preview + "\"", null, null);
-                String suspectMsg = "🚫 [주의] 심각한 위반('" + violation + "') 정황이 확인되어 본 대화방 이용이 영구 제한됩니다.";
+                
+                // 피신고자 대상 시스템 메시지
+                String suspectMsg = hasAiAnalysis
+                    ? "🚫 [주의] 심각한 운영 정책 위반('" + violation + "') 정황이 확인되어 본 대화방 이용이 영구 제한됩니다."
+                    : "🚫 [주의] 심각한 운영 정책 위반 사항이 확인되어 본 대화방 이용이 영구 제한됩니다.";
                 messageService.sendAdminResultSystemMessage(partner, suspect, suspectMsg, suspect.getId(), true, targetId);
+                
+                // 신고자 대상 시스템 메시지
                 for (User reporter : reporters) {
                     messageService.blockUser(reporter, suspect.getId(), "심각한 운영원칙 위반('" + violation + "')으로 인한 자동 격리", true);
-                    messageService.sendAdminResultSystemMessage(suspect, reporter, "📢 [안내] 심각한 운영 위반 확인으로 대상자 차단 및 영구 조치가 완료되었습니다.", reporter.getId(), true, targetId);
+                    String reporterMsg = hasAiAnalysis
+                        ? "📢 [안내] 신고하신 대화방에 대해 '" + violation + "' 심각한 위반이 확인되어 영구 제한 및 상대방 차단 조치가 완료되었습니다."
+                        : "📢 [안내] 신고하신 내용에 대해 심각한 운영 정책 위반 확인으로 상대방 차단 및 영구 조치가 완료되었습니다.";
+                    messageService.sendAdminResultSystemMessage(suspect, reporter, reporterMsg, reporter.getId(), true, targetId);
                 }
             } else if (status == ReportStatus.REJECTED || status == ReportStatus.WAITING) {
                 messageService.restoreMessage(targetId);

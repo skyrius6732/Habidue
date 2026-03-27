@@ -24,12 +24,17 @@ public class PostRepositoryImpl implements PostRepositoryCustom {
     private final JPAQueryFactory queryFactory;
 
     @Override
-    public Page<Post> findPosts(PostType type, Long noticeId, String category, String subCategory, String keyword, String status, String regionTag, String tagName, Pageable pageable, Long currentUserId, boolean isAdmin) {
+    public Page<Post> findPosts(PostType type, Long noticeId, String category, String subCategory, String keyword, String status, String regionTag, String tagName, Pageable pageable, Long currentUserId, Long targetPostId, boolean isAdmin) {
         QPost post = QPost.post;
         QUser author = QUser.user;
         QNotice notice = QNotice.notice;
 
         BooleanBuilder builder = new BooleanBuilder();
+
+        // [시니어 조치] 특정 ID 직접 조회 필터 (최우선)
+        if (targetPostId != null && isAdmin) {
+            builder.and(post.id.eq(targetPostId));
+        }
 
         // 1. 게시글 타입, 공고, 카테고리 필터
         if (type != null) {
@@ -80,6 +85,7 @@ public class PostRepositoryImpl implements PostRepositoryCustom {
             if (isAdmin) {
                 builder.and(post.status.ne("HARD_DELETED"));
             } else if (currentUserId != null) {
+                // 일반 유저는 본인 글(ACTIVE + BLINDED)만 조회 가능 (삭제 글 제외)
                 builder.and(post.status.eq("ACTIVE")
                         .or(post.status.eq("BLINDED").and(post.author.id.eq(currentUserId))));
             } else {
@@ -197,7 +203,7 @@ public class PostRepositoryImpl implements PostRepositoryCustom {
     }
 
     @Override
-    public long countByKeywordAndType(String keyword, PostType type, Long currentUserId, boolean isAdmin) {
+    public long countByKeywordAndType(String keyword, PostType type, Long targetPostId, boolean isAdmin) {
         QPost post = QPost.post;
         QUser author = QUser.user;
         BooleanBuilder builder = new BooleanBuilder();
@@ -214,14 +220,11 @@ public class PostRepositoryImpl implements PostRepositoryCustom {
         }
 
         // [시니어 조치] 카운트 쿼리에도 검색 리스트와 동일한 권한 기반 상태 필터 적용
-        // [시니어 조치] Soft Delete 필터링: 삭제된 글은 조회 대상에서 제외
-        builder.and(post.status.ne("DELETED"));
-
         if (isAdmin) {
             builder.and(post.status.ne("HARD_DELETED"));
-        } else if (currentUserId != null) {
+        } else if (targetPostId != null) {
             builder.and(post.status.eq("ACTIVE")
-                    .or(post.status.eq("BLINDED").and(post.author.id.eq(currentUserId))));
+                    .or(post.status.eq("BLINDED").and(post.author.id.eq(targetPostId))));
         } else {
             builder.and(post.status.eq("ACTIVE"));
         }

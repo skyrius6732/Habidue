@@ -25,7 +25,7 @@
             </div>
             <div class="admin-btns">
               <button v-if="post.status === 'BLINDED'" class="btn-admin-restore" @click="handleRestorePost">✅ 게시글 복구</button>
-              <button class="btn-admin-nav" @click="$router.push({ name: 'adminCommunity', query: { keyword: post.title } })">관리자 메뉴</button>
+              <button class="btn-admin-nav" @click="router.push({ name: 'adminCommunity', query: { postId: post.id } })">관리자 메뉴</button>
             </div>
           </div>
 
@@ -181,9 +181,9 @@
                       />
                       
                       <!-- [시니어] 운영자 전용 댓글 관리 버튼 -->
-                      <div v-if="isAdmin && comment.status !== 'ACTIVE'" class="admin-comment-controls">
-                        <button class="btn-admin-c-restore" @click="handleRestoreComment(comment.id)">✅ 댓글 복구</button>
-                        <button class="btn-admin-c-nav" @click="$router.push({ name: 'adminCommunity', query: { keyword: comment.content.substring(0, 10) } })">관리자 메뉴</button>
+                      <div v-if="isAdmin" class="admin-comment-controls">
+                        <button v-if="comment.status === 'BLINDED'" class="btn-admin-c-restore" @click="handleRestoreComment(comment.id)">복구</button>
+                        <button class="btn-admin-c-nav" @click="router.push({ name: 'adminCommunity', query: { commentId: comment.id } })">관리자 메뉴</button>
                       </div>
 
                       <div class="c-more-container">
@@ -257,9 +257,9 @@
                         />
 
                         <!-- [시니어] 운영자 전용 답글 관리 버튼 -->
-                        <div v-if="isAdmin && reply.status !== 'ACTIVE'" class="admin-comment-controls">
-                          <button class="btn-admin-c-restore" @click="handleRestoreComment(reply.id)">✅ 댓글 복구</button>
-                          <button class="btn-admin-c-nav" @click="$router.push({ name: 'adminCommunity', query: { keyword: reply.content.substring(0, 10) } })">관리자 메뉴</button>
+                        <div v-if="isAdmin" class="admin-comment-controls">
+                          <button v-if="reply.status === 'BLINDED'" class="btn-admin-c-restore" @click="handleRestoreComment(reply.id)">복구</button>
+                          <button class="btn-admin-c-nav" @click="$router.push({ name: 'adminCommunity', query: { commentId: reply.id } })">관리자 메뉴</button>
                         </div>
 
                         <div class="c-more-container">
@@ -369,7 +369,7 @@
 
 <script setup>
 import { ref, onMounted, onUnmounted, computed, watch, reactive, nextTick } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
+import { useRoute, useRouter, onBeforeRouteLeave } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import axios from '@/plugins/axios'
 import PageHeader from '@/components/PageHeader.vue'
@@ -663,8 +663,16 @@ const toggleReplyInput = (id) => { if (replyingToId.value === id) { replyingToId
 const toggleMoreMenu = () => { isMoreMenuOpen.value = !isMoreMenuOpen.value }
 const copyUrl = async () => { try { await navigator.clipboard.writeText(window.location.href); alert('URL이 복사되었습니다.'); isMoreMenuOpen.value = false } catch (e) {} }
 const shareUrl = async () => { try { await navigator.share({ title: post.value.title, url: window.location.href }); isMoreMenuOpen.value = false } catch (e) {} }
-const goToPrevPost = () => { if (post.value.prevId) router.push(`/board/post/${post.value.prevId}`) }
-const goToNextPost = () => { if (post.value.nextId) router.push(`/board/post/${post.value.nextId}`) }
+const goToPrevPost = () => { 
+  if (post.value?.prevId) {
+    router.push({ path: `/board/post/${post.value.prevId}`, query: { ...route.query } })
+  }
+}
+const goToNextPost = () => { 
+  if (post.value?.nextId) {
+    router.push({ path: `/board/post/${post.value.nextId}`, query: { ...route.query } })
+  }
+}
 
 const openReportModal = (type, id, status = 'ACTIVE') => { 
   // [시니어 조치] 게시글 자체가 이미 조치된 경우 모든 신고 차단
@@ -689,6 +697,13 @@ const submitReport = async () => {
     alert('신고가 접수되었습니다.'); closeReportModal()
   } catch (e) { alert(e.response?.data?.message || '신고 실패') }
 }
+
+// [시니어 조치] 같은 페이지 내에서 게시글 ID가 변경될 때 대응 (이전/다음글 이동)
+watch(() => route.params.postId, (newId) => {
+  if (newId) {
+    fetchPostDetail();
+  }
+});
 
 // [시니어 조치] URL 쿼리 파라미터 감시 (같은 페이지 내 이동 및 알림 클릭 대응)
 watch(() => route.query, (newQuery) => {
@@ -827,6 +842,14 @@ const handleGoBack = () => {
   const path = noticeId ? `/board/${noticeId}` : '/board'
   router.push({ path, query })
 }
+
+// 브라우저 뒤로가기 포함, 페이지 이탈 시 현재 게시글 ID 저장 (BoardView에서 스크롤 복원에 사용)
+onBeforeRouteLeave((to) => {
+  const isBoardRoute = to.path === '/board' || (to.path.startsWith('/board/') && !to.path.startsWith('/board/post'))
+  if (isBoardRoute && post.value?.id && !to.query.lastPostId) {
+    sessionStorage.setItem('lastViewedPostId', post.value.id)
+  }
+})
 
 const openImageModal = (url) => { selectedFullImg.value = getFullImageUrl(url) }
 const getFullImageUrl = (url) => url ? (url.startsWith('http') ? url : (url.startsWith('/') ? url : `/${url}`)) : ''

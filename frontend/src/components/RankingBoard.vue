@@ -35,7 +35,7 @@ const fetchRanking = async () => {
       params: { period: activePeriod.value, category: activeCategory.value, limit: 100 }
     });
     console.log('📢 랭킹 데이터 수신:', res.data.data); // 디버깅용 로그
-    allRankers.value = res.data.data;
+    allRankers.value = (res.data.data || []).filter(r => r.exp > 0);
   } catch (e) {
     console.error('랭킹 로드 실패:', e);
   } finally {
@@ -217,7 +217,7 @@ onUnmounted(() => {
 
       <!-- 데이터 없음 -->
       <div v-if="!loading && allRankers.length === 0" class="empty-ranking">
-        <span class="empty-icon">📊</span>
+        <span class="empty-icon">🎖️</span>
         <p>이 기간에는 아직 활동한 유저가 없습니다.<br>여러분이 주인공이 되어보세요!</p>
       </div>
     </div>
@@ -358,5 +358,27 @@ onUnmounted(() => {
   .unified-exp-badge .val { font-size: 0.45rem; }
   .unified-exp-badge .unit { font-size: 0.3rem; }
   .exp-cell { width: 60px; }
+}
+
+.empty-ranking {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 20px;
+  gap: 14px;
+  color: #9ca3af;
+}
+.empty-ranking .empty-icon {
+  font-size: 3rem;
+  line-height: 1;
+  filter: grayscale(20%);
+}
+.empty-ranking p {
+  margin: 0;
+  text-align: center;
+  font-size: 0.95rem;
+  line-height: 1.7;
+  color: #6b7280;
 }
 </style>

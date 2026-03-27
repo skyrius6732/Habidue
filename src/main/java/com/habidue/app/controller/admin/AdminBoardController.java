@@ -34,10 +34,11 @@ public class AdminBoardController {
     @GetMapping("/posts")
     public ResponseEntity<ApiResponse<Page<PostResponseDto>>> getPosts(
             @RequestParam(required = false) Long userId,
+            @RequestParam(required = false) Long postId,
             @RequestParam(required = false) String keyword,
             @RequestParam(required = false) String status,
             @PageableDefault(size = 20, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable) {
-        return ApiResponse.success(adminBoardService.getAdminPosts(userId, keyword, status, pageable));
+        return ApiResponse.success(adminBoardService.getAdminPosts(userId, postId, keyword, status, pageable));
     }
 
     /**
@@ -75,10 +76,11 @@ public class AdminBoardController {
     @GetMapping("/comments")
     public ResponseEntity<ApiResponse<Page<CommentResponseDto>>> getComments(
             @RequestParam(required = false) Long userId,
+            @RequestParam(required = false) Long commentId,
             @RequestParam(required = false) String keyword,
             @RequestParam(required = false) String status,
             @PageableDefault(size = 20, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable) {
-        return ApiResponse.success(adminBoardService.getAdminComments(userId, keyword, status, pageable));
+        return ApiResponse.success(adminBoardService.getAdminComments(userId, commentId, keyword, status, pageable));
     }
 
     /**

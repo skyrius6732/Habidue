@@ -14,11 +14,14 @@
               <span v-if="post.category" class="post-category-badge">{{ getCategoryLabel(post.category) }}</span>
               <!-- [시니어] 블라인드 및 삭제 뱃지 (관리자/본인 구분) -->
               <template v-if="post.status === 'BLINDED'">
-                <span v-if="isAdmin" class="blinded-status-badge admin-hidden">모니터링: 숨김</span>
+                <span v-if="isAdmin" class="blinded-status-badge admin-hidden">모니터링: 관리자숨김</span>
                 <span v-else class="blinded-status-badge">관리자 숨김</span>
               </template>
               <template v-if="post.status === 'DELETED'">
-                <span v-if="isAdmin" class="blinded-status-badge admin-deleted">모니터링: 삭제</span>
+                <span v-if="isAdmin" class="blinded-status-badge admin-deleted">모니터링: 관리자삭제</span>
+              </template>
+              <template v-if="post.status === 'USER_DELETED'">
+                <span v-if="isAdmin" class="blinded-status-badge admin-user-deleted">모니터링: 사용자삭제</span>
               </template>
               <span class="title-text">{{ post.title }}</span>
             </h4>
@@ -207,6 +210,10 @@ const formatDate = (dateStr) => {
 .blinded-status-badge.admin-deleted {
   background: #8e44ad; /* 보라색 (삭제 상태) */
   box-shadow: 0 2px 5px rgba(142, 68, 173, 0.3);
+}
+.blinded-status-badge.admin-user-deleted {
+  background: #d35400; /* 호박색/브라운 (사용자 삭제) */
+  box-shadow: 0 2px 5px rgba(211, 84, 0, 0.3);
 }
 
 .post-summary { 
