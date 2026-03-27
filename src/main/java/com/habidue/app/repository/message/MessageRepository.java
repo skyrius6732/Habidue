@@ -99,4 +99,8 @@ public interface MessageRepository extends JpaRepository<Message, Long> {
     // [시니어 조치] 특정 신고 건에 대한 모든 기존 시스템 메시지 일괄 조회 (복구/Undo 용도)
     @Query("SELECT m FROM Message m WHERE m.isSystem = true AND m.relatedTargetId = :relatedTargetId")
     List<Message> findAllByIsSystemTrueAndRelatedTargetId(@Param("relatedTargetId") Long relatedTargetId);
+
+    @org.springframework.data.jpa.repository.Modifying
+    @Query("DELETE FROM Message m WHERE m.sender = :sender OR m.receiver = :receiver")
+    void deleteBySenderOrReceiver(@Param("sender") User sender, @Param("receiver") User receiver);
 }

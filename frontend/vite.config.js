@@ -15,8 +15,22 @@ export default defineConfig({
       '/api': {
         target: 'http://localhost:8081',
         changeOrigin: true,
-        // [시니어 조치] SSE 안정성을 위해 최소한의 설정만 유지
-        ws: true
+        ws: true,
+        // SSE 구독 요청은 프록시 타임아웃을 비활성화하여 스트림이 끊기지 않도록 처리
+        configure: (proxy) => {
+          proxy.on('proxyReq', (proxyReq, req) => {
+            if (req.url?.includes('/notifications/subscribe')) {
+              proxyReq.setHeader('Connection', 'keep-alive')
+              proxyReq.setHeader('Cache-Control', 'no-cache')
+            }
+          })
+          proxy.on('proxyRes', (proxyRes, req) => {
+            if (req.url?.includes('/notifications/subscribe')) {
+              proxyRes.headers['cache-control'] = 'no-cache'
+              proxyRes.headers['x-accel-buffering'] = 'no'
+            }
+          })
+        }
       },
       '/uploads': {
         target: 'http://localhost:8081',

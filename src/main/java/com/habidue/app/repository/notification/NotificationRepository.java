@@ -1,6 +1,7 @@
 package com.habidue.app.repository.notification;
 
 import com.habidue.app.domain.notification.Notification;
+import com.habidue.app.domain.user.User;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
@@ -36,4 +37,6 @@ public interface NotificationRepository extends JpaRepository<Notification, Long
     @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query("UPDATE Notification n SET n.readStatus = 1 WHERE n.user.id = :userId")
     int forceReadAllByUserId(@Param("userId") Long userId);
+
+    void deleteByUser(User user);
 }

@@ -70,6 +70,10 @@ public class User {
     @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<Attendance> attendances = new ArrayList<>();
 
+    // [시니어 조치] 활동 통계와의 양방향 관계 설정 (Cascade 적용으로 생성/삭제 동기화)
+    @OneToOne(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
+    private UserActivityStats activityStats;
+
     @Builder.Default
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
@@ -112,4 +116,18 @@ public class User {
     @UpdateTimestamp
     @Column(nullable = false)
     private LocalDateTime updatedAt;
+
+    // [시니어 조치] 계정 탈퇴 및 익명화 로직
+    public void withdraw() {
+        this.status = UserStatus.WITHDRAWN;
+        this.email = "withdrawn_" + this.id + "@habidue.com"; // 유니크 제약 조건 회피용 가짜 이메일
+        this.username = "withdrawn_" + this.id;
+        this.nickname = "(탈퇴한 사용자)";
+        this.providerId = null; // 재가입 가능하도록 함
+        this.password = null;
+        this.totalExp = 0;
+        this.level = 1;
+        this.karmaPoint = 0;
+        this.equippedBadgeId = null;
+    }
 }

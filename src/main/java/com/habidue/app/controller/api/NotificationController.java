@@ -38,7 +38,10 @@ public class NotificationController {
         if (token != null && !token.isEmpty() && tokenProvider.validateToken(token)) {
             Long userId = tokenProvider.getUserId(token);
             if (userId != null) {
-                return ResponseEntity.ok(notificationService.subscribe(userId));
+                return ResponseEntity.ok()
+                        .header("Cache-Control", "no-cache")
+                        .header("X-Accel-Buffering", "no")
+                        .body(notificationService.subscribe(userId));
             }
         }
         

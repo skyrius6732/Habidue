@@ -147,6 +147,11 @@ const router = createRouter({
           component: () => import('../views/admin/AdminBadgeView.vue')
         },
         {
+          path: 'inquiries',
+          name: 'adminInquiries',
+          component: () => import('../views/admin/AdminInquiryView.vue')
+        },
+        {
           path: 'about',
           name: 'adminAbout',
           component: () => import('../views/admin/AboutAdminView.vue')

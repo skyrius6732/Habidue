@@ -66,4 +66,8 @@ public interface PostRepository extends JpaRepository<Post, Long>, PostRepositor
     // [시니어 조치] 누락된 메서드 복구 (OSIV OFF 대응 Fetch Join 추가)
     @Query("SELECT p FROM Post p JOIN FETCH p.author WHERE p.notice.id = :noticeId AND p.status = 'ACTIVE' ORDER BY (p.viewCount + p.likeCount * 5) DESC")
     List<Post> findTopByNoticeIdOrderByPopularity(@Param("noticeId") Long noticeId, Pageable pageable);
+
+    // 대시보드용 게시글 상태별 건수
+    @Query("SELECT p.status, COUNT(p) FROM Post p GROUP BY p.status")
+    List<Object[]> getCountByPostStatus();
 }

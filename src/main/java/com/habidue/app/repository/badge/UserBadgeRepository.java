@@ -22,4 +22,8 @@ public interface UserBadgeRepository extends JpaRepository<UserBadge, Long> {
 
     @org.springframework.data.jpa.repository.Query("SELECT ub FROM UserBadge ub WHERE ub.user.id IN :userIds")
     List<UserBadge> findAllByUserIds(@Param("userIds") List<Long> userIds);
+
+    @org.springframework.data.jpa.repository.Modifying
+    @org.springframework.data.jpa.repository.Query("DELETE FROM UserBadge ub WHERE ub.user.id = :userId")
+    void deleteByUserId(@Param("userId") Long userId);
 }

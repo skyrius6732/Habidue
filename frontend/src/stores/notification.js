@@ -79,7 +79,10 @@ export const useNotificationStore = defineStore('notification', {
         this.currentPage = 1 // 첫 페이지 로드 완료 상태
         this.hasMore = newItems.length === 20
       } catch (e) {
-        console.warn('[알림-DEBUG] 동기화 중 일시적 오류 발생 (자동 재시도 예정)')
+        // ERR_CONNECTION_RESET 등 네트워크 에러는 SSE 끊김 시 정상적으로 발생하므로 조용히 무시
+        if (e?.code !== 'ERR_NETWORK' && e?.message !== 'Network Error') {
+          console.warn('[알림-DEBUG] 동기화 중 일시적 오류 발생 (자동 재시도 예정)')
+        }
       }
     },
 
@@ -113,7 +116,9 @@ export const useNotificationStore = defineStore('notification', {
 
     startPolling(callback) {
       this.stopPolling()
+      // SSE가 정상 연결된 상태면 폴링 불필요 (30초마다 체크하여 SSE 상태에 따라 자동 조절)
       this.pollingTimer = setInterval(() => {
+        if (this.eventSource && this.eventSource.readyState === 1) return // SSE OPEN이면 스킵
         const prevCount = this.unreadCount
         this.syncState().then(() => {
           if (this.unreadCount > prevCount && callback && this.notifications.length > 0) {
@@ -186,6 +191,8 @@ export const useNotificationStore = defineStore('notification', {
           console.warn('[SSE-DEBUG] 연결 끊김, 15초 후 재연결 시도...')
           this.disconnectSse()
           if (authStore.isAuthenticated) {
+            // SSE 끊어진 동안 폴링으로 즉시 한 번 동기화 (연결 리셋 직후 대기 후 실행)
+            setTimeout(() => this.syncState(), 2000)
             if (this.reconnectTimer) clearTimeout(this.reconnectTimer)
             this.reconnectTimer = setTimeout(() => this.connectSse(callback), 15000)
           }
@@ -202,11 +209,23 @@ export const useNotificationStore = defineStore('notification', {
       if (index !== -1 && !this.notifications[index].isRead) {
         this.notifications[index].isRead = true
         this.unreadCount = Math.max(0, this.unreadCount - 1)
-        try {
-          await axios.patch(`/api/notifications/${id}/read`)
-        } catch (e) {
-          console.error('읽음 처리 실패', e)
+
+        // SSE 끊김 직후 커넥션 리셋에 걸릴 수 있으므로 최대 3회 재시도
+        const isNetworkError = (e) => e?.code === 'ERR_NETWORK' || e?.message === 'Network Error' || e?.code === 'ERR_CONNECTION_RESET'
+        for (let attempt = 1; attempt <= 3; attempt++) {
+          try {
+            await axios.patch(`/api/notifications/${id}/read`)
+            return
+          } catch (e) {
+            if (attempt < 3 && isNetworkError(e)) {
+              await new Promise(r => setTimeout(r, attempt * 1500))
+            } else if (!isNetworkError(e)) {
+              console.warn('읽음 처리 실패 (서버 오류)', e?.response?.status)
+              return
+            }
+          }
         }
+        console.warn('읽음 처리 실패 (재시도 소진) - 다음 동기화 때 자동 반영됩니다')
       }
     },
 

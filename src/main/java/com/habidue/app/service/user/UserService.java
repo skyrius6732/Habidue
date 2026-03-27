@@ -38,7 +38,14 @@ public class UserService {
     private final PasswordEncoder passwordEncoder;
     private final StringRedisTemplate redisTemplate;
     private final com.fasterxml.jackson.databind.ObjectMapper objectMapper;
-    private final NotificationService notificationService; // [시니어 조치] 알림 서비스 추가
+    private final NotificationService notificationService;
+
+    // [시니어 조치] 탈퇴 시 데이터 정리를 위한 레포지토리 추가
+    private final com.habidue.app.repository.notice.UserNoticeRepository userNoticeRepository;
+    private final com.habidue.app.repository.tag.UserTagRepository userTagRepository;
+    private final com.habidue.app.repository.message.MessageRepository messageRepository;
+    private final com.habidue.app.repository.notification.NotificationRepository notificationRepository;
+    private final com.habidue.app.repository.user.AttendanceRepository attendanceRepository;
 
     private static final String BADGE_RULES_CACHE_KEY = "badge:rules:all";
 
@@ -62,10 +69,10 @@ public class UserService {
         user.setRole(Role.USER);
         user.setStatus(UserStatus.ACTIVE);
 
-        User savedUser = userRepository.save(user);
-        userActivityStatsRepository.save(UserActivityStats.createEmpty(savedUser));
-
-        return savedUser;
+        // [시니어 조치] 양방향 관계 설정 (Cascade 저장 유도)
+        user.setActivityStats(UserActivityStats.createEmpty(user));
+        
+        return userRepository.save(user);
     }
 
     @Transactional(readOnly = true)
@@ -149,7 +156,28 @@ public class UserService {
 
     @Transactional
     public void deleteUser(User user) {
-        userRepository.delete(user);
+        log.info("Starting withdrawal process for user: {} (ID: {})", user.getUsername(), user.getId());
+
+        // 1. CascadeType.ALL 및 orphanRemoval 컬렉션 비우기 (하이버네이트가 안전하게 삭제)
+        user.getUserNotices().clear();
+        user.getUserTags().clear();
+        user.getAttendances().clear();
+
+        // 2. 사적 데이터 벌크 삭제 (Modifying 쿼리 사용)
+        notificationRepository.deleteByUser(user);
+        messageRepository.deleteBySenderOrReceiver(user, user);
+        userBadgeRepository.deleteByUserId(user.getId());
+
+        // 3. 통계 데이터 직접 초기화 (삭제 시 발생하는 @MapsId 충돌 및 세션 꼬임 방지)
+        userActivityStatsRepository.resetStatsByUserId(user.getId());
+
+        // 4. 유저 익명화 및 상태 변경
+        user.withdraw();
+        
+        // 5. 즉시 DB 반영 및 세션 동기화 (재가입 시 충돌 방지)
+        userRepository.saveAndFlush(user);
+        
+        log.info("User withdrawal completed successfully: {}", user.getId());
     }
 
     @Transactional

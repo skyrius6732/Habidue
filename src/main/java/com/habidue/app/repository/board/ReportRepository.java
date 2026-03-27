@@ -10,9 +10,15 @@ import java.util.List;
 
 public interface ReportRepository extends JpaRepository<Report, Long>, ReportRepositoryCustom {
     List<Report> findAllByTargetIdAndTargetType(Long targetId, ReportTargetType targetType);
-    
+
     // [시니어 조치] 중복 신고 방지를 위한 체크 메서드
     boolean existsByReporter_IdAndTargetIdAndTargetType(Long reporterId, Long targetId, com.habidue.app.domain.board.ReportTargetType targetType);
+
+    // 대시보드용 신고 상태별 건수
+    @org.springframework.data.jpa.repository.Query("SELECT r.status, COUNT(r) FROM Report r GROUP BY r.status")
+    List<Object[]> getCountByStatus();
+
+    long countByStatus(ReportStatus status);
 
     // [시니어 조치] 특정 신고자가 해당 대화방에 대해 이미 신고했는지 확인 (삭제된 메시지에 대한 신고는 무시)
     @org.springframework.data.jpa.repository.Query("SELECT COUNT(r) > 0 FROM Report r, Message m " +

@@ -34,7 +34,7 @@ public class NotificationService { // [시니어 조치] 클래스 레벨 @Trans
     /**
      * [시니어 조치] 연결 유지용 하트비트 스케줄러 (더 짧은 주기로 변경)
      */
-    @org.springframework.scheduling.annotation.Scheduled(fixedRate = 15000) // 15초마다 실행
+    @org.springframework.scheduling.annotation.Scheduled(fixedRate = 25000) // 25초마다 실행
     public void sendHeartbeat() {
         if (emitters.isEmpty()) return;
         emitters.forEach((userId, emitter) -> {

@@ -44,4 +44,6 @@ public interface UserNoticeRepository extends JpaRepository<UserNotice, Long>, U
             "OR (un.userDeadline BETWEEN :start AND :end)")
     java.util.List<UserNotice> findDeadlineImminentNotices(@org.springframework.data.repository.query.Param("start") java.time.LocalDateTime start, 
                                                          @org.springframework.data.repository.query.Param("end") java.time.LocalDateTime end);
+
+    void deleteByUser(User user);
 }

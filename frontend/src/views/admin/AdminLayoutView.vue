@@ -24,6 +24,9 @@
         <RouterLink to="/admin/community" class="nav-item" @click="isSidebarOpen = false">
           <span class="icon">💬</span> <span class="label">커뮤니티 관리</span>
         </RouterLink>
+        <RouterLink to="/admin/inquiries" class="nav-item" @click="isSidebarOpen = false">
+          <span class="icon">📫</span> <span class="label">고객센터 문의 관리</span>
+        </RouterLink>
         <RouterLink to="/admin/simulation" class="nav-item" @click="isSidebarOpen = false">
           <span class="icon">🔬</span> <span class="label">보상 시뮬레이션</span>
         </RouterLink>
@@ -80,6 +83,7 @@ const currentMenuName = computed(() => {
   if (route.path.includes('users')) return '사용자 관리'
   if (route.path.includes('notices')) return '공고 관리'
   if (route.path.includes('community')) return '커뮤니티 관리'
+  if (route.path.includes('inquiries')) return '고객센터 문의 관리'
   if (route.path.includes('simulation')) return '보상 시뮬레이션'
   if (route.path.includes('tags')) return '태그 관리'
   if (route.path.includes('metadata')) return '메타데이터 관리'

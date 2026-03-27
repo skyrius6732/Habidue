@@ -20,4 +20,6 @@ public interface AttendanceRepository extends JpaRepository<Attendance, Long> {
     
     // 특정 유저가 오늘 출석했는지 확인용
     boolean existsByUserAndAttendanceDate(User user, LocalDate attendanceDate);
+
+    void deleteByUser(User user);
 }

@@ -8,6 +8,7 @@ import com.habidue.app.domain.user.UserStatus;
 import com.habidue.app.repository.user.UserRepository;
 import com.habidue.app.repository.user.UserActivityStatsRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.oauth2.client.userinfo.DefaultOAuth2UserService;
 import org.springframework.security.oauth2.client.userinfo.OAuth2UserRequest;
 import org.springframework.security.oauth2.core.OAuth2AuthenticationException;
@@ -18,6 +19,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.Map;
 import java.util.Optional;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class CustomOAuth2UserService extends DefaultOAuth2UserService {
@@ -80,10 +82,10 @@ public class CustomOAuth2UserService extends DefaultOAuth2UserService {
             user.setProviderId(providerId);
             user.setRole(Role.USER);
             user.setPassword(java.util.UUID.randomUUID().toString());
+            
+            // [시니어 조치] 양방향 관계 설정 (User 저장 시 Stats도 Cascade로 함께 생성됨)
+            user.setActivityStats(UserActivityStats.createEmpty(user));
             user = userRepository.save(user);
-
-            // [시니어 조치] 소셜 로그인 신규 유저 활동 통계 엔티티 생성
-            userActivityStatsRepository.save(UserActivityStats.createEmpty(user));
         }
 
         return UserPrincipal.create(user, attributes);

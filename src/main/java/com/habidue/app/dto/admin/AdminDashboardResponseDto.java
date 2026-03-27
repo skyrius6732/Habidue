@@ -11,9 +11,13 @@ public class AdminDashboardResponseDto {
     private long totalNotices;
     private long todayNotices;
     private long recruitingNotices;
-    private Map<String, Long> countBySource; // LH, SH, PRIVATE 등
-    private Map<String, Long> countByStatus; // 접수중, 마감 등
+    private Map<String, Long> countBySource;
+    private Map<String, Long> countByStatus;
     private long totalUsers;
     private long todayUsers;
-    private Map<String, Long> topKeywords; // 인기 키워드 TOP 5 (예정)
+    private Map<String, Long> topKeywords;
+    private Map<String, Long> countByReportStatus;
+    private Map<String, Long> countByUserStatus;
+    private Map<String, Long> countByPostStatus;
+    private long pendingReports;
 }

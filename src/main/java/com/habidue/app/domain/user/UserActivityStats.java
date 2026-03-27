@@ -40,6 +40,9 @@ public class UserActivityStats {
     private int commentLikeReceivedCount = 0;
 
     @Builder.Default
+    private int totalLikeReceivedCount = 0; // [시니어 조치] DB 정합성을 위해 복구 (게시글 + 댓글 합계)
+
+    @Builder.Default
     private int totalViewReceivedCount = 0;
 
     @Builder.Default
@@ -92,6 +95,20 @@ public class UserActivityStats {
 
     public void incrementReviewPostCount() { this.reviewPostCount++; }
     public void decrementReviewPostCount() { this.reviewPostCount = Math.max(0, this.reviewPostCount - 1); }
+
+    // [시니어 조치] 탈퇴 시 데이터 초기화 (StaleObjectStateException 방지를 위해 삭제 대신 초기화 사용)
+    public void reset() {
+        this.totalPostCount = 0;
+        this.totalCommentCount = 0;
+        this.postLikeReceivedCount = 0;
+        this.commentLikeReceivedCount = 0;
+        this.totalViewReceivedCount = 0;
+        this.totalNoticeInterestCount = 0;
+        this.consecutiveAttendanceDays = 0;
+        this.totalAttendanceCount = 0;
+        this.reviewPostCount = 0;
+        this.lastAttendanceDate = null;
+    }
 
     public static UserActivityStats createEmpty(User user) {
         return UserActivityStats.builder()

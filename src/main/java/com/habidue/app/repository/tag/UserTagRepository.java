@@ -16,7 +16,9 @@ public interface UserTagRepository extends JpaRepository<UserTag, Long> {
     List<UserTag> findAllByUserWithTag(@Param("user") User user);
 
     List<UserTag> findAllByUser(User user);
-    
+
+    void deleteByUser(User user);
+
     // [시니어 조치] UserTagService에서 요구하는 메서드들 복구
     List<UserTag> findByUserId(Long userId);
     

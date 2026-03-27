@@ -1,7 +1,10 @@
 package com.habidue.app.service.admin;
 
+import com.habidue.app.domain.board.ReportStatus;
 import com.habidue.app.domain.notice.NoticeStatus;
 import com.habidue.app.dto.admin.AdminDashboardResponseDto;
+import com.habidue.app.repository.board.PostRepository;
+import com.habidue.app.repository.board.ReportRepository;
 import com.habidue.app.repository.notice.NoticeRepository;
 import com.habidue.app.repository.user.UserRepository;
 import lombok.RequiredArgsConstructor;
@@ -22,6 +25,8 @@ public class AdminDashboardService {
 
     private final NoticeRepository noticeRepository;
     private final UserRepository userRepository;
+    private final ReportRepository reportRepository;
+    private final PostRepository postRepository;
 
     public AdminDashboardResponseDto getDashboardStats() {
         LocalDateTime startOfToday = LocalDateTime.now().with(LocalTime.MIN);
@@ -36,6 +41,11 @@ public class AdminDashboardService {
         long totalUsers = userRepository.count();
         long todayUsers = userRepository.countRecent(startOfToday);
 
+        Map<String, Long> countByReportStatus = listToMap(reportRepository.getCountByStatus());
+        Map<String, Long> countByUserStatus = listToMap(userRepository.getCountByStatus());
+        Map<String, Long> countByPostStatus = listToMap(postRepository.getCountByPostStatus());
+        long pendingReports = reportRepository.countByStatus(ReportStatus.WAITING);
+
         return AdminDashboardResponseDto.builder()
                 .totalNotices(totalNotices)
                 .todayNotices(todayNotices)
@@ -44,7 +54,11 @@ public class AdminDashboardService {
                 .countByStatus(countByStatus)
                 .totalUsers(totalUsers)
                 .todayUsers(todayUsers)
-                .topKeywords(new HashMap<>()) // To be implemented later
+                .topKeywords(new HashMap<>())
+                .countByReportStatus(countByReportStatus)
+                .countByUserStatus(countByUserStatus)
+                .countByPostStatus(countByPostStatus)
+                .pendingReports(pendingReports)
                 .build();
     }
 

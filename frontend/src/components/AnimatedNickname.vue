@@ -14,7 +14,7 @@
     <span v-if="Number(karmaPoint) <= 800" class="karma-warning-icon-outer" title="활동 신뢰 점수 주의">⚠️</span>
 
     <!-- 화려한 닉네임 표시부 (클릭 시 토글) -->
-    <span :class="['animated-nickname', currentTierClass]" @click.stop="handleToggleClick">
+    <span :class="['animated-nickname', currentTierClass]" :style="nicknameTextColor ? { color: nicknameTextColor } : {}" @click.stop="handleToggleClick">
       <span v-if="level >= 50" class="inner-shine-effect"></span>
       {{ nickname }}
     </span>
@@ -75,7 +75,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, nextTick } from 'vue'
+import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue'
 import { useBadgeStore } from '@/stores/badge'
 import { useAuthStore } from '@/stores/auth'
 import MessageSendModal from '@/components/MessageSendModal.vue'
@@ -96,6 +96,10 @@ const props = defineProps({
 const badgeStore = useBadgeStore()
 const authStore = useAuthStore()
 const showTooltip = ref(false)
+
+// 다크/라이트 테마 감지
+const isDark = ref(document.documentElement.classList.contains('dark-mode'))
+let themeObserver = null
 const isPinned = ref(false) 
 const tooltipRef = ref(null)
 const showMessageModal = ref(false)
@@ -206,17 +210,35 @@ const expPercentage = computed(() => {
 })
 const mainBadge = computed(() => (props.badges?.length > 0) ? props.badges[0] : null)
 
-onMounted(() => { if (!badgeStore.isLoaded) badgeStore.fetchRules() })
+// tier-1 / tier-none (이펙트 없는 기본 닉네임): 테마에 따라 텍스트 색 직접 적용
+const nicknameTextColor = computed(() => {
+  const tier = currentTierClass.value
+  if (tier === 'tier-1' || tier === 'tier-none') {
+    return isDark.value ? '#f5f5f5' : '#262626'
+  }
+  return null
+})
+
+onMounted(() => {
+  if (!badgeStore.isLoaded) badgeStore.fetchRules()
+  themeObserver = new MutationObserver(() => {
+    isDark.value = document.documentElement.classList.contains('dark-mode')
+  })
+  themeObserver.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] })
+})
+
+onUnmounted(() => { if (themeObserver) themeObserver.disconnect() })
 </script>
 
 <style scoped>
 .animated-nickname-wrapper { position: relative; display: inline-flex; align-items: center; cursor: pointer; }
 
 /* 닉네임 크기 최적화 */
-.animated-nickname { 
+.animated-nickname {
   font-size: 0.76rem; font-weight: 850; display: inline-block; transition: all 0.3s ease; position: relative; z-index: 2; white-space: nowrap; letter-spacing: -0.03em;
   padding: 2px 8px; border-radius: 6px; border: 1.5px solid var(--tier-color);
   overflow: hidden;
+  color: var(--text-primary);
   user-select: none; /* 클릭 시 텍스트 선택 방지 */
 }
 

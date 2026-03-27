@@ -108,6 +108,9 @@ const handleNotiClick = async (noti) => {
     } else if (noti.content.includes('[공지]')) {
       // [시니어 조치] 시스템 공지 알림인 경우 HabiDue 소개 > 공지사항 탭으로 이동
       router.push({ path: '/about', query: { tab: 'news', t: Date.now() } })
+    } else if (noti.content && noti.content.includes('답변이 등록되었습니다')) {
+      // 고객센터 문의 답변 알림 → 소개 > 고객센터 탭 > 해당 문의 포커싱
+      router.push({ path: '/about', query: { tab: 'support', inquiryId: noti.relatedTargetId, t: Date.now() } })
     } else {
       router.push({ path: '/keywords', query: { tab: 'activity', t: Date.now() } })
     }
