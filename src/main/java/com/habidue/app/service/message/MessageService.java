@@ -198,8 +198,11 @@ public class MessageService {
         User blocked = userRepository.findById(blockedId).orElseThrow();
         if (userBlockRepository.existsByBlockerAndBlocked(blocker, blocked)) return;
         
-        // [시니어 조치] 차단 시 해당 유저와의 기존 대화방 내역을 모두 숨김 처리
-        deleteConversation(blocker, blockedId);
+        // [시니어 조치] 수동 차단시에만 대화방을 숨김 처리하고, 
+        // 관리자 제재에 의한 시스템 차단 시에는 대화 맥락 보존을 위해 삭제하지 않음.
+        if (!isSystemBlock) {
+            deleteConversation(blocker, blockedId);
+        }
         
         userBlockRepository.save(UserBlock.builder().blocker(blocker).blocked(blocked).reason(reason).isSystemBlock(isSystemBlock).build());
     }
