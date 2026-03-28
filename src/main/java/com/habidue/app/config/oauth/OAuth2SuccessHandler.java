@@ -30,14 +30,14 @@ public class OAuth2SuccessHandler extends SimpleUrlAuthenticationSuccessHandler 
     @Override
     public void onAuthenticationSuccess(HttpServletRequest request, HttpServletResponse response, Authentication authentication) throws IOException, ServletException {
         UserPrincipal userPrincipal = (UserPrincipal) authentication.getPrincipal();
-        String email = userPrincipal.getEmail();
+        String username = userPrincipal.getUsername(); // email -> username 변경
 
         String accessToken = jwtTokenProvider.createAccessToken(authentication);
         String refreshToken = jwtTokenProvider.createRefreshToken(authentication);
 
-        // Redis에 Refresh Token 저장 (Key: email, Value: refreshToken)
+        // Redis에 Refresh Token 저장 (Key: username, Value: refreshToken)
         redisTemplate.opsForValue().set(
-                email,
+                username,
                 refreshToken,
                 refreshTokenValidityInSeconds,
                 TimeUnit.SECONDS

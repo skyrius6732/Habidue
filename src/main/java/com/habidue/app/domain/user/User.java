@@ -21,6 +21,8 @@ import java.util.List;
 @Entity
 @Table(name = "users", indexes = {
     @Index(name = "idx_user_total_exp", columnList = "totalExp")
+}, uniqueConstraints = {
+    @UniqueConstraint(name = "uk_users_provider_provider_id", columnNames = {"provider", "providerId"})
 })
 public class User {
 
@@ -37,7 +39,7 @@ public class User {
     @Column // 소셜 로그인 사용자는 패스워드가 없을 수 있음
     private String password;
 
-    @Column(nullable = false, unique = true)
+    @Column(nullable = false)
     private String email;
 
     private String provider;   // 예: google

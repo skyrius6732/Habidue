@@ -1,5 +1,9 @@
 package com.habidue.app.service.user;
 
+import com.habidue.app.config.oauth.GoogleUserInfo;
+import com.habidue.app.config.oauth.KakaoUserInfo;
+import com.habidue.app.config.oauth.NaverUserInfo;
+import com.habidue.app.config.oauth.OAuth2UserInfo;
 import com.habidue.app.config.oauth.UserPrincipal;
 import com.habidue.app.domain.user.Role;
 import com.habidue.app.domain.user.User;
@@ -36,18 +40,29 @@ public class CustomOAuth2UserService extends DefaultOAuth2UserService {
 
     private OAuth2User processOAuth2User(OAuth2UserRequest userRequest, OAuth2User oAuth2User) {
         Map<String, Object> attributes = oAuth2User.getAttributes();
-        String provider = userRequest.getClientRegistration().getRegistrationId();
-        String providerId = oAuth2User.getAttribute("sub");
-        String email = oAuth2User.getAttribute("email");
-        String name = oAuth2User.getAttribute("name");
-
-        // 1. Provider 정보로 먼저 조회
-        Optional<User> userOptional = userRepository.findByProviderAndProviderId(provider, providerId);
+        String registrationId = userRequest.getClientRegistration().getRegistrationId();
         
-        // 2. 없으면 이메일로 다시 조회 (init_data.sql 등으로 생성된 기존 계정 체크)
-        if (userOptional.isEmpty() && email != null) {
-            userOptional = userRepository.findByEmail(email);
+        OAuth2UserInfo oAuth2UserInfo = null;
+        if (registrationId.equals("google")) {
+            oAuth2UserInfo = new GoogleUserInfo(attributes);
+        } else if (registrationId.equals("naver")) {
+            oAuth2UserInfo = new NaverUserInfo(attributes);
+        } else if (registrationId.equals("kakao")) {
+            oAuth2UserInfo = new KakaoUserInfo(attributes);
+        } else {
+            log.error("지원하지 않는 소셜 로그인 제공자: {}", registrationId);
+            throw new OAuth2AuthenticationException("unsupported_provider");
         }
+
+        String provider = oAuth2UserInfo.getProvider();
+        String providerId = oAuth2UserInfo.getProviderId();
+        String email = oAuth2UserInfo.getEmail();
+        String name = oAuth2UserInfo.getName();
+
+        log.info("[OAuth2 Login] Provider: {}, ProviderId: {}, Email: {}", provider, providerId, email);
+
+        // 1. Provider 정보로만 조회 (이메일 기반 자동 병합 제거)
+        Optional<User> userOptional = userRepository.findByProviderAndProviderId(provider, providerId);
 
         User user;
         if (userOptional.isPresent()) {
@@ -65,7 +80,7 @@ public class CustomOAuth2UserService extends DefaultOAuth2UserService {
                 throw new OAuth2AuthenticationException(oauth2Error);
             }
 
-            // 기존 계정에 소셜 정보가 없다면 업데이트 (연동)
+            // 기존 계정에 소셜 정보가 일치하는지 확인 (이미 위에서 조회했으므로 업데이트 로직 간소화)
             if (user.getProvider() == null || !user.getProvider().equals(provider)) {
                 user.setProvider(provider);
                 user.setProviderId(providerId);
@@ -73,10 +88,18 @@ public class CustomOAuth2UserService extends DefaultOAuth2UserService {
             }
         } else {
             // 신규 유저 생성
-            String generatedUsername = name + "_" + (providerId != null ? providerId.substring(0, 5) : java.util.UUID.randomUUID().toString().substring(0, 5));
+            String suffix = (providerId != null && providerId.length() >= 5) ? providerId.substring(0, 5) : java.util.UUID.randomUUID().toString().substring(0, 5);
+            String generatedUsername = name + "_" + suffix;
+            
+            // 닉네임 중복 방지 로직 도입
+            String finalNickname = name != null ? name : generatedUsername;
+            if (userRepository.existsByNickname(finalNickname)) {
+                finalNickname = finalNickname + "_" + suffix;
+            }
+
             user = new User();
             user.setUsername(generatedUsername);
-            user.setNickname(name != null ? name : generatedUsername); // 소셜 이름이 있으면 닉네임으로 사용
+            user.setNickname(finalNickname); 
             user.setEmail(email);
             user.setProvider(provider);
             user.setProviderId(providerId);

@@ -17,15 +17,17 @@ import java.util.Map;
 public class UserPrincipal implements OAuth2User, UserDetails {
     private Long id;
     private String email;
+    private String username; // [추가] 고유 식별자 username
     private UserStatus status;
     private Collection<? extends GrantedAuthority> authorities;
     private Map<String, Object> attributes;
     private User user; // [시니어 조치] 엔티티 보유 (로그인 직후엔 존재, JWT 인증 시엔 null일 수 있음)
 
-    // 기존 생성자 복구 (JwtTokenProvider 등에서 사용)
-    public UserPrincipal(Long id, String email, UserStatus status, Collection<? extends GrantedAuthority> authorities) {
+    // 기존 생성자 수정 (JwtTokenProvider 등에서 사용)
+    public UserPrincipal(Long id, String email, String username, UserStatus status, Collection<? extends GrantedAuthority> authorities) {
         this.id = id;
         this.email = email;
+        this.username = username;
         this.status = status;
         this.authorities = authorities;
     }
@@ -34,6 +36,7 @@ public class UserPrincipal implements OAuth2User, UserDetails {
     public UserPrincipal(User user, Collection<? extends GrantedAuthority> authorities) {
         this.id = user.getId();
         this.email = user.getEmail();
+        this.username = user.getUsername();
         this.status = user.getStatus();
         this.authorities = authorities;
         this.user = user;
@@ -54,7 +57,7 @@ public class UserPrincipal implements OAuth2User, UserDetails {
     public String getPassword() { return null; }
 
     @Override
-    public String getUsername() { return email; }
+    public String getUsername() { return username; } // email -> username 변경
 
     @Override
     public boolean isAccountNonExpired() { return true; }
@@ -74,5 +77,5 @@ public class UserPrincipal implements OAuth2User, UserDetails {
     public void setAttributes(Map<String, Object> attributes) { this.attributes = attributes; }
 
     @Override
-    public String getName() { return String.valueOf(id); }
+    public String getName() { return username; } // ID(Long) -> username(String) 변경 (인증 객체의 주 식별자로 사용)
 }

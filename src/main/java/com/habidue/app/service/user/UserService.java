@@ -122,8 +122,8 @@ public class UserService {
 
     @Transactional(readOnly = true)
     public User getUserByUsername(String identifier) {
-        return userRepository.findByEmail(identifier)
-                .or(() -> userRepository.findByUsername(identifier))
+        return userRepository.findByUsername(identifier)
+                .or(() -> userRepository.findByEmail(identifier)) // 기존 로직 호환성을 위해 유지하되 순서 변경
                 .orElseThrow(() -> new NoSuchElementException("사용자를 찾을 수 없습니다: " + identifier));
     }
 

@@ -47,9 +47,10 @@ public class JwtTokenProvider {
         Date validity = new Date(now + this.accessTokenValidityInMilliseconds);
 
         return Jwts.builder()
-                .setSubject(userPrincipal.getEmail())
+                .setSubject(userPrincipal.getUsername()) // email -> username 변경
                 .claim("auth", authorities)
                 .claim("id", userPrincipal.getId())
+                .claim("email", userPrincipal.getEmail()) // email은 정보 제공용으로 보관
                 .claim("status", userPrincipal.getStatus().name())
                 .setIssuedAt(new Date(now))
                 .setExpiration(validity)
@@ -63,7 +64,7 @@ public class JwtTokenProvider {
         Date validity = new Date(now + this.refreshTokenValidityInMilliseconds);
 
         return Jwts.builder()
-                .setSubject(userPrincipal.getEmail())
+                .setSubject(userPrincipal.getUsername()) // email -> username 변경
                 .setIssuedAt(new Date(now))
                 .setExpiration(validity)
                 .signWith(key, SignatureAlgorithm.HS256)
@@ -73,11 +74,14 @@ public class JwtTokenProvider {
     public Authentication getAuthentication(String token) {
         Claims claims = Jwts.parserBuilder().setSigningKey(key).build().parseClaimsJws(token).getBody();
         Collection<? extends GrantedAuthority> authorities = Arrays.stream(claims.get("auth").toString().split(",")).map(SimpleGrantedAuthority::new).collect(Collectors.toList());
+        
         Long id = claims.get("id", Long.class);
-        String email = claims.getSubject();
+        String username = claims.getSubject(); // subject는 이제 username임
+        String email = claims.get("email", String.class); // 정보 제공용 이메일 추출
         String statusStr = claims.get("status", String.class);
         UserStatus status = statusStr != null ? UserStatus.valueOf(statusStr) : UserStatus.ACTIVE;
-        UserPrincipal principal = new UserPrincipal(id, email, status, authorities);
+        
+        UserPrincipal principal = new UserPrincipal(id, email, username, status, authorities);
         return new UsernamePasswordAuthenticationToken(principal, token, authorities);
     }
 

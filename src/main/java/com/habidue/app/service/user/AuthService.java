@@ -32,12 +32,12 @@ public class AuthService {
             throw new IllegalArgumentException("Refresh Token 검증 중 오류 발생.", e);
         }
 
-        // 2. Refresh Token에서 사용자 이메일 추출
+        // 2. Refresh Token에서 고유 식별자 username 추출
         Claims claims = Jwts.parserBuilder().setSigningKey(jwtTokenProvider.getKey()).build().parseClaimsJws(refreshToken).getBody();
-        String email = claims.getSubject();
+        String username = claims.getSubject();
         
-        // 3. Redis에 저장된 토큰과 일치하는지 확인
-        String storedRefreshToken = redisTemplate.opsForValue().get(email);
+        // 3. Redis에 저장된 토큰과 일치하는지 확인 (Key는 이제 username)
+        String storedRefreshToken = redisTemplate.opsForValue().get(username);
         if (storedRefreshToken == null) {
             throw new IllegalArgumentException("Redis에 Refresh Token이 존재하지 않습니다. 다시 로그인해주세요.");
         }
@@ -46,13 +46,13 @@ public class AuthService {
         }
 
         // 4. DB에서 사용자 정보를 다시 조회하여 Authentication 객체 생성
-        Authentication authentication = userRepository.findByEmail(email)
+        Authentication authentication = userRepository.findByUsername(username)
                 .map(user -> new org.springframework.security.authentication.UsernamePasswordAuthenticationToken(
                         com.habidue.app.config.oauth.UserPrincipal.create(user),
                         null,
                         java.util.Collections.singletonList(new org.springframework.security.core.authority.SimpleGrantedAuthority(user.getRole().getKey()))
                 ))
-                .orElseThrow(() -> new UsernameNotFoundException("사용자 정보를 찾을 수 없습니다: " + email));
+                .orElseThrow(() -> new UsernameNotFoundException("사용자 정보를 찾을 수 없습니다: " + username));
 
         // 5. 새로운 Access Token 생성
         return jwtTokenProvider.createAccessToken(authentication);

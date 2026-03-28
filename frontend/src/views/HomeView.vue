@@ -18,10 +18,19 @@
 
             <button @click="loginWithKakao" class="social-login-btn kakao">
               <div class="btn-inner">
-                <div class="icon-wrapper">
+                <div class="icon-wrapper kakao-bg">
                   <span class="kakao-symbol">💬</span>
                 </div>
                 <span class="btn-text">카카오로 로그인</span>
+              </div>
+            </button>
+
+            <button @click="loginWithNaver" class="social-login-btn naver">
+              <div class="btn-inner">
+                <div class="icon-wrapper naver-bg">
+                  <span class="naver-symbol">N</span>
+                </div>
+                <span class="btn-text">네이버로 로그인</span>
               </div>
             </button>
           </div>
@@ -52,12 +61,19 @@ import { useAuthStore } from '@/stores/auth'
 const authStore = useAuthStore()
 const router = useRouter()
 
+// [시니어 조치] 개발/운영 환경에 따른 베이스 URL 처리 (현재는 8081 하드코딩 유지)
+const BASE_URL = 'http://localhost:8081';
+
 const loginWithGoogle = () => {
-  window.location.href = 'http://localhost:8081/oauth2/authorization/google';
+  window.location.href = `${BASE_URL}/oauth2/authorization/google`;
 };
 
 const loginWithKakao = () => {
-  alert('카카오 로그인은 준비 중입니다.');
+  window.location.href = `${BASE_URL}/oauth2/authorization/kakao`;
+};
+
+const loginWithNaver = () => {
+  window.location.href = `${BASE_URL}/oauth2/authorization/naver`;
 };
 
 onMounted(() => {
@@ -112,45 +128,55 @@ onMounted(() => {
 .login-buttons {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 12px;
 }
 
 .social-login-btn {
   width: 100%;
   border: none;
-  border-radius: 4px;
-  padding: 8px 0;
-  font-weight: 600;
+  border-radius: 6px; /* 인스타 스타일의 둥근 모서리 보정 */
+  padding: 10px 0;
+  font-weight: 700;
   cursor: pointer;
   display: flex;
   justify-content: center;
   align-items: center;
   font-size: 0.9rem;
+  transition: transform 0.1s;
+}
+
+.social-login-btn:active {
+  transform: scale(0.98);
 }
 
 .btn-inner {
   display: flex;
   align-items: center;
-  width: 140px;
+  width: 160px; /* 텍스트 정렬을 위해 너비 확장 */
   gap: 12px;
 }
 
 .google { background-color: var(--link-color); color: white; }
-.kakao { background-color: #FEE500; color: #000000; }
+.kakao { background-color: #FEE500; color: #3C1E1E; }
+.naver { background-color: #03C75A; color: white; }
 
 .icon-wrapper {
-  width: 22px;
-  height: 22px;
+  width: 24px;
+  height: 24px;
   background: white;
-  border-radius: 2px;
+  border-radius: 4px;
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
 }
 
+.kakao-bg { background-color: transparent; }
+.naver-bg { background-color: transparent; }
+
 .btn-icon { width: 16px; height: 16px; }
-.kakao-symbol { font-size: 0.9rem; margin-top: 1px; }
+.kakao-symbol { font-size: 1.1rem; }
+.naver-symbol { font-size: 0.9rem; font-weight: 900; }
 
 .btn-text {
   text-align: left;

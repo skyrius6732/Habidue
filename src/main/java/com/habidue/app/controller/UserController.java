@@ -43,7 +43,7 @@ public class UserController {
     @Secured("ROLE_USER")
     public ResponseEntity<ApiResponse<UserResponseDto>> getMyProfile() {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-        User user = userRepository.findByEmail(auth.getName()).orElseThrow();
+        User user = userRepository.findByUsername(auth.getName()).orElseThrow();
         return ApiResponse.success(new UserResponseDto(user));
     }
 
@@ -51,7 +51,7 @@ public class UserController {
     @Secured("ROLE_USER")
     public ResponseEntity<ApiResponse<UserResponseDto>> updateNickname(@RequestParam String nickname) {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-        User user = userRepository.findByEmail(auth.getName()).orElseThrow();
+        User user = userRepository.findByUsername(auth.getName()).orElseThrow();
         
         try {
             User updatedUser = userService.updateNickname(user.getId(), nickname);
@@ -65,7 +65,7 @@ public class UserController {
     @Secured("ROLE_USER")
     public ResponseEntity<ApiResponse<UserResponseDto>> toggleEmailReport(@RequestParam boolean enabled) {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-        User user = userRepository.findByEmail(auth.getName()).orElseThrow();
+        User user = userRepository.findByUsername(auth.getName()).orElseThrow();
         
         if (enabled && !user.isReportEmailVerified()) {
             return ApiResponse.error(HttpStatus.BAD_REQUEST, "이메일 인증이 완료되지 않았습니다.", "Email Not Verified");
@@ -80,7 +80,7 @@ public class UserController {
     @Secured("ROLE_USER")
     public ResponseEntity<ApiResponse<Void>> sendCode(@RequestParam String email) {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-        User user = userRepository.findByEmail(auth.getName()).orElseThrow();
+        User user = userRepository.findByUsername(auth.getName()).orElseThrow();
         reportEmailService.sendVerificationCode(user, email);
         return ApiResponse.success(null);
     }
@@ -89,7 +89,7 @@ public class UserController {
     @Secured("ROLE_USER")
     public ResponseEntity<ApiResponse<Boolean>> verifyCode(@RequestParam String email, @RequestParam String code) {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-        User user = userRepository.findByEmail(auth.getName()).orElseThrow();
+        User user = userRepository.findByUsername(auth.getName()).orElseThrow();
         boolean success = reportEmailService.verifyCode(user, email, code);
         return ApiResponse.success(success);
     }
@@ -98,7 +98,7 @@ public class UserController {
     @Secured("ROLE_USER")
     public ResponseEntity<ApiResponse<String>> testEmailReport() {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-        User user = userRepository.findByEmail(auth.getName()).orElseThrow();
+        User user = userRepository.findByUsername(auth.getName()).orElseThrow();
         reportService.sendUserReport(user);
         return ApiResponse.success("테스트 리포트 발송 요청 완료. 메일함을 확인해 주세요.");
     }
@@ -107,7 +107,7 @@ public class UserController {
     @Secured("ROLE_USER")
     public ResponseEntity<ApiResponse<Void>> deleteMe() {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-        User user = userRepository.findByEmail(auth.getName()).orElseThrow();
+        User user = userRepository.findByUsername(auth.getName()).orElseThrow();
         userService.deleteUser(user);
         return ApiResponse.success(null);
     }
@@ -117,7 +117,7 @@ public class UserController {
     @Transactional(readOnly = true)
     public ResponseEntity<byte[]> exportMyNotices() throws IOException {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-        User user = userRepository.findByEmail(auth.getName()).orElseThrow();
+        User user = userRepository.findByUsername(auth.getName()).orElseThrow();
         
         List<UserNotice> userNotices = userNoticeRepository.findAllByUserWithNotice(user);
         byte[] excelData = excelService.exportUserNoticesToExcel(userNotices);
@@ -138,7 +138,7 @@ public class UserController {
     @Secured("ROLE_USER")
     public ResponseEntity<ApiResponse<com.habidue.app.dto.user.UserActivityResponseDto>> getMyActivity() {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-        User user = userRepository.findByEmail(auth.getName()).orElseThrow();
+        User user = userRepository.findByUsername(auth.getName()).orElseThrow();
         return ApiResponse.success(userService.getUserActivity(user.getId()));
     }
 
@@ -149,7 +149,7 @@ public class UserController {
     @Secured("ROLE_USER")
     public ResponseEntity<ApiResponse<Void>> syncMyActivity() {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-        User user = userRepository.findByEmail(auth.getName()).orElseThrow();
+        User user = userRepository.findByUsername(auth.getName()).orElseThrow();
         
         userService.syncUserActivity(user.getId());
         
@@ -163,7 +163,7 @@ public class UserController {
     @Secured("ROLE_USER")
     public ResponseEntity<ApiResponse<UserResponseDto>> updateEquippedBadge(@RequestParam(required = false) Long badgeId) {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-        User user = userRepository.findByEmail(auth.getName()).orElseThrow();
+        User user = userRepository.findByUsername(auth.getName()).orElseThrow();
         
         User updatedUser = userService.updateEquippedBadge(user.getId(), badgeId);
         return ApiResponse.success(new UserResponseDto(updatedUser));
@@ -176,7 +176,7 @@ public class UserController {
     @Secured("ROLE_USER")
     public ResponseEntity<ApiResponse<UserResponseDto>> toggleLevelEffects(@RequestParam boolean enabled) {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-        User user = userRepository.findByEmail(auth.getName()).orElseThrow();
+        User user = userRepository.findByUsername(auth.getName()).orElseThrow();
         
         user.setShowLevelEffects(enabled);
         userRepository.save(user);
@@ -190,7 +190,7 @@ public class UserController {
     @Secured("ROLE_USER")
     public ResponseEntity<ApiResponse<List<com.habidue.app.dto.user.KarmaHistoryResponseDto>>> getMyKarmaHistory() {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-        User user = userRepository.findByEmail(auth.getName()).orElseThrow();
+        User user = userRepository.findByUsername(auth.getName()).orElseThrow();
         return ApiResponse.success(karmaService.getKarmaHistory(user.getId()));
     }
 }

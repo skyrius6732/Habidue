@@ -56,7 +56,7 @@ public class NoticeController {
         Pageable pageable = PageRequest.of(page, size, sorting);
 
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-        User currentUser = userRepository.findByEmail(auth.getName()).orElse(null);
+        User currentUser = userRepository.findByUsername(auth.getName()).orElse(null);
         List<String> userKeywordsList = null;
         if (currentUser != null) {
             // [중요 수정] Fetch Join 메서드를 사용하여 Tag 엔티티 로딩 보장 (OSIV OFF 대응)
@@ -109,7 +109,7 @@ public class NoticeController {
         List<com.habidue.app.domain.tag.NoticeTag> latestTags = noticeTagRepository.findAllByNoticeWithTag(notice);
 
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-        User currentUser = userRepository.findByEmail(auth.getName()).orElse(null);
+        User currentUser = userRepository.findByUsername(auth.getName()).orElse(null);
         List<String> userKeywordsList = null;
         if (currentUser != null) {
             // [중요 수정] 상세 조회 시에도 Fetch Join 메서드 사용하여 정합성 확보
@@ -156,7 +156,7 @@ public class NoticeController {
     @Secured("ROLE_USER")
     public ResponseEntity<ApiResponse<Void>> toggleWakeUp(@PathVariable Long id) {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-        User currentUser = userRepository.findByEmail(auth.getName())
+        User currentUser = userRepository.findByUsername(auth.getName())
                 .orElseThrow(() -> new NoSuchElementException("사용자를 찾을 수 없습니다."));
         
         noticeService.toggleWakeUp(id, currentUser.getId());
@@ -170,7 +170,7 @@ public class NoticeController {
     @Secured("ROLE_USER")
     public ResponseEntity<ApiResponse<com.habidue.app.dto.notice.NoticeWakeUpStatusDto>> getWakeUpStatus(@PathVariable Long id) {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-        User currentUser = userRepository.findByEmail(auth.getName()).orElse(null);
+        User currentUser = userRepository.findByUsername(auth.getName()).orElse(null);
         
         return ApiResponse.success(noticeService.getWakeUpStatus(id, currentUser));
     }
