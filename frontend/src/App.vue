@@ -7,9 +7,12 @@ import { formatDistanceToNow } from 'date-fns'
 import { ko } from 'date-fns/locale'
 import axios from '@/plugins/axios'
 import { requestFcmToken, onForegroundMessage } from '@/utils/fcm'
+import GlobalModal from '@/components/common/GlobalModal.vue'
+import { useUiStore } from '@/stores/ui'
 
 const authStore = useAuthStore()
 const notificationStore = useNotificationStore()
+const uiStore = useUiStore()
 const router = useRouter()
 const route = useRoute()
 
@@ -47,6 +50,9 @@ const toggleMenu = () => { isMenuOpen.value = !isMenuOpen.value }
 watch(() => route.path, () => { isMenuOpen.value = false })
 
 const logout = async () => {
+  const isConfirmed = await uiStore.showConfirm('정말 로그아웃 하시겠습니까?', '로그아웃')
+  if (!isConfirmed) return
+
   try { await axios.post('/api/auth/logout') } catch (e) {}
   finally {
     authStore.clearTokens()
@@ -350,6 +356,9 @@ onUnmounted(() => {
       <button class="t-close" @click.stop="showToast = false">&times;</button>
     </div>
   </Transition>
+
+  <!-- [시니어 조치] 전역 통합 감성 모달 (alert/confirm 대체) -->
+  <GlobalModal />
 </template>
 
 <style>

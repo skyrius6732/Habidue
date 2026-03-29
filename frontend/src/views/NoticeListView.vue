@@ -248,9 +248,11 @@ import NoticeCard from '@/components/NoticeCard.vue'
 import HotRankingBoard from '@/components/HotRankingBoard.vue'
 import PageHeader from '@/components/PageHeader.vue'
 import NoticeBoard from '@/components/NoticeBoard.vue'
+import { useUiStore } from '@/stores/ui'
 
 const route = useRoute()
 const router = useRouter()
+const uiStore = useUiStore()
 
 const notices = ref([])
 const userKeywords = ref([])
@@ -286,12 +288,12 @@ const handleToggleWakeUp = async () => {
     
     // 깨우기 성공 시(방이 살아남) selectedNotice 정보 갱신
     if (wakeupStatus.value?.isRevived || wakeupStatus.value?.revived) {
-      alert('소통방이 깨어났습니다! 이제 자유롭게 대화하실 수 있습니다.')
+      await uiStore.showAlert('소통방이 깨어났습니다!\n이제 자유롭게 대화하실 수 있습니다.', '알림')
       const res = await axios.get(`/api/notices/${selectedNotice.value.id}`)
       selectedNotice.value = res.data.data
     }
   } catch (e) {
-    if (e.response?.data?.message) alert(e.response.data.message)
+    if (e.response?.data?.message) await uiStore.showAlert(e.response.data.message, '오류')
   }
 }
 

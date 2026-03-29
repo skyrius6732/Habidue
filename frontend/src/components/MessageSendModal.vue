@@ -2,6 +2,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { useMessageStore } from '@/stores/message'
 import { useAuthStore } from '@/stores/auth'
+import { useUiStore } from '@/stores/ui'
 
 const props = defineProps({
   show: Boolean,
@@ -12,6 +13,7 @@ const props = defineProps({
 const emit = defineEmits(['close', 'success'])
 const messageStore = useMessageStore()
 const authStore = useAuthStore()
+const uiStore = useUiStore()
 
 const content = ref('')
 const selectedFiles = ref([])
@@ -40,11 +42,11 @@ onMounted(async () => {
   }
 })
 
-const handleFileChange = (e) => {
+const handleFileChange = async (e) => {
   const files = Array.from(e.target.files)
   // 최대 5개 파일 제한
   if (selectedFiles.value.length + files.length > 5) {
-    alert('파일은 최대 5개까지만 첨부할 수 있습니다.')
+    await uiStore.showAlert('파일은 최대 5개까지만 첨부할 수 있습니다.', '알림')
     return
   }
   selectedFiles.value = [...selectedFiles.value, ...files]
@@ -66,7 +68,7 @@ const handleSend = async () => {
   
   // [시니어 조치] 신뢰 점수 부족 시 발송 차단 (구체적인 점수 명시)
   if (isKarmaLow.value) {
-    alert('⚠️ 신뢰 점수(Karma)가 80.0점 미만이라 쪽지 발송이 제한되었습니다.\n건전한 활동을 통해 80.0점 이상으로 회복해 주세요.')
+    await uiStore.showAlert('⚠️ 신뢰 점수(Karma)가 80.0점 미만이라 쪽지 발송이 제한되었습니다.\n건전한 활동을 통해 80.0점 이상으로 회복해 주세요.', '발송 제한')
     return
   }
 

@@ -220,10 +220,12 @@ import { useRoute, useRouter } from 'vue-router'
 import PageHeader from '@/components/PageHeader.vue'
 import axios from '@/plugins/axios'
 import { useAuthStore } from '@/stores/auth'
+import { useUiStore } from '@/stores/ui'
 
 const route = useRoute()
 const router = useRouter()
 const authStore = useAuthStore()
+const uiStore = useUiStore()
 
 const activeTab = ref(route.query.tab || 'intro')
 const tabs = [
@@ -267,11 +269,11 @@ const isFormValid = computed(() => {
   return inquiryForm.title.trim().length >= 2 && inquiryForm.content.trim().length >= 5
 })
 
-const handleImageUpload = (e) => {
+const handleImageUpload = async (e) => {
   const file = e.target.files[0]
   if (!file) return
   if (file.size > 5 * 1024 * 1024) {
-    alert('이미지 크기는 5MB를 초과할 수 없습니다.')
+    await uiStore.showAlert('이미지 크기는 5MB를 초과할 수 없습니다.', '용량 초과')
     return
   }
   selectedFile.value = file
@@ -353,25 +355,25 @@ const submitInquiry = async () => {
     await axios.post('/api/inquiries', formData, {
       headers: { 'Content-Type': 'multipart/form-data' }
     })
-    alert('문의가 정상적으로 접수되었습니다. 답변 완료 시 알림을 보내드릴게요!')
+    await uiStore.showAlert('문의가 정상적으로 접수되었습니다. 답변 완료 시 알림을 보내드릴게요!', '접수 완료')
     inquiryForm.title = ''
     inquiryForm.content = ''
     removeImage()
     fetchInquiries()
   } catch (e) {
-    alert('문의 접수 중 오류가 발생했습니다.')
+    await uiStore.showAlert('문의 접수 중 오류가 발생했습니다.', '오류')
   } finally {
     isSubmitting.value = false
   }
 }
 
 const deleteInquiry = async (id) => {
-  if (!confirm('정말로 이 문의 내역을 삭제하시겠습니까?')) return
+  if (!await uiStore.showConfirm('정말로 이 문의 내역을 삭제하시겠습니까?', '삭제 확인')) return
   try {
     await axios.delete(`/api/inquiries/${id}`)
     fetchInquiries()
   } catch (e) {
-    alert('삭제 실패')
+    await uiStore.showAlert('삭제 실패', '오류')
   }
 }
 

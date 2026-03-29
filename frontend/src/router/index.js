@@ -1,5 +1,6 @@
 import { createRouter, createWebHistory } from 'vue-router';
 import { useAuthStore } from '@/stores/auth';
+import { useUiStore } from '@/stores/ui';
 import HomeView from '../views/HomeView.vue';
 import OAuth2RedirectHandler from '../views/OAuth2RedirectHandler.vue';
 
@@ -168,8 +169,9 @@ const router = createRouter({
 });
 
 // 네비게이션 가드: 로그인 여부 체크 및 리다이렉트
-router.beforeEach((to, from) => {
+router.beforeEach(async (to, from) => {
   const authStore = useAuthStore();
+  const uiStore = useUiStore();
   
   // [시니어 조치] 토큰 존재 여부를 더 엄격하게 체크하여 무한 루프 방지
   const token = localStorage.getItem('accessToken');
@@ -186,13 +188,13 @@ router.beforeEach((to, from) => {
 
   // 2. 인증이 필요한 페이지인데 토큰이 없는 경우
   if (to.meta.requiresAuth && !isAuthenticated) {
-    // alert('로그인이 필요한 서비스입니다.');
+    // await uiStore.showAlert('로그인이 필요한 서비스입니다.');
     return { name: 'home' };
   } 
   
   // 3. 관리자 권한 체크
   if (to.meta.requiresAdmin && userRole !== 'ADMIN') {
-    alert('접근 권한이 없습니다. 관리자 전용 페이지입니다.');
+    await uiStore.showAlert('접근 권한이 없습니다. 관리자 전용 페이지입니다.', '권한 오류');
     return { name: 'notices' };
   }
 

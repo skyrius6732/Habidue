@@ -171,7 +171,9 @@
 import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue'
 import axios from '@/plugins/axios'
 import PageHeader from '@/components/PageHeader.vue'
+import { useUiStore } from '@/stores/ui'
 
+const uiStore = useUiStore()
 const notices = ref([])
 const userKeywords = ref([])
 const selectedDate = ref(null)
@@ -218,10 +220,10 @@ const checkIn = async () => {
     isCheckedToday.value = true;
     const today = getLocalTodayStr();
     if (!attendanceDates.value.includes(today)) attendanceDates.value.push(today);
-    alert('오늘의 출석이 완료되었습니다! ✅');
+    await uiStore.showAlert('오늘의 출석이 완료되었습니다! ✅', '출석 체크');
   } catch (error) {
     console.error('출석 체크 실패:', error);
-    alert(error.response?.data?.message || '출석 체크 중 오류가 발생했습니다.');
+    await uiStore.showAlert(error.response?.data?.message || '출석 체크 중 오류가 발생했습니다.', '오류');
   }
 }
 

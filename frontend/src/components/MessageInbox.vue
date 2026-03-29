@@ -4,12 +4,14 @@ import { useRoute } from 'vue-router'
 import axios from '@/plugins/axios'
 import { useMessageStore } from '@/stores/message'
 import { useAuthStore } from '@/stores/auth'
+import { useUiStore } from '@/stores/ui'
 import { format, isToday, isSameDay } from 'date-fns'
 import { ko } from 'date-fns/locale'
 
 const route = useRoute()
 const messageStore = useMessageStore()
 const authStore = useAuthStore()
+const uiStore = useUiStore()
 
 const selectedRoom = ref(null)
 const conversationList = ref([])
@@ -123,7 +125,7 @@ const scrollToMessage = (msgId) => {
         setTimeout(() => bubbleEl.classList.remove('highlight-flash'), 2000)
       }
     } else {
-      alert('해당 메시지를 찾을 수 없습니다.')
+      uiStore.showAlert('해당 메시지를 찾을 수 없습니다.', '알림')
     }
   })
 }
@@ -188,12 +190,12 @@ const scrollToBottom = () => {
   })
 }
 
-const handleFileChange = (e) => {
+const handleFileChange = async (e) => {
   const { files } = e.target
   if (!files) return
   const newFiles = Array.from(files)
   if (replyFiles.value.length + newFiles.length > 6) {
-    alert('파일은 최대 6개까지만 첨부할 수 있습니다.')
+    await uiStore.showAlert('파일은 최대 6개까지만 첨부할 수 있습니다.', '알림')
     return
   }
   replyFiles.value = [...replyFiles.value, ...newFiles]
@@ -208,7 +210,7 @@ const handleSendReply = async () => {
   // [시니어 조치] 신뢰 점수 부족 시 메시지 발송 차단 (구체적인 점수 명시)
   const userKarma = authStore.user?.karmaPoint || 1000
   if (userKarma <= 800) {
-    alert('⚠️ 신뢰 점수(Karma)가 80.0점 미만이라 쪽지 발송이 제한되었습니다.\n건전한 활동을 통해 80.0점 이상으로 회복해 주세요.')
+    await uiStore.showAlert('⚠️ 신뢰 점수(Karma)가 80.0점 미만이라 쪽지 발송이 제한되었습니다.\n건전한 활동을 통해 80.0점 이상으로 회복해 주세요.', '발송 제한')
     return
   }
   
@@ -222,7 +224,7 @@ const handleSendReply = async () => {
   } else {
     const result = await messageStore.sendMessage(partnerId, replyContent.value, replyFiles.value)
     success = result.success
-    if (!success) alert(result.message)
+    if (!success) await uiStore.showAlert(result.message, '오류')
   }
 
   if (success) {
@@ -247,7 +249,7 @@ const cancelEdit = () => {
 }
 
 const handleDeleteMessage = async (msgId) => {
-  if (!confirm('이 메시지를 삭제하시겠습니까?')) return
+  if (!await uiStore.showConfirm('이 메시지를 삭제하시겠습니까?', '메시지 삭제')) return
   const success = await messageStore.deleteMessage(msgId)
   if (success) {
     const partnerId = getPartnerId(selectedRoom.value)
@@ -258,20 +260,20 @@ const handleDeleteMessage = async (msgId) => {
 const handleReportMsg = async (msg) => {
   const reason = prompt('이 메시지를 신고하는 사유를 입력해 주세요:', '부적절한 내용');
   if (reason === null) return;
-  if (confirm('이 메시지를 신고하시겠습니까?')) {
+  if (await uiStore.showConfirm('이 메시지를 신고하시겠습니까?', '메시지 신고')) {
     const result = await messageStore.reportMessage(msg.id, reason)
-    if (result.success) alert('신고가 정상적으로 접수되었습니다.')
-    else alert(result.message)
+    if (result.success) await uiStore.showAlert('신고가 정상적으로 접수되었습니다.', '신고 완료')
+    else await uiStore.showAlert(result.message, '오류')
   }
 }
 
 const handleBlock = async () => {
   const partnerId = getPartnerId(selectedRoom.value)
   if (!partnerId) return
-  if (confirm('사용자를 차단하시겠습니까?\n차단 시 서로 메시지를 주고받을 수 없으며, 차단 목록에서 관리할 수 있습니다.')) {
+  if (await uiStore.showConfirm('사용자를 차단하시겠습니까?\n차단 시 서로 메시지를 주고받을 수 없으며, 차단 목록에서 관리할 수 있습니다.', '사용자 차단')) {
     const blockSuccess = await messageStore.blockUser(partnerId)
     if (blockSuccess) {
-      alert('사용자가 차단되었습니다.')
+      await uiStore.showAlert('사용자가 차단되었습니다.', '차단 완료')
       showMenu.value = false
       // [시니어 조치] 방을 삭제하지 않고 내역만 다시 불러와 입력창 차단 확인
       conversationList.value = await messageStore.fetchConversation(partnerId)
@@ -304,11 +306,11 @@ const handleUnblock = async (user) => {
     msg = '⚠️ 잠깐! 이 사용자는 과거 심각한 운영 정책 위반으로 인해 시스템에서 자동차단한 대상입니다.\n\n차단을 해제하면 상대방이 다시 메시지를 보낼 수 있게 됩니다. 정말 해제하시겠습니까?';
   }
 
-  if (confirm(msg)) {
+  if (await uiStore.showConfirm(msg, '차단 해제')) {
     const success = await messageStore.unblockUser(userId)
     if (success) {
       blockedUsers.value = blockedUsers.value.filter(u => u.id !== userId)
-      alert('차단이 해제되었습니다.')
+      await uiStore.showAlert('차단이 해제되었습니다.', '해제 완료')
     }
   }
 }
@@ -320,7 +322,7 @@ const openBlockedList = async () => {
 
 const handleDeleteChat = async () => {
   const partnerId = getPartnerId(selectedRoom.value)
-  if (partnerId && confirm('대화방을 나가시겠습니까? 삭제된 내역은 복구할 수 없습니다.')) {
+  if (partnerId && await uiStore.showConfirm('대화방을 나가시겠습니까? 삭제된 내역은 복구할 수 없습니다.', '대화방 나가기')) {
     const success = await messageStore.deleteConversation(partnerId)
     if (success) {
       selectedRoom.value = null

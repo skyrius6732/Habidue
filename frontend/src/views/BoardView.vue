@@ -205,6 +205,7 @@ import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import axios from '@/plugins/axios'
 import { useAuthStore } from '@/stores/auth'
+import { useUiStore } from '@/stores/ui'
 import PageHeader from '@/components/PageHeader.vue'
 import NoticeBoard from '@/components/NoticeBoard.vue'
 import CommunitySidebar from '@/components/CommunitySidebar.vue'
@@ -214,6 +215,7 @@ import RankingBoard from '@/components/RankingBoard.vue'
 const route = useRoute()
 const router = useRouter()
 const authStore = useAuthStore()
+const uiStore = useUiStore()
 
 const sidebarRef = ref(null)
 const loadMoreTrigger = ref(null)
@@ -250,19 +252,19 @@ const fetchWakeupStatus = async () => {
 }
 
 const handleToggleWakeUp = async () => {
-  if (!authStore.isAuthenticated) { alert('로그인이 필요한 서비스입니다.'); return }
+  if (!authStore.isAuthenticated) { await uiStore.showAlert('로그인이 필요한 서비스입니다.', '안내'); return }
   try {
     await axios.post(`/api/notices/${noticeId.value}/wakeup`)
     await fetchWakeupStatus()
     const isNowRevived = wakeupStatus.value?.isRevived || wakeupStatus.value?.revived;
     if (isNowRevived) {
-      alert('소통방이 깨어났습니다! 이제 자유롭게 대화하실 수 있습니다.');
+      await uiStore.showAlert('소통방이 깨어났습니다!\n이제 자유롭게 대화하실 수 있습니다.', '알림');
       if (noticeInfo.value) {
         noticeInfo.value = { ...noticeInfo.value, isRevived: true, isBoardActive: true, isDormant: false };
       }
     }
   } catch (e) {
-    if (e.response?.data?.message) alert(e.response.data.message)
+    if (e.response?.data?.message) await uiStore.showAlert(e.response.data.message, '오류')
   }
 }
 

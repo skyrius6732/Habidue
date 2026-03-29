@@ -149,12 +149,14 @@
 <script setup>
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { useUiStore } from '@/stores/ui'
 import axios from '@/plugins/axios'
 import PageHeader from '@/components/PageHeader.vue'
 import CommunitySidebar from '@/components/CommunitySidebar.vue'
 
 const route = useRoute()
 const router = useRouter()
+const uiStore = useUiStore()
 
 const editMode = ref(false)
 const loading = ref(false)
@@ -321,52 +323,77 @@ const updateRegionTag = (sub) => {
 
 const fetchPostForEdit = async (id) => {
   try {
-    const res = await axios.get(`/api/posts/${id}`)
-    const data = res.data.data
-    post.value.type = data.type
-    post.value.subCategory = data.subCategory
-    post.value.category = data.category
-    post.value.title = data.title
-    post.value.content = data.content
-    post.value.noticeId = data.noticeId
-    post.value.regionTag = data.regionTag
+    const res = await axios.get(`/api/posts/${id}`);
+    const data = res.data.data;
+    post.value.type = data.type;
+    post.value.subCategory = data.subCategory;
+    post.value.category = data.category;
+    post.value.title = data.title;
+    post.value.content = data.content;
+    post.value.noticeId = data.noticeId;
+    post.value.regionTag = data.regionTag;
     
-    if (data.imageUrls) imagePreviews.value = [...data.imageUrls]
-    // [핵심 해결] 상세 조회 응답의 태그에서 id(진짜 태그 ID)를 추출
+    if (data.imageUrls) imagePreviews.value = [...data.imageUrls];
     if (data.tags) {
-      selectedTagIds.value = data.tags.map(t => t.tagId || t.id)
+      selectedTagIds.value = data.tags.map(t => t.tagId || t.id);
     }
-  } catch (e) { alert('데이터 로드 실패') }
-}
+  } catch (e) {
+    await uiStore.showAlert('데이터를 불러오는데 실패했습니다.', '오류');
+  }
+};
 
-const handleSubChange = (sub) => { if (!editMode.value) { post.value.subCategory = sub; updateRegionTag(sub); const categories = getCategoriesBySub(post.value.type, sub); if (categories.length > 0) post.value.category = categories[0].value } }
-const selectCategory = (cat) => { if (!editMode.value) { post.value.category = cat.value; if (cat.sub) { post.value.subCategory = cat.sub; updateRegionTag(cat.sub) } } }
-const applyTemplate = () => { if (!editMode.value && currentGuidance.value?.template) { if (post.value.content.trim() && !confirm('기존 내용이 지워지고 양식이 적용됩니다. 계속할까요?')) return; post.value.content = currentGuidance.value.template } }
+const handleSubChange = (sub) => { 
+  if (!editMode.value) { 
+    post.value.subCategory = sub; 
+    updateRegionTag(sub); 
+    const categories = getCategoriesBySub(post.value.type, sub); 
+    if (categories.length > 0) post.value.category = categories[0].value; 
+  } 
+};
 
-// [핵심 해결] tagId를 사용하여 토글 (진짜 태그 테이블 ID)
-const toggleTag = (tagId) => {
-  const idx = selectedTagIds.value.indexOf(tagId)
+const selectCategory = (cat) => { 
+  if (!editMode.value) { 
+    post.value.category = cat.value; 
+    if (cat.sub) { 
+      post.value.subCategory = cat.sub; 
+      updateRegionTag(cat.sub); 
+    } 
+  } 
+};
+
+const applyTemplate = async () => { 
+  if (!editMode.value && currentGuidance.value?.template) { 
+    const isConfirmed = await uiStore.showConfirm('기존 내용이 지워지고 양식이 적용됩니다.\n계속하시겠습니까?', '양식 적용');
+    if (!isConfirmed) return;
+    post.value.content = currentGuidance.value.template; 
+  } 
+};
+
+const toggleTag = async (tagId) => {
+  const idx = selectedTagIds.value.indexOf(tagId);
   if (idx > -1) {
-    selectedTagIds.value.splice(idx, 1)
+    selectedTagIds.value.splice(idx, 1);
   } else {
     if (selectedTagIds.value.length >= 3) {
-      alert('태그는 최대 3개까지 선택 가능합니다.')
-      return
+      await uiStore.showAlert('태그는 최대 3개까지 선택 가능합니다.', '알림');
+      return;
     }
-    selectedTagIds.value.push(tagId)
+    selectedTagIds.value.push(tagId);
   }
-}
+};
 
 const submitPost = async () => {
-  if (!isFormValid.value) return
-  loading.value = true
+  if (!isFormValid.value) return;
+  loading.value = true;
   try {
-    let imageUrls = [...imagePreviews.value.filter(url => url.startsWith('http'))]
+    let imageUrls = [...imagePreviews.value.filter(url => url.startsWith('http'))];
     if (images.value.length > 0) {
-      const formData = new FormData()
-      images.value.forEach(file => { formData.append('files', file) })
-      const uploadRes = await axios.post('/api/images/upload', formData, { headers: { 'Content-Type': 'multipart/form-data' } })
-      imageUrls = [...imageUrls, ...uploadRes.data.data]
+      const formData = new FormData();
+      images.value.forEach(file => { formData.append('files', file); });
+      const uploadRes = await axios.post('/api/images/upload', formData, { 
+        headers: { 'Content-Type': 'multipart/form-data' } 
+      });
+      imageUrls = [...imageUrls, ...uploadRes.data.data];
     }
     
     const payload = { 
@@ -377,35 +404,66 @@ const submitPost = async () => {
       type: post.value.type,
       noticeId: post.value.noticeId, 
       imageUrls: imageUrls, 
-      tagIds: [...selectedTagIds.value], // 진짜 태그 ID 리스트 전송
+      tagIds: [...selectedTagIds.value],
       regionTag: post.value.regionTag
-    }
+    };
 
     if (editMode.value && route.params.postId) {
-      await axios.put(`/api/posts/${route.params.postId}`, payload)
-      alert('수정되었습니다.')
+      await axios.put(`/api/posts/${route.params.postId}`, payload);
+      await uiStore.showAlert('소통글이 수정되었습니다.', '수정 완료');
     } else {
-      await axios.post('/api/posts', payload)
-      alert('등록되었습니다.')
+      await axios.post('/api/posts', payload);
+      await uiStore.showAlert('소통글이 정상적으로 등록되었습니다.', '등록 완료');
     }
-    handleListBack()
+    router.back();
   } catch (e) { 
-    const errorMsg = e.response?.data?.message || '저장에 실패했습니다.'
-    alert(errorMsg) 
-  } finally { loading.value = false }
-}
+    const errorMsg = e.response?.data?.message || '저장에 실패했습니다.';
+    await uiStore.showAlert(errorMsg, '오류'); 
+  } finally { 
+    loading.value = false; 
+  }
+};
 
-const handleListBack = () => router.back()
-const handleImageUpload = (e) => {
-  const files = Array.from(e.target.files); if (imagePreviews.value.length + files.length > 5) { alert('사진은 최대 5장까지 가능합니다.'); return }
-  files.forEach(file => { images.value.push(file); const reader = new FileReader(); reader.onload = (ev) => { imagePreviews.value.push(ev.target.result) }; reader.readAsDataURL(file) })
-}
+const handleImageUpload = async (e) => {
+  const files = Array.from(e.target.files); 
+  if (imagePreviews.value.length + files.length > 5) { 
+    await uiStore.showAlert('사진은 최대 5장까지 첨부 가능합니다.', '알림'); 
+    return;
+  }
+  files.forEach(file => { 
+    images.value.push(file); 
+    const reader = new FileReader(); 
+    reader.onload = (ev) => { imagePreviews.value.push(ev.target.result); }; 
+    reader.readAsDataURL(file); 
+  });
+};
+
 const removeImage = (idx) => { 
-  const preview = imagePreviews.value[idx]; if (typeof preview === 'string' && preview.startsWith('http')) { imagePreviews.value.splice(idx, 1) } 
-  else { const localIdx = imagePreviews.value.filter((p, i) => i < idx && !(typeof p === 'string' && p.startsWith('http'))).length; images.value.splice(localIdx, 1); imagePreviews.value.splice(idx, 1) }
-}
-const fetchUserTags = async () => { try { const res = await axios.get('/api/user-tags'); userTags.value = res.data.data } catch (e) {} }
-const fetchNoticeInfo = async () => { if (post.value.noticeId) { try { const res = await axios.get(`/api/notices/${post.value.noticeId}`); noticeInfo.value = res.data.data } catch (e) {} } }
+  const preview = imagePreviews.value[idx]; 
+  if (typeof preview === 'string' && preview.startsWith('http')) { 
+    imagePreviews.value.splice(idx, 1); 
+  } else { 
+    const localIdx = imagePreviews.value.filter((p, i) => i < idx && !(typeof p === 'string' && p.startsWith('http'))).length; 
+    images.value.splice(localIdx, 1); 
+    imagePreviews.value.splice(idx, 1); 
+  }
+};
+
+const fetchUserTags = async () => { 
+  try { 
+    const res = await axios.get('/api/user-tags'); 
+    userTags.value = res.data.data; 
+  } catch (e) {} 
+};
+
+const fetchNoticeInfo = async () => { 
+  if (post.value.noticeId) { 
+    try { 
+      const res = await axios.get(`/api/notices/${post.value.noticeId}`); 
+      noticeInfo.value = res.data.data; 
+    } catch (e) {} 
+  } 
+};
 const isFormValid = computed(() => post.value.title?.trim() && post.value.content?.trim() && post.value.category)
 const isMobile = ref(window.innerWidth <= 992)
 const handleResize = () => { isMobile.value = window.innerWidth <= 992 }

@@ -545,10 +545,12 @@ import MessageInbox from '@/components/MessageInbox.vue'
 import { useAuthStore } from '@/stores/auth'
 import { useBadgeStore } from '@/stores/badge'
 import { useMessageStore } from '@/stores/message'
+import { useUiStore } from '@/stores/ui'
 
 const authStore = useAuthStore()
 const badgeStore = useBadgeStore()
 const messageStore = useMessageStore()
+const uiStore = useUiStore()
 const route = useRoute()
 const router = useRouter()
 const activeTab = ref(route.query.tab || 'activity')
@@ -589,9 +591,9 @@ const handleEquipBadge = async (badgeId) => {
   try {
     await axios.patch('/api/users/me/equipped-badge', null, { params: { badgeId } })
     userProfile.value.equippedBadgeId = badgeId
-    alert('대표 칭호가 변경되었습니다.')
+    await uiStore.showAlert('대표 칭호가 성공적으로 변경되었습니다.', '칭호 변경')
   } catch (e) {
-    alert('칭호 변경에 실패했습니다.')
+    await uiStore.showAlert('칭호 변경에 실패했습니다.', '오류')
   }
 }
 
@@ -602,7 +604,7 @@ const toggleLevelEffects = async () => {
     await axios.patch('/api/users/me/level-effects', null, { params: { enabled: newValue } })
     userProfile.value.showLevelEffects = newValue
   } catch (e) {
-    alert('설정 변경에 실패했습니다.')
+    await uiStore.showAlert('설정 변경에 실패했습니다.', '오류')
   }
 }
 
@@ -692,9 +694,9 @@ const handleSyncActivity = async () => {
   try {
     await axios.post('/api/users/me/activity/sync')
     await fetchUserActivity()
-    alert('활동 지표 및 배지 정보가 최신화되었습니다.')
+    await uiStore.showAlert('활동 지표 및 배지 정보가 최신화되었습니다.', '동기화 완료')
   } catch (e) {
-    alert('동기화에 실패했습니다.')
+    await uiStore.showAlert('동기화에 실패했습니다.', '오류')
   } finally {
     isSyncing.value = false
   }
@@ -708,8 +710,8 @@ const saveNickname = async () => {
     await axios.patch('/api/users/me/nickname', null, { params: { nickname: trimmedName } })
     userProfile.value.nickname = trimmedName; isEditingNickname.value = false
     if (authStore.user) authStore.user.nickname = trimmedName
-    alert('닉네임이 성공적으로 변경되었습니다.')
-  } catch (e) { alert('이미 사용 중인 닉네임이거나 변경에 실패했습니다.') }
+    await uiStore.showAlert('닉네임이 성공적으로 변경되었습니다.', '알림')
+  } catch (e) { await uiStore.showAlert('이미 사용 중인 닉네임이거나 변경에 실패했습니다.', '오류') }
 }
 
 const pushEnabled = ref(true)
@@ -752,15 +754,15 @@ const fetchUserActivity = async () => { try { const res = await axios.get('/api/
 const fetchKarmaHistory = async () => { try { const res = await axios.get('/api/users/me/karma-history'); karmaHistory.value = res.data.data } catch (e) { console.error('활동 신뢰 점수 이력 로드 실패', e) } }
 
 const toggleMailReport = async () => {
-  if (!isEmailVerified.value) { alert('이메일 인증이 완료된 후에 기능을 켤 수 있습니다.'); return }
+  if (!isEmailVerified.value) { await uiStore.showAlert('이메일 인증이 완료된 후에 기능을 켤 수 있습니다.', '안내'); return }
   const newValue = !mailEnabled.value
-  try { await axios.patch('/api/users/me/email-report', null, { params: { enabled: newValue } }); mailEnabled.value = newValue } catch (e) { alert('설정 변경에 실패했습니다.') }
+  try { await axios.patch('/api/users/me/email-report', null, { params: { enabled: newValue } }); mailEnabled.value = newValue } catch (e) { await uiStore.showAlert('설정 변경에 실패했습니다.', '오류') }
 }
 const togglePush = () => { pushEnabled.value = !pushEnabled.value }
-const requestVerificationCode = async () => { try { await axios.post('/api/users/me/report-email/send-code', null, { params: { email: reportEmailInput.value } }); isCodeSent.value = true; alert('인증 코드가 발송되었습니다. 메일함을 확인해 주세요.') } catch (e) { alert('코드 발송 실패.') } }
-const verifyCode = async () => { try { const res = await axios.post('/api/users/me/report-email/verify-code', null, { params: { email: reportEmailInput.value, code: verificationCodeInput.value } }); if (res.data.data) { alert('인증 완료!'); await fetchUserProfile(); isCodeSent.value = false } else { alert('인증 코드가 일치하지 않습니다.') } } catch (e) { alert('인증 처리 중 오류 발생.') } }
-const resetEmailVerification = () => { if (confirm('이메일 주소를 변경하시겠습니까?')) { userProfile.value.reportEmailVerified = false; isCodeSent.value = false; verificationCodeInput.value = ''; mailEnabled.value = false } }
-const sendTestReport = async () => { try { const res = await axios.post('/api/users/me/email-report/test'); alert(res.data.data) } catch (e) { alert('발송 실패.') } }
+const requestVerificationCode = async () => { try { await axios.post('/api/users/me/report-email/send-code', null, { params: { email: reportEmailInput.value } }); isCodeSent.value = true; await uiStore.showAlert('인증 코드가 발송되었습니다.\n메일함을 확인해 주세요.', '코드 발송') } catch (e) { await uiStore.showAlert('코드 발송 실패.', '오류') } }
+const verifyCode = async () => { try { const res = await axios.post('/api/users/me/report-email/verify-code', null, { params: { email: reportEmailInput.value, code: verificationCodeInput.value } }); if (res.data.data) { await uiStore.showAlert('인증 완료!', '인증 완료'); await fetchUserProfile(); isCodeSent.value = false } else { await uiStore.showAlert('인증 코드가 일치하지 않습니다.', '오류') } } catch (e) { await uiStore.showAlert('인증 처리 중 오류 발생.', '오류') } }
+const resetEmailVerification = async () => { if (await uiStore.showConfirm('이메일 주소를 변경하시겠습니까?', '이메일 변경')) { userProfile.value.reportEmailVerified = false; isCodeSent.value = false; verificationCodeInput.value = ''; mailEnabled.value = false } }
+const sendTestReport = async () => { try { const res = await axios.post('/api/users/me/email-report/test'); await uiStore.showAlert(res.data.data, '테스트 발송') } catch (e) { await uiStore.showAlert('발송 실패.', '오류') } }
 
 const handleSearch = async () => {
   if (searchQuery.value.trim().length < 1) { searchResults.value = []; selectedIndex.value = -1; return }
@@ -801,11 +803,11 @@ const closeSearch = () => {
   selectedIndex.value = -1
 }
 
-const addTag = async (tag) => { try { await axios.post(`/api/user-tags/${tag.tagId}`); closeSearch(); fetchMyTags() } catch (e) { alert('이미 등록된 태그입니다.') } }
+const addTag = async (tag) => { try { await axios.post(`/api/user-tags/${tag.tagId}`); closeSearch(); fetchMyTags() } catch (e) { await uiStore.showAlert('이미 등록된 태그입니다.', '알림') } }
 const removeTag = async (id) => { try { await axios.delete(`/api/user-tags/${id}`); fetchMyTags() } catch (e) {} }
 const formatDate = (dateStr) => { if (!dateStr) return ''; return dateStr.split('T')[0].replace(/-/g, '.') }
 const handleExport = async () => { /* 엑셀 추출 기존 로직 */ }
-const handleDeleteAccount = async () => { if (confirm('정말로 탈퇴하시겠습니까?')) { try { await axios.delete('/api/users/me'); window.location.href = '/withdrawal-success' } catch (e) {} } }
+const handleDeleteAccount = async () => { if (await uiStore.showConfirm('정말로 탈퇴하시겠습니까?', '회원 탈퇴')) { try { await axios.delete('/api/users/me'); window.location.href = '/withdrawal-success' } catch (e) {} } }
 
 const getKarmaClass = (point) => {
   if (point >= 800) return 'safe'

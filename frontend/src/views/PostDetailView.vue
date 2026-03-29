@@ -371,6 +371,7 @@
 import { ref, onMounted, onUnmounted, computed, watch, reactive, nextTick } from 'vue'
 import { useRoute, useRouter, onBeforeRouteLeave } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
+import { useUiStore } from '@/stores/ui'
 import axios from '@/plugins/axios'
 import PageHeader from '@/components/PageHeader.vue'
 import CommunitySidebar from '@/components/CommunitySidebar.vue'
@@ -380,6 +381,7 @@ import { getCategoryLabel } from '@/constants/postConstants'
 const route = useRoute()
 const router = useRouter()
 const authStore = useAuthStore()
+const uiStore = useUiStore()
 
 const post = ref(null)
 const comments = ref([])
@@ -439,22 +441,21 @@ const isAdmin = computed(() => authStore.user?.role === 'ADMIN')
 const canShare = computed(() => !!navigator.share)
 
 const handleRestorePost = async () => {
-  if (!confirm('이 게시글을 다시 활성화(ACTIVE) 처리하시겠습니까?')) return
+  if (!await uiStore.showConfirm('이 게시글을 다시 활성화(ACTIVE) 처리하시겠습니까?', '게시글 복구')) return
   try {
-    // [시니어 조치] 백엔드가 @RequestBody Map을 사용하므로 JSON body로 전달
     await axios.patch(`/api/admin/board/posts/${post.value.id}/status`, { status: 'ACTIVE' })
-    alert('복구되었습니다.')
-    fetchPostDetail() // 데이터 갱신
-  } catch (e) { alert('복구 실패') }
+    await uiStore.showAlert('복구되었습니다.', '복구 완료')
+    fetchPostDetail()
+  } catch (e) { await uiStore.showAlert('복구 실패') }
 }
 
 const handleRestoreComment = async (commentId) => {
-  if (!confirm('이 댓글을 다시 활성화(ACTIVE) 처리하시겠습니까?')) return
+  if (!await uiStore.showConfirm('이 댓글을 다시 활성화(ACTIVE) 처리하시겠습니까?', '댓글 복구')) return
   try {
     await axios.patch(`/api/admin/board/comments/${commentId}/status`, { status: 'ACTIVE' })
-    alert('댓글이 복구되었습니다.')
-    fetchComments(post.value.id) // 댓글 목록 갱신
-  } catch (e) { alert('댓글 복구 실패') }
+    await uiStore.showAlert('댓글이 복구되었습니다.', '복구 완료')
+    fetchComments(post.value.id)
+  } catch (e) { await uiStore.showAlert('댓글 복구 실패') }
 }
 
 const isMyComment = (commentAuthorId) => {
@@ -528,7 +529,7 @@ const fetchPostDetail = async () => {
     });
   } catch (e) { 
     const msg = e.response?.data?.message || '게시글을 찾을 수 없거나 삭제된 게시글입니다.'
-    alert(msg)
+    await uiStore.showAlert(msg, '오류')
     router.push('/board') 
   } finally { loading.value = false }
 }
@@ -575,13 +576,13 @@ const toggleCommentMenu = (id) => {
   activeCommentMenuId.value = activeCommentMenuId.value === id ? null : id
 }
 
-const startEditComment = (comment) => {
+const startEditComment = async (comment) => {
   if (isPostBlinded.value) {
-    alert('관리자에 의해 차단된 게시글의 댓글은 등록, 수정, 삭제할 수 없습니다.');
+    await uiStore.showAlert('관리자에 의해 차단된 게시글의 댓글은 등록, 수정, 삭제할 수 없습니다.');
     return;
   }
   if (comment.status === 'BLINDED') {
-    alert('관리자에 의해 차단된 댓글은 수정할 수 없습니다.');
+    await uiStore.showAlert('관리자에 의해 차단된 댓글은 수정할 수 없습니다.');
     return;
   }
   editingCommentId.value = comment.id
@@ -597,41 +598,41 @@ const saveEditComment = async (id) => {
     fetchComments(post.value.id)
   } catch (e) { 
     if (e.response?.status === 403 || e.response?.status === 500) {
-      alert('관리자에 의해 차단된 댓글은 수정할 수 없습니다.');
+      await uiStore.showAlert('관리자에 의해 차단된 댓글은 수정할 수 없습니다.');
     } else {
-      alert('수정에 실패했습니다.');
+      await uiStore.showAlert('수정에 실패했습니다.');
     }
   }
 }
 
 const handleDeleteComment = async (id) => { 
   if (isPostBlinded.value) {
-    alert('관리자에 의해 차단된 게시글의 댓글은 등록, 수정, 삭제할 수 없습니다.');
+    await uiStore.showAlert('관리자에 의해 차단된 게시글의 댓글은 등록, 수정, 삭제할 수 없습니다.');
     return;
   }
   const comment = comments.value.flatMap(c => [c, ...(c.children || [])]).find(c => c.id === id);
   if (comment && comment.status === 'BLINDED') {
-    alert('관리자에 의해 차단된 댓글은 삭제할 수 없습니다.');
+    await uiStore.showAlert('관리자에 의해 차단된 댓글은 삭제할 수 없습니다.');
     return;
   }
-  if (!confirm('댓글 삭제 시 획득한 경험치와 받은 신뢰 점수가 회수됩니다. 정말 삭제하시겠습니까?')) return; 
+  if (!await uiStore.showConfirm('댓글 삭제 시 획득한 경험치와 받은 신뢰 점수가 회수됩니다.\n정말 삭제하시겠습니까?', '댓글 삭제')) return; 
   try { 
     await axios.delete(`/api/comments/${id}`); 
     activeCommentMenuId.value = null;
     fetchComments(post.value.id) 
   } catch (e) {
     if (e.response?.status === 403 || e.response?.status === 500) {
-      alert('관리자에 의해 차단된 댓글은 삭제할 수 없습니다.');
+      await uiStore.showAlert('관리자에 의해 차단된 댓글은 삭제할 수 없습니다.');
     }
   } 
 }
 
 const handleDeletePost = async () => { 
   if (post.value?.status === 'BLINDED') {
-    alert('관리자에 의해 차단된 게시글은 삭제할 수 없습니다.');
+    await uiStore.showAlert('관리자에 의해 차단된 게시글은 삭제할 수 없습니다.');
     return;
   }
-  if (!confirm('게시글 삭제 시 획득한 경험치(EXP)와 받은 좋아요에 따른 신뢰 점수(Karma)가 모두 회수됩니다. 정말 삭제하시겠습니까?')) return; 
+  if (!await uiStore.showConfirm('게시글 삭제 시 획득한 경험치(EXP)와 받은 좋아요에 따른 신뢰 점수(Karma)가 모두 회수됩니다.\n정말 삭제하시겠습니까?', '게시글 삭제')) return; 
   try { 
     await axios.delete(`/api/posts/${post.value.id}`); 
     
@@ -644,13 +645,13 @@ const handleDeletePost = async () => {
       query: { ...route.query } 
     });
   } catch (e) {
-    alert('게시글 삭제에 실패했습니다.')
+    await uiStore.showAlert('게시글 삭제에 실패했습니다.')
   } 
 }
 
-const goToEdit = () => {
+const goToEdit = async () => {
   if (post.value?.status === 'BLINDED') {
-    alert('관리자에 의해 차단된 게시글은 수정할 수 없습니다.');
+    await uiStore.showAlert('관리자에 의해 차단된 게시글은 수정할 수 없습니다.');
     return;
   }
   // [시니어 조치] 라우터 정의(/board/post/edit/:postId)와 일치시키고 맥락 쿼리 보존
@@ -661,7 +662,13 @@ const goToEdit = () => {
 }
 const toggleReplyInput = (id) => { if (replyingToId.value === id) { replyingToId.value = null; replyContent.value = '' } else { replyingToId.value = id; replyContent.value = '' } }
 const toggleMoreMenu = () => { isMoreMenuOpen.value = !isMoreMenuOpen.value }
-const copyUrl = async () => { try { await navigator.clipboard.writeText(window.location.href); alert('URL이 복사되었습니다.'); isMoreMenuOpen.value = false } catch (e) {} }
+const copyUrl = async () => { 
+  try { 
+    await navigator.clipboard.writeText(window.location.href); 
+    await uiStore.showAlert('URL이 클립보드에 복사되었습니다.', '알림'); 
+    isMoreMenuOpen.value = false 
+  } catch (e) {} 
+}
 const shareUrl = async () => { try { await navigator.share({ title: post.value.title, url: window.location.href }); isMoreMenuOpen.value = false } catch (e) {} }
 const goToPrevPost = () => { 
   if (post.value?.prevId) {
@@ -674,12 +681,12 @@ const goToNextPost = () => {
   }
 }
 
-const openReportModal = (type, id, status = 'ACTIVE') => { 
+const openReportModal = async (type, id, status = 'ACTIVE') => { 
   // [시니어 조치] 게시글 자체가 이미 조치된 경우 모든 신고 차단
   const isParentPostManaged = post.value?.status === 'BLINDED' || post.value?.status === 'DELETED';
   
   if (status === 'BLINDED' || status === 'DELETED' || isParentPostManaged) {
-    alert('이미 관리자에 의해 조치된 ' + (type === 'POST' ? '게시글' : '댓글') + '입니다.');
+    await uiStore.showAlert('이미 관리자에 의해 조치된 ' + (type === 'POST' ? '게시글' : '댓글') + '입니다.', '안내');
     activeCommentMenuId.value = null;
     isMoreMenuOpen.value = false;
     return;
@@ -694,8 +701,11 @@ const submitReport = async () => {
   const reason = selectedReportReason.value === '기타' ? customReportReason.value : selectedReportReason.value
   try {
     await axios.post('/api/reports', { targetType: reportTarget.value.type, targetId: reportTarget.value.id, reason: reason })
-    alert('신고가 접수되었습니다.'); closeReportModal()
-  } catch (e) { alert(e.response?.data?.message || '신고 실패') }
+    await uiStore.showAlert('신고가 정상적으로 접수되었습니다.\n검토 후 조치하겠습니다.', '신고 완료'); 
+    closeReportModal()
+  } catch (e) { 
+    await uiStore.showAlert(e.response?.data?.message || '신고 처리에 실패했습니다.', '오류') 
+  }
 }
 
 // [시니어 조치] 같은 페이지 내에서 게시글 ID가 변경될 때 대응 (이전/다음글 이동)
@@ -784,21 +794,20 @@ const handleResize = () => { isMobile.value = window.innerWidth <= 992 }
 const handleToggleLike = async () => { try { const res = await axios.post(`/api/posts/${post.value.id}/like`); const isLiked = res.data.data; post.value.liked = isLiked; post.value.likeCount += isLiked ? 1 : -1 } catch (e) {} }
 
 const handleToggleCommentLike = async (comment) => {
-  if (!authStore.isAuthenticated) { alert('로그인이 필요한 서비스입니다.'); return }
-  if (isMyComment(comment.authorId)) { alert('본인의 댓글에는 좋아요를 누를 수 없습니다.'); return }
+  if (!authStore.isAuthenticated) { await uiStore.showAlert('로그인이 필요한 서비스입니다.', '안내'); return }
+  if (isMyComment(comment.authorId)) { await uiStore.showAlert('본인의 댓글에는 좋아요를 누를 수 없습니다.', '알림'); return }
   try {
     await axios.post(`/api/comments/${comment.id}/like`)
     comment.liked = !comment.liked
     comment.likeCount += comment.liked ? 1 : -1
   } catch (e) {
-    if (e.response?.data?.message) alert(e.response.data.message)
+    if (e.response?.data?.message) await uiStore.showAlert(e.response.data.message, '오류')
   }
 }
 
 const handleCreateComment = async (parentId = null, rootParentId = null) => {
-
   if (isPostBlinded.value) {
-    alert('관리자에 의해 차단된 게시글의 댓글은 등록, 수정, 삭제할 수 없습니다.');
+    await uiStore.showAlert('관리자에 의해 차단된 게시글의 댓글은 등록, 수정, 삭제할 수 없습니다.', '안내');
     return;
   }
   const content = parentId ? replyContent.value : newComment.value
@@ -827,7 +836,7 @@ const handleCreateComment = async (parentId = null, rootParentId = null) => {
     })
   } catch (e) {
     const errorMsg = e.response?.data?.message || '댓글 등록에 실패했습니다.'
-    alert(errorMsg)
+    await uiStore.showAlert(errorMsg, '오류')
   }
 }
 const handleGoBack = () => {

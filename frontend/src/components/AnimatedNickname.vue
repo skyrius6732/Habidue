@@ -78,6 +78,7 @@
 import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue'
 import { useBadgeStore } from '@/stores/badge'
 import { useAuthStore } from '@/stores/auth'
+import { useUiStore } from '@/stores/ui'
 import MessageSendModal from '@/components/MessageSendModal.vue'
 import gsap from 'gsap'
 
@@ -95,6 +96,7 @@ const props = defineProps({
 
 const badgeStore = useBadgeStore()
 const authStore = useAuthStore()
+const uiStore = useUiStore()
 const showTooltip = ref(false)
 
 // 다크/라이트 테마 감지
@@ -176,7 +178,7 @@ const isMe = computed(() => {
 
 const openMessageModal = () => {
   if (!props.userId) {
-    alert('유저 정보가 유효하지 않습니다.');
+    uiStore.showAlert('유저 정보가 유효하지 않습니다.', '오류');
     return;
   }
   isPinned.value = false
