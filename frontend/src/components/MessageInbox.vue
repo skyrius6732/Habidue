@@ -139,6 +139,25 @@ const isRoomRestricted = computed(() => {
   return restrictionMsgs[restrictionMsgs.length - 1].isRoomRestricted
 })
 
+// [시니어 조치] 상대방이 탈퇴했는지 확인
+const isPartnerWithdrawn = computed(() => {
+  if (!selectedRoom.value || selectedRoom.value.isSystem) return false
+  
+  // 1. 백엔드 응답 필드 확인
+  if (selectedRoom.value.isPartnerWithdrawn) return true
+  
+  // 2. 닉네임이 마스킹 처리되었는지 확인
+  const partnerNickname = String(selectedRoom.value.sender?.id) === String(authStore.user?.id) 
+    ? selectedRoom.value.receiverNickname 
+    : selectedRoom.value.sender?.nickname;
+    
+  if (partnerNickname === '(탈퇴한 사용자)') return true;
+
+  // 3. ID가 없는 경우 확인
+  const partnerId = getPartnerId(selectedRoom.value)
+  return !partnerId
+})
+
 // [시니어 조치] 날짜 헤더 표시 및 권한 필터링 로직 (시간순 정렬 복구)
 const processedConversation = computed(() => {
   if (conversationList.value.length === 0) return []
@@ -204,6 +223,10 @@ const handleFileChange = async (e) => {
 const removeFile = (idx) => { replyFiles.value.splice(idx, 1) }
 
 const handleSendReply = async () => {
+  if (isPartnerWithdrawn.value) {
+    await uiStore.showAlert('탈퇴한 사용자에게는 메시지를 보낼 수 없습니다.', '안내')
+    return
+  }
   if (!replyContent.value.trim() && replyFiles.value.length === 0) return
   if (!selectedRoom.value || isRoomRestricted.value) return
 
@@ -526,12 +549,12 @@ const vClickOutside = {
         </div>
 
         <!-- 하단 입력 영역 (1:1 대화방인 경우 항상 표시, 영구 제한/차단 시 비활성화) -->
-        <div class="input-container" v-if="getPartnerId(selectedRoom)">
-          <!-- [시니어 조치] 차단/제한 상태 시 안내 문구 표시 -->
-          <div v-if="isRoomBlocked" class="blocked-notice-area">
+        <div class="input-container" v-if="getPartnerId(selectedRoom) || isPartnerWithdrawn">
+          <!-- [시니어 조치] 차단/제한 상태 또는 상대방 탈퇴 시 안내 문구 표시 -->
+          <div v-if="isRoomBlocked || isPartnerWithdrawn" class="blocked-notice-area">
             <div class="blocked-notice-box">
-              <span class="b-icon">🔒</span>
-              <p class="b-text">{{ blockedMessage }}</p>
+              <span class="b-icon">{{ isPartnerWithdrawn ? '👤' : '🔒' }}</span>
+              <p class="b-text">{{ isPartnerWithdrawn ? '상대방이 서비스를 탈퇴하여 더 이상 메시지를 보낼 수 없습니다.' : blockedMessage }}</p>
             </div>
           </div>
 

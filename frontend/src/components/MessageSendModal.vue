@@ -30,6 +30,10 @@ const isKarmaLow = computed(() => {
   return points <= 800
 })
 
+const isReceiverWithdrawn = computed(() => {
+  return !props.receiverId || props.receiverNickname === '(탈퇴한 사용자)'
+})
+
 onMounted(async () => {
   // [시니어 조치] 모달이 열릴 때마다 최신 신뢰 점수와 발송 상태를 동기화
   try {
@@ -64,6 +68,10 @@ const getFilePreview = (file) => {
 }
 
 const handleSend = async () => {
+  if (isReceiverWithdrawn.value) {
+    await uiStore.showAlert('탈퇴한 사용자에게는 쪽지를 보낼 수 없습니다.', '안내')
+    return
+  }
   if (!content.value.trim() && selectedFiles.value.length === 0) return
   
   // [시니어 조치] 신뢰 점수 부족 시 발송 차단 (구체적인 점수 명시)
@@ -126,20 +134,24 @@ const handleSend = async () => {
           ⚠️ 신뢰 점수(Karma)가 80.0점 미만일 경우 쪽지 발송이 제한됩니다.
         </div>
 
+        <div v-if="isReceiverWithdrawn" class="withdrawn-warning">
+          👤 탈퇴한 사용자에게는 쪽지를 보낼 수 없습니다.
+        </div>
+
         <div class="input-area">
           <textarea 
             v-model="content" 
             placeholder="상대방에게 전달할 내용을 입력하세요. 비방이나 욕설은 제재 대상이 될 수 있습니다."
             maxlength="500"
-            :disabled="isSending || isKarmaLow"
+            :disabled="isSending || isKarmaLow || isReceiverWithdrawn"
           ></textarea>
           <div class="char-count">{{ content.length }} / 500</div>
         </div>
 
         <!-- 파일 첨부 영역 -->
         <div class="attachment-area">
-          <label class="btn-attach" :class="{ 'disabled': isKarmaLow || isSending }">
-            <input type="file" multiple @change="handleFileChange" accept="image/*,.pdf,.zip,.docx,.xlsx,.txt" :disabled="isKarmaLow || isSending" style="display: none;">
+          <label class="btn-attach" :class="{ 'disabled': isKarmaLow || isSending || isReceiverWithdrawn }">
+            <input type="file" multiple @change="handleFileChange" accept="image/*,.pdf,.zip,.docx,.xlsx,.txt" :disabled="isKarmaLow || isSending || isReceiverWithdrawn" style="display: none;">
             <span class="attach-icon">📎</span> 파일 첨부 ({{ selectedFiles.length }}/5)
           </label>
         </div>
@@ -159,7 +171,7 @@ const handleSend = async () => {
 
         <div class="modal-footer">
           <button class="cancel-btn" @click="$emit('close')" :disabled="isSending">취소</button>
-          <button class="send-btn" @click="handleSend" :disabled="isSending || isKarmaLow || (!content.trim() && selectedFiles.length === 0)">
+          <button class="send-btn" @click="handleSend" :disabled="isSending || isKarmaLow || isReceiverWithdrawn || (!content.trim() && selectedFiles.length === 0)">
             <span v-if="isSending">보내는 중...</span>
             <span v-else>발송하기</span>
           </button>

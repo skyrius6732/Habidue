@@ -43,6 +43,9 @@ public class MessageResponseDto {
     @JsonProperty("isBlockedByPartner")
     private boolean isBlockedByPartner; // [시니어 조치] 상대방이 나를 차단했는지 여부
 
+    @JsonProperty("isPartnerWithdrawn")
+    private boolean isPartnerWithdrawn; // [시니어 조치] 상대방이 탈퇴했는지 여부
+
     private Long visibleToUserId;
     private Long relatedTargetId;
 
@@ -89,21 +92,29 @@ public class MessageResponseDto {
     }
 
     /**
-     * [시니어 조치] 차단 정보를 포함하는 확장된 변환 메서드
+     * [시니어 조치] 차단 및 탈퇴 정보를 포함하는 확장된 변환 메서드
      */
     public static MessageResponseDto from(Message message, Long unreadCount, boolean isPartnerOnline, boolean blockedByMe, boolean blockedByPartner) {
         SenderInfo senderInfo = null;
+        boolean isSenderWithdrawn = false;
         if (message.getSender() != null) {
-            String nickname = message.getSender().getNickname() != null ? 
-                             message.getSender().getNickname() : message.getSender().getUsername();
+            isSenderWithdrawn = message.getSender().getStatus() == com.habidue.app.domain.user.UserStatus.WITHDRAWN;
+            String nickname = isSenderWithdrawn ? "(탈퇴한 사용자)" : 
+                             (message.getSender().getNickname() != null ? message.getSender().getNickname() : message.getSender().getUsername());
             senderInfo = new SenderInfo(message.getSender().getId(), nickname);
         }
 
         String receiverNickname = null;
+        boolean isReceiverWithdrawn = false;
         if (message.getReceiver() != null) {
-            receiverNickname = message.getReceiver().getNickname() != null ? 
-                              message.getReceiver().getNickname() : message.getReceiver().getUsername();
+            isReceiverWithdrawn = message.getReceiver().getStatus() == com.habidue.app.domain.user.UserStatus.WITHDRAWN;
+            receiverNickname = isReceiverWithdrawn ? "(탈퇴한 사용자)" : 
+                              (message.getReceiver().getNickname() != null ? message.getReceiver().getNickname() : message.getReceiver().getUsername());
         }
+
+        // 시스템 메시지가 아닌 경우에만 상대방 탈퇴 여부 판단 (송신자 또는 수신자가 나일 때 반대편 기준)
+        // 여기서는 단순하게 Receiver가 탈퇴했거나 Sender가 탈퇴했으면 true로 설정 (상황에 따라 정교화 가능)
+        boolean partnerWithdrawn = isSenderWithdrawn || isReceiverWithdrawn;
 
         java.util.List<FileDto> attachments = message.getAttachments().stream()
                 .map(f -> FileDto.builder()
@@ -129,6 +140,7 @@ public class MessageResponseDto {
                 .isRoomRestricted(message.isRoomRestricted())
                 .isBlockedByMe(blockedByMe)
                 .isBlockedByPartner(blockedByPartner)
+                .isPartnerWithdrawn(partnerWithdrawn)
                 .visibleToUserId(message.getVisibleToUserId())
                 .relatedTargetId(message.getRelatedTargetId())
                 .isReported(message.isReported())

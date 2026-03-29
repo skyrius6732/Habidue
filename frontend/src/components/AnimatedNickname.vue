@@ -178,7 +178,7 @@ const isMe = computed(() => {
 
 const openMessageModal = () => {
   if (!props.userId) {
-    uiStore.showAlert('유저 정보가 유효하지 않습니다.', '오류');
+    uiStore.showAlert('탈퇴한 사용자에게는 쪽지를 보낼 수 없습니다.', '안내');
     return;
   }
   isPinned.value = false

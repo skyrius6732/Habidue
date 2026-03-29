@@ -29,6 +29,7 @@ public class CommentResponseDto {
     private List<CommentResponseDto> children;
     private int likeCount;
     private boolean liked;
+    private boolean authorActive; // [시니어 조치] 작성자 탈퇴 여부 판단용
 
     /**
      * [시니어 조치] 무한 재귀를 방지하기 위해 깊이(depth)를 1단계로 제한하는 안전한 변환 메서드
@@ -48,11 +49,17 @@ public class CommentResponseDto {
             finalContent = isAdmin ? comment.getContent() : "운영 정책 위반으로 영구 삭제된 댓글입니다.";
         }
 
+        boolean isAuthorActive = comment.getAuthor().getStatus() == com.habidue.app.domain.user.UserStatus.ACTIVE;
+        String displayName = isAuthorActive 
+                ? (comment.getAuthor().getNickname() != null ? comment.getAuthor().getNickname() : comment.getAuthor().getUsername())
+                : "(탈퇴한 사용자)";
+
         CommentResponseDto dto = CommentResponseDto.builder()
                 .id(comment.getId())
                 .content(finalContent)
                 .authorId(comment.getAuthor().getId())
-                .authorName(comment.getAuthor().getNickname() != null ? comment.getAuthor().getNickname() : comment.getAuthor().getUsername())
+                .authorName(displayName)
+                .authorActive(isAuthorActive)
                 .authorLevel(comment.getAuthor().getLevel())
                 .authorExp(comment.getAuthor().getTotalExp())
                 .authorKarmaPoint(comment.getAuthor().getKarmaPoint())

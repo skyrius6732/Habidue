@@ -545,11 +545,13 @@ import MessageInbox from '@/components/MessageInbox.vue'
 import { useAuthStore } from '@/stores/auth'
 import { useBadgeStore } from '@/stores/badge'
 import { useMessageStore } from '@/stores/message'
+import { useNotificationStore } from '@/stores/notification'
 import { useUiStore } from '@/stores/ui'
 
 const authStore = useAuthStore()
 const badgeStore = useBadgeStore()
 const messageStore = useMessageStore()
+const notificationStore = useNotificationStore()
 const uiStore = useUiStore()
 const route = useRoute()
 const router = useRouter()
@@ -807,7 +809,26 @@ const addTag = async (tag) => { try { await axios.post(`/api/user-tags/${tag.tag
 const removeTag = async (id) => { try { await axios.delete(`/api/user-tags/${id}`); fetchMyTags() } catch (e) {} }
 const formatDate = (dateStr) => { if (!dateStr) return ''; return dateStr.split('T')[0].replace(/-/g, '.') }
 const handleExport = async () => { /* 엑셀 추출 기존 로직 */ }
-const handleDeleteAccount = async () => { if (await uiStore.showConfirm('정말로 탈퇴하시겠습니까?', '회원 탈퇴')) { try { await axios.delete('/api/users/me'); window.location.href = '/withdrawal-success' } catch (e) {} } }
+const handleDeleteAccount = async () => { 
+  if (await uiStore.showConfirm('정말로 탈퇴하시겠습니까?\n모든 활동 데이터가 초기화됩니다.', '회원 탈퇴')) { 
+    try { 
+      await axios.delete('/api/users/me')
+    } catch (e) {
+      // [시니어 조치] 이미 탈퇴 처리되어 인증이 풀린 경우(401)에도 성공으로 간주하고 계속 진행
+      if (e.response?.status !== 401) {
+        await uiStore.showAlert('탈퇴 처리 중 오류가 발생했습니다.', '오류')
+        return
+      }
+    } 
+
+    // [시니어 조치] 성공 또는 인증 해제(탈퇴 완료) 시 로컬 정보 즉시 정리 및 이동
+    authStore.clearTokens()
+    notificationStore.disconnectSse()
+    
+    await uiStore.showAlert('탈퇴 처리가 완료되었습니다.\n그동안 이용해 주셔서 감사합니다.', '탈퇴 완료')
+    window.location.href = '/' // 완전히 새로고침하여 메인으로 이동
+  } 
+}
 
 const getKarmaClass = (point) => {
   if (point >= 800) return 'safe'

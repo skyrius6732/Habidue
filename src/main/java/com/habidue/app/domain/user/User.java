@@ -124,7 +124,7 @@ public class User {
         this.status = UserStatus.WITHDRAWN;
         this.email = "withdrawn_" + this.id + "@habidue.com"; // 유니크 제약 조건 회피용 가짜 이메일
         this.username = "withdrawn_" + this.id;
-        this.nickname = "(탈퇴한 사용자)";
+        this.nickname = "withdrawn_" + this.id; // [시니어] DB 유니크 제약 회피용 (화면 표시는 DTO에서 마스킹)
         this.providerId = null; // 재가입 가능하도록 함
         this.password = null;
         this.totalExp = 0;

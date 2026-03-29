@@ -48,16 +48,23 @@ public class PostResponseDto {
     private List<com.habidue.app.dto.badge.BadgeResponseDto> authorBadges; // 작성자 획득 배지 리스트
     private Long prevId; // 이전글 ID
     private Long nextId; // 다음글 ID
+    private boolean authorActive; // [시니어 조치] 작성자 탈퇴 여부 판단용
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 
     public static PostResponseDto from(Post post) {
+        boolean isActive = post.getAuthor().getStatus() == com.habidue.app.domain.user.UserStatus.ACTIVE;
+        String displayName = isActive 
+                ? (post.getAuthor().getNickname() != null ? post.getAuthor().getNickname() : post.getAuthor().getUsername())
+                : "(탈퇴한 사용자)";
+
         return PostResponseDto.builder()
                 .id(post.getId())
                 .title(post.getTitle())
                 .content(post.getContent())
                 .authorId(post.getAuthor().getId())
-                .authorName(post.getAuthor().getNickname() != null ? post.getAuthor().getNickname() : post.getAuthor().getUsername())
+                .authorName(displayName)
+                .authorActive(isActive)
                 .authorLevel(post.getAuthor().getLevel())
                 .authorExp(post.getAuthor().getTotalExp())
                 .showLevelEffects(post.getAuthor().isShowLevelEffects())

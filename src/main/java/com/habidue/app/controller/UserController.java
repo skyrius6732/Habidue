@@ -108,7 +108,7 @@ public class UserController {
     public ResponseEntity<ApiResponse<Void>> deleteMe() {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
         User user = userRepository.findByUsername(auth.getName()).orElseThrow();
-        userService.deleteUser(user);
+        userService.deleteUser(user.getId());
         return ApiResponse.success(null);
     }
 

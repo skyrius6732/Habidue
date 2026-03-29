@@ -155,10 +155,14 @@ public class UserService {
     }
 
     @Transactional
-    public void deleteUser(User user) {
+    public void deleteUser(Long userId) {
+        // [시니어 조치] ID를 기반으로 영속성 컨텍스트 내에서 다시 조회하여 LazyInitialization 방지
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new NoSuchElementException("탈퇴를 진행할 사용자를 찾을 수 없습니다."));
+
         log.info("Starting withdrawal process for user: {} (ID: {})", user.getUsername(), user.getId());
 
-        // 1. CascadeType.ALL 및 orphanRemoval 컬렉션 비우기 (하이버네이트가 안전하게 삭제)
+        // 1. CascadeType.ALL 및 orphanRemoval 컬렉션 비우기
         user.getUserNotices().clear();
         user.getUserTags().clear();
         user.getAttendances().clear();
@@ -168,16 +172,16 @@ public class UserService {
         messageRepository.deleteBySenderOrReceiver(user, user);
         userBadgeRepository.deleteByUserId(user.getId());
 
-        // 3. 통계 데이터 직접 초기화 (삭제 시 발생하는 @MapsId 충돌 및 세션 꼬임 방지)
+        // 3. 통계 데이터 직접 초기화
         userActivityStatsRepository.resetStatsByUserId(user.getId());
 
         // 4. 유저 익명화 및 상태 변경
         user.withdraw();
         
-        // 5. 즉시 DB 반영 및 세션 동기화 (재가입 시 충돌 방지)
+        // 5. 즉시 DB 반영
         userRepository.saveAndFlush(user);
         
-        log.info("User withdrawal completed successfully: {}", user.getId());
+        log.info("User withdrawal completed successfully: {}", userId);
     }
 
     @Transactional

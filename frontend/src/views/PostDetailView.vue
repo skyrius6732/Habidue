@@ -82,7 +82,7 @@
               </h1>
               <div class="post-meta-info">
                 <div class="author-block">
-                  <div class="author-avatar">{{ (post.authorName || '익명').charAt(0) }}</div>
+                  <div class="author-avatar">{{ post.authorActive !== false ? (post.authorName || '익명').charAt(0) : '' }}</div>
                   <div class="author-details-simple">
                     <AnimatedNickname 
                       :user-id="post.authorId"
@@ -168,7 +168,7 @@
             <div class="comment-list-container">
               <div v-for="comment in comments" :key="comment.id" class="comment-group">
                 <div class="comment-item main-item" :id="`comment-${comment.id}`" :class="{ 'highlight': highlightedCommentId === comment.id }">
-                  <div class="c-avatar">{{ (comment.authorName || '익명').charAt(0) }}</div>
+                  <div class="c-avatar">{{ comment.authorActive !== false ? (comment.authorName || '익명').charAt(0) : '' }}</div>
                   <div class="c-body">
                     <div class="c-header">
                       <AnimatedNickname 
@@ -244,7 +244,7 @@
                 <div v-if="comment.children && comment.children.length > 0" class="replies-area-modern">
                   <div v-for="reply in getFlattenedReplies(comment)" :key="reply.id" 
                        class="reply-item-modern" :id="`comment-${reply.id}`" :class="{ 'highlight': highlightedCommentId === reply.id }">
-                    <div class="c-avatar mini">{{ (reply.authorName || '익명').charAt(0) }}</div>
+                    <div class="c-avatar mini">{{ reply.authorActive !== false ? (reply.authorName || '익명').charAt(0) : '' }}</div>
                     <div class="c-body">
                       <div class="c-header">
                         <AnimatedNickname 
@@ -682,6 +682,22 @@ const goToNextPost = () => {
 }
 
 const openReportModal = async (type, id, status = 'ACTIVE') => { 
+  // [시니어 조치] 탈퇴한 사용자인지 체크 (백엔드 authorActive 필드 활용)
+  let isTargetActive = true;
+  if (type === 'POST') {
+    isTargetActive = post.value?.authorActive !== false;
+  } else {
+    const comment = comments.value.flatMap(c => [c, ...(c.children || [])]).find(c => c.id === id);
+    isTargetActive = comment?.authorActive !== false;
+  }
+
+  if (!isTargetActive) {
+    await uiStore.showAlert('탈퇴한 사용자는 신고할 수 없습니다.', '안내');
+    activeCommentMenuId.value = null;
+    isMoreMenuOpen.value = false;
+    return;
+  }
+
   // [시니어 조치] 게시글 자체가 이미 조치된 경우 모든 신고 차단
   const isParentPostManaged = post.value?.status === 'BLINDED' || post.value?.status === 'DELETED';
   
@@ -791,10 +807,20 @@ const scrollSlider = (direction) => {
 const goToSlide = (idx) => { if (sliderRef.value) sliderRef.value.scrollTo({ left: sliderRef.value.clientWidth * idx, behavior: 'smooth' }) }
 const handleKeyDown = (e) => { if (selectedFullImg.value) { if (e.key === 'Escape') selectedFullImg.value = null } else { if (e.key === 'ArrowLeft') scrollSlider(-1); if (e.key === 'ArrowRight') scrollSlider(1) } }
 const handleResize = () => { isMobile.value = window.innerWidth <= 992 }
-const handleToggleLike = async () => { try { const res = await axios.post(`/api/posts/${post.value.id}/like`); const isLiked = res.data.data; post.value.liked = isLiked; post.value.likeCount += isLiked ? 1 : -1 } catch (e) {} }
+const handleToggleLike = async () => { 
+  if (post.value && post.value.authorActive === false) {
+    await uiStore.showAlert('탈퇴한 사용자의 게시글에는 좋아요를 누를 수 없습니다.', '안내')
+    return
+  }
+  try { const res = await axios.post(`/api/posts/${post.value.id}/like`); const isLiked = res.data.data; post.value.liked = isLiked; post.value.likeCount += isLiked ? 1 : -1 } catch (e) {} 
+}
 
 const handleToggleCommentLike = async (comment) => {
   if (!authStore.isAuthenticated) { await uiStore.showAlert('로그인이 필요한 서비스입니다.', '안내'); return }
+  if (comment.authorActive === false) {
+    await uiStore.showAlert('탈퇴한 사용자의 댓글에는 좋아요를 누를 수 없습니다.', '안내')
+    return
+  }
   if (isMyComment(comment.authorId)) { await uiStore.showAlert('본인의 댓글에는 좋아요를 누를 수 없습니다.', '알림'); return }
   try {
     await axios.post(`/api/comments/${comment.id}/like`)
@@ -1111,18 +1137,18 @@ watch(() => route.params.postId, fetchPostDetail)
 .btn-admin-nav:hover { background: #b2bec3; }
 
 /* [시니어] 운영자 전용 댓글 관리 버튼 스타일 */
-.admin-comment-controls { display: inline-flex; align-items: center; gap: 8px; margin-left: 12px; padding-left: 12px; border-left: 1px solid var(--divider-color); }
-.btn-admin-c-restore { background: none; border: 1px solid #00b894; color: #00b894; padding: 2px 8px; border-radius: 4px; font-size: 0.7rem; font-weight: 800; cursor: pointer; transition: all 0.2s; }
-.btn-admin-c-restore:hover { background: #00b894; color: white; }
-.btn-admin-c-nav { background: none; border: none; color: var(--text-muted); font-size: 0.7rem; font-weight: 700; cursor: pointer; text-decoration: underline; }
-.btn-admin-c-nav:hover { color: var(--link-color); }
+.admin-comment-controls { display: inline-flex; align-items: center; gap: 10px; margin-left: auto; padding-right: 10px; }
+.btn-admin-c-restore { background: none; border: 1.5px solid #00b894; color: #00b894; padding: 2px 10px; border-radius: 6px; font-size: 0.72rem; font-weight: 800; cursor: pointer; transition: all 0.2s; }
+.btn-admin-c-restore:hover { background: #00b894; color: white; transform: translateY(-1px); }
+.btn-admin-c-nav { background: var(--hover-bg); border: 1px solid var(--border-color); color: var(--text-secondary); padding: 3px 10px; border-radius: 6px; font-size: 0.72rem; font-weight: 700; cursor: pointer; transition: all 0.2s; }
+.btn-admin-c-nav:hover { background: var(--link-color); color: white; border-color: var(--link-color); }
 
 @media (max-width: 768px) {
   .admin-top-action-bar { flex-direction: column; gap: 12px; padding: 15px; text-align: center; }
   .admin-status-info { flex-direction: column; gap: 6px; }
   .admin-btns { width: 100%; }
   .btn-admin-restore, .btn-admin-nav { flex: 1; font-size: 0.75rem; }
-  .admin-comment-controls { margin-left: 0; padding-left: 0; border-left: none; margin-top: 4px; width: 100%; }
+  .admin-comment-controls { margin-left: 0; padding-right: 0; margin-top: 4px; width: 100%; justify-content: flex-end; }
 }
 
 /* [시니어] 작성자 전용 블라인드 안내 배너 스타일 */
