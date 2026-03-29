@@ -6,6 +6,7 @@ import { computed, ref, onMounted, onUnmounted, watch } from 'vue'
 import { formatDistanceToNow } from 'date-fns'
 import { ko } from 'date-fns/locale'
 import axios from '@/plugins/axios'
+import { requestFcmToken, onForegroundMessage } from '@/utils/fcm'
 
 const authStore = useAuthStore()
 const notificationStore = useNotificationStore()
@@ -152,12 +153,24 @@ onMounted(() => {
   window.addEventListener('scroll', handleScroll)
   if (authStore.isAuthenticated) {
     notificationStore.initialize((noti) => triggerToast(noti))
+    
+    // [시니어 조치] SSE 연결이 안정화될 때까지 2초만 더 기다린 후 FCM 등록 (인증 정합성 보장)
+    setTimeout(() => {
+      requestFcmToken()
+      onForegroundMessage()
+    }, 2000)
   }
 })
 
 watch(() => authStore.isAuthenticated, (val) => {
   if (val) {
     notificationStore.initialize((noti) => triggerToast(noti))
+    
+    // [시니어 조치] 로그인 직후에도 인증 토큰이 브라우저에 완전히 안착할 시간을 벌어줌
+    setTimeout(() => {
+      requestFcmToken()
+      onForegroundMessage()
+    }, 2000)
   } else {
     notificationStore.disconnectSse()
     notificationStore.stopPolling()
@@ -352,15 +365,47 @@ body { margin: 0; padding: 0; display: block !important; background-color: var(-
 .fade-top-enter-from, .fade-top-leave-to { opacity: 0; }
 
 /* 알림 토스트 스타일 */
-.noti-toast { position: fixed; bottom: 30px; left: 30px; background: var(--card-bg); border: 1.5px solid var(--border-color); border-radius: 16px; padding: 15px 20px; min-width: 280px; max-width: 350px; display: flex; align-items: center; gap: 15px; box-shadow: 0 15px 40px rgba(0,0,0,0.2); z-index: 9999; cursor: pointer; }
+.noti-toast { position: fixed; bottom: 30px; left: 30px; background: var(--card-bg); border: 1.5px solid var(--border-color); border-radius: 16px; padding: 15px 20px; min-width: 280px; max-width: 350px; display: flex; align-items: center; gap: 15px; box-shadow: 0 15px 40px rgba(0,0,0,0.2); z-index: 9999; cursor: pointer; transition: transform 0.3s, border-color 0.3s, background-color 0.3s; }
 .noti-toast:hover { transform: translateY(-5px); border-color: var(--link-color); }
+
+/* [시니어 조치] 모바일 전용 상단 배치 (인스타 감성) */
+@media (max-width: 768px) {
+  .noti-toast {
+    bottom: auto;
+    top: 75px; /* 헤더 아래 위치 */
+    left: 50%;
+    transform: translateX(-50%);
+    width: calc(100% - 40px);
+    max-width: 400px;
+    margin: 0 auto;
+    padding: 12px 18px;
+    border-radius: 20px; /* 더 둥근 모서리 */
+  }
+  .noti-toast:hover { transform: translateX(-50%) translateY(-2px); }
+}
+
 .t-icon { font-size: 1.8rem; }
 .t-content { flex: 1; display: flex; flex-direction: column; gap: 2px; }
 .t-label { font-size: 0.7rem; font-weight: 900; color: var(--link-color); text-transform: uppercase; }
 .t-text { font-size: 0.85rem; color: var(--text-primary); margin: 0; font-weight: 700; line-height: 1.4; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 .t-close { background: none; border: none; font-size: 1.2rem; color: var(--text-muted); cursor: pointer; }
-.toast-enter-active, .toast-leave-active { transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
-.toast-enter-from, .toast-leave-to { transform: translateX(-100%); opacity: 0; }
+
+/* [시니어 조치] 반응형 애니메이션 (PC: 왼쪽 슬라이드, 모바일: 상단 드롭) */
+.toast-enter-active, .toast-leave-active { transition: all 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+
+/* PC 기본값: 왼쪽에서 나타남 */
+.toast-enter-from, .toast-leave-to {
+  transform: translateX(-120%);
+  opacity: 0;
+}
+
+/* 모바일 전용: 위에서 아래로 내려옴 */
+@media (max-width: 768px) {
+  .toast-enter-from, .toast-leave-to {
+    transform: translate(-50%, -150%);
+    opacity: 0;
+  }
+}
 </style>
 
 <style scoped>

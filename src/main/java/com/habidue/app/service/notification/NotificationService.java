@@ -1,5 +1,7 @@
 package com.habidue.app.service.notification;
 
+import com.habidue.app.domain.notification.DeviceToken;
+import com.habidue.app.repository.notification.DeviceTokenRepository;
 import com.habidue.app.domain.notification.Notification;
 import com.habidue.app.domain.notification.NotificationType;
 import com.habidue.app.domain.user.User;
@@ -27,9 +29,31 @@ public class NotificationService { // [시니어 조치] 클래스 레벨 @Trans
 
     private final NotificationRepository notificationRepository;
     private final UserRepository userRepository;
+    private final DeviceTokenRepository deviceTokenRepository;
+    private final FCMService fcmService;
     
     private static final Map<Long, SseEmitter> emitters = new ConcurrentHashMap<>();
     private static final Long DEFAULT_TIMEOUT = 1000L * 60 * 60; // 60분
+
+    /**
+     * FCM 토큰 저장 (기기 등록)
+     */
+    @Transactional
+    public void saveFcmToken(User user, String token) {
+        log.info("[FCM] Saving token for user: {}, token: {}", user.getId(), token);
+        deviceTokenRepository.findByToken(token).ifPresentOrElse(
+            existingToken -> {
+                existingToken.setUser(user); // 혹시 유저가 바뀌었을 경우 업데이트
+                deviceTokenRepository.save(existingToken);
+            },
+            () -> {
+                deviceTokenRepository.save(DeviceToken.builder()
+                        .user(user)
+                        .token(token)
+                        .build());
+            }
+        );
+    }
 
     /**
      * [시니어 조치] 연결 유지용 하트비트 스케줄러 (더 짧은 주기로 변경)
@@ -108,6 +132,9 @@ public class NotificationService { // [시니어 조치] 클래스 레벨 @Trans
                 .build();
         Notification savedNoti = notificationRepository.saveAndFlush(notification);
         Long userId = receiver.getId();
+        
+        // [FCM 조치] 모바일 푸시 알림 발송
+        fcmService.sendPushNotification(userId, "habiDue 알림", content);
         
         // 트랜잭션 커밋 후에 실제로 SSE 발송
         if (TransactionSynchronizationManager.isActualTransactionActive()) {
@@ -195,6 +222,9 @@ public class NotificationService { // [시니어 조치] 클래스 레벨 @Trans
                     .readStatus(0)
                     .build();
             notificationRepository.save(notification);
+            
+            // [FCM 조치] 모바일 푸시 알림 발송
+            fcmService.sendPushNotification(receiver.getId(), "habiDue 공지", content);
             
             // SSE 실시간 전송 시도
             sendSseNotification(receiver.getId(), notification);

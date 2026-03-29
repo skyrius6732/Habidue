@@ -1,9 +1,12 @@
 package com.habidue.app.controller.api;
 
 import com.habidue.app.config.oauth.UserPrincipal;
+import com.habidue.app.domain.user.User;
 import com.habidue.app.dto.ApiResponse;
 import com.habidue.app.dto.notification.NotificationResponseDto;
+import com.habidue.app.dto.notification.FcmTokenRequest;
 import com.habidue.app.service.notification.NotificationService;
+import com.habidue.app.service.user.UserService;
 import com.habidue.app.config.jwt.JwtTokenProvider;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -28,6 +31,44 @@ public class NotificationController {
 
     private final NotificationService notificationService;
     private final JwtTokenProvider tokenProvider;
+    private final UserService userService;
+
+    /**
+     * FCM 기기 토큰 저장
+     */
+    @PostMapping("/token")
+    public ResponseEntity<ApiResponse<Void>> saveFcmToken(
+            @AuthenticationPrincipal UserPrincipal userPrincipal,
+            @RequestParam(value = "token", required = false) String queryToken,
+            @RequestBody FcmTokenRequest request) {
+        
+        User user = null;
+
+        // 1. SecurityContext (필터 인증) 확인
+        if (userPrincipal != null && userPrincipal.getUser() != null) {
+            user = userPrincipal.getUser();
+        } 
+        // 2. 필터 인증 실패 시 쿼리 파라미터로 수동 인증 (SSE 방식과 동일)
+        else if (queryToken != null && !queryToken.isEmpty() && tokenProvider.validateToken(queryToken)) {
+            Long userId = tokenProvider.getUserId(queryToken);
+            if (userId != null) {
+                user = userService.getUserById(userId); // UserService에서 유저 조회
+            }
+        }
+
+        if (user == null) {
+            log.warn("[FCM] Unauthorized request: User not found via SecurityContext or Query Token");
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+        
+        try {
+            notificationService.saveFcmToken(user, request.getToken());
+            return ApiResponse.success(null);
+        } catch (Exception e) {
+            log.error("[FCM] Unexpected error while saving token: {}", e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
+    }
 
     /**
      * 알림 구독 (SSE)

@@ -30,3 +30,17 @@ app.config.globalProperties.$axios = axiosInstance;
 app.provide('axios', axiosInstance); // provide/inject를 위한 등록
 
 app.mount('#app');
+
+// [PWA 조치] 서비스 워커 등록
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js')
+      .then(registration => {
+        console.log('PWA ServiceWorker registered with scope: ', registration.scope);
+      })
+      .catch(err => {
+        console.log('PWA ServiceWorker registration failed: ', err);
+      });
+  });
+}
+

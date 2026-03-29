@@ -69,10 +69,18 @@ public class JwtAuthenticationFilter extends GenericFilterBean {
     }
 
     private String resolveToken(HttpServletRequest request) {
+        // 1. 헤더(Authorization: Bearer <token>)에서 추출 시도
         String bearerToken = request.getHeader("Authorization");
         if (StringUtils.hasText(bearerToken) && bearerToken.startsWith("Bearer ")) {
             return bearerToken.substring(7);
         }
+        
+        // 2. 쿼리 파라미터(?token=<token>)에서 추출 시도 (SSE 및 특정 우회 요청용)
+        String paramToken = request.getParameter("token");
+        if (StringUtils.hasText(paramToken)) {
+            return paramToken;
+        }
+        
         return null;
     }
 }
