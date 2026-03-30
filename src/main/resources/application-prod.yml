@@ -21,6 +21,9 @@ spring:
       host: ${REDIS_HOST}
       port: ${REDIS_PORT}
 
+app:
+  frontend-url: https://habidue.com
+
 logging:
   level:
     org.hibernate.SQL: warn
