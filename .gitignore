@@ -52,4 +52,6 @@ frontend/dist/
 .env.test.local
 .env.production.local
 
+# Project Specific
+GEMINI.md
 plan/
