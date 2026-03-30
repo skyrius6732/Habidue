@@ -22,6 +22,12 @@ jobs:
           chmod +x ./gradlew
           ./gradlew clean bootJar -x test
 
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
       - name: Login to Docker Hub
         uses: docker/login-action@v2
         with:
@@ -34,6 +40,7 @@ jobs:
           context: .
           push: true
           tags: ${{ secrets.DOCKERHUB_USERNAME }}/habidue-app:latest
+          platforms: linux/arm64
 
   # 2. 프론트엔드 빌드 및 배포
   frontend-build:

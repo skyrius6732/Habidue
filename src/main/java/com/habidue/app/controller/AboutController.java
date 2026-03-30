@@ -43,13 +43,6 @@ public class AboutController {
         return ApiResponse.success(HttpStatus.NO_CONTENT, null);
     }
 
-    /**
-     * [시니어 조치] 무중단 배포를 위한 Health Check API
-     */
-    @GetMapping("/api/health")
-    public String healthCheck() {
-        return "UP";
-    }
 
     // --- 패치 노트 API ---
     @GetMapping("/patches")
