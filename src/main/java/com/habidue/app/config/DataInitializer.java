@@ -1,7 +1,6 @@
 package com.habidue.app.config;
 
-import com.habidue.app.domain.notice.Notice;
-import com.habidue.app.repository.notice.NoticeRepository;
+import com.habidue.app.repository.notice.NoticeKeywordMetadataRepository;
 import com.habidue.app.service.notice.collector.lh.LhNoticeCollectorService;
 import com.habidue.app.service.notice.collector.civil.PrivateNoticeCrawlerService;
 import com.habidue.app.service.notice.collector.sh.ShNoticeCrawlerService;
@@ -10,6 +9,11 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Profile;
+import org.springframework.core.io.ClassPathResource;
+import org.springframework.jdbc.datasource.init.ScriptUtils;
+
+import javax.sql.DataSource;
+import java.sql.Connection;
 
 @Slf4j
 @Configuration
@@ -21,9 +25,19 @@ public class DataInitializer implements CommandLineRunner {
     private final ShNoticeCrawlerService shNoticeCrawlerService;
     private final PrivateNoticeCrawlerService privateNoticeCrawlerService;
     private final com.habidue.app.service.tag.TagService tagService;
+    private final NoticeKeywordMetadataRepository metadataRepository;
+    private final DataSource dataSource;
 
     @Override
     public void run(String... args) throws Exception {
+        // 키워드 메타데이터 초기화 (INSERT IGNORE로 중복 건너뜀, 신규 데이터만 추가)
+        try (Connection conn = dataSource.getConnection()) {
+            ScriptUtils.executeSqlScript(conn, new ClassPathResource("notice_keyword_metadata.sql"));
+            log.info("키워드 메타데이터 동기화 완료. (현재 {}건)", metadataRepository.count());
+        } catch (Exception e) {
+            log.error("키워드 메타데이터 동기화 실패: {}", e.getMessage());
+        }
+
         log.info("애플리케이션 시작: 초기 공고 데이터 수집을 진행합니다.");
         
         try {
