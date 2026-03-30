@@ -16,7 +16,12 @@ const firebaseConfig = {
 };
 
 const app = initializeApp(firebaseConfig);
-const messaging = getMessaging(app);
+let messaging = null;
+try {
+  messaging = getMessaging(app);
+} catch (e) {
+  console.warn('[FCM] Firebase Messaging is not supported in this environment (HTTPS required).');
+}
 
 // 푸시 알림 권한 요청 및 토큰 가져오기
 export const requestFcmToken = async () => {
@@ -47,9 +52,10 @@ export const requestFcmToken = async () => {
 
 // 실제 토큰 발급 로직 분리
 const fetchToken = async () => {
+  if (!messaging) return;
   try {
     // [사용자 조치] Firebase 웹 푸시 인증서(VAPID) 키를 여기에 넣어주세요.
-    const token = await getToken(messaging, { 
+    const token = await getToken(messaging, {
       vapidKey: 'BNC0gEoDPi5Le9f0HlFv4JbvItomYSdxCO7itfsijP2OMMnJPFgYrigoguZkLWJNk7UPz1sm0ej2ouxRObAL5MA' 
     });
     
@@ -105,6 +111,7 @@ const saveTokenToBackend = async (token) => {
 
 // 포그라운드 메시지 수신 (앱을 켜놓고 있을 때)
 export const onForegroundMessage = (callback) => {
+  if (!messaging) return;
   onMessage(messaging, (payload) => {
     console.log('[FCM] Message received in foreground: ', payload);
     if (callback && typeof callback === 'function') {

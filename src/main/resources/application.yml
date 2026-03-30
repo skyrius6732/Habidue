@@ -7,21 +7,21 @@ spring:
     name: habidue
   datasource:
     driver-class-name: com.mysql.cj.jdbc.Driver
-    url: jdbc:mysql://172.24.96.243:3306/habidue_db?serverTimezone=Asia/Seoul&characterEncoding=UTF-8&allowPublicKeyRetrieval=true&useSSL=false
-    username: habidue_user
-    password: habidue123!
+    url: jdbc:mysql://${DB_HOST}:${DB_PORT:3306}/${DB_NAME}?serverTimezone=Asia/Seoul&characterEncoding=UTF-8&allowPublicKeyRetrieval=true&useSSL=false
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
     hikari:
-      maximum-pool-size: 20 # [시니어 조치] 풀 크기 확장
+      maximum-pool-size: 20
       connection-timeout: 30000
   jpa:
     hibernate:
       ddl-auto: update
     show-sql: true
-    open-in-view: false # [시니어 조치] SSE 연결의 DB 커넥션 점유 방지 (필수)
+    open-in-view: false
   data:
     redis:
-      host: 172.24.96.243
-      port: 6379
+      host: ${REDIS_HOST}
+      port: ${REDIS_PORT:6379}
 
   mail:
     host: smtp.gmail.com
@@ -40,14 +40,14 @@ spring:
       client:
         registration:
           google:
-            client-id: 921709759349-mcj1se7f867c843d4mmpio5k5k35vsbg.apps.googleusercontent.com
-            client-secret: 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
+            client-id: ${GOOGLE_CLIENT_ID}
+            client-secret: ${GOOGLE_CLIENT_SECRET}
             scope:
               - email
               - profile
           naver:
-            client-id: trIL09408mHwUxhlR5F0
-            client-secret: vmfCK2Vv2m
+            client-id: ${NAVER_CLIENT_ID}
+            client-secret: ${NAVER_CLIENT_SECRET}
             redirect-uri: "{baseUrl}/login/oauth2/code/naver"
             authorization-grant-type: authorization_code
             scope:
@@ -56,8 +56,8 @@ spring:
               - profile_image
             client-name: Naver
           kakao:
-            client-id: 039509032563c86213c4bc096565f7c3
-            client-secret: 3MIRF0pcbtL3rfI9Lza84s41xi6IM36H
+            client-id: ${KAKAO_CLIENT_ID}
+            client-secret: ${KAKAO_CLIENT_SECRET}
             redirect-uri: "{baseUrl}/login/oauth2/code/kakao"
             authorization-grant-type: authorization_code
             client-authentication-method: client_secret_post
@@ -82,11 +82,10 @@ spring:
       max-file-size: 50MB
       max-request-size: 250MB
 
-# JWT 설정
 jwt:
-  secret: ${JWT_SECRET:c3FzYXE3d1E1bWp5Zzl0YzV2ZDRyM2YycDFvMGk5dWlqa2w4aDc2YjV2NGYzMnEzdWlkMW9wMjlhc2QxMml1eTBrMWw4Yzc2YjV2NGYzMnEzbWoyMGk5dTI5amtsOGg3NmI1djRm}
-  access-token-validity-in-seconds: 3600 # 1시간 (테스트 완료 후 복구)
-  refresh-token-validity-in-seconds: 1209600 # 2주
+  secret: ${JWT_SECRET}
+  access-token-validity-in-seconds: 3600
+  refresh-token-validity-in-seconds: 1209600
 
 logging:
   level:
@@ -94,13 +93,11 @@ logging:
     org.hibernate.type.descriptor.sql.BasicBinder: trace
     com.habidue.app.service.notice.collector: debug
 
-# LH API 설정
 lh:
   api:
     key: ${LH_API_KEY}
 
-# Gemini API 설정 (2.5 Flash-Lite 고할당량 모델)
 gemini:
   api:
-    key: AIzaSyDaNqpMpN506ySMnqwoVJThqrOmuTGzPjM
+    key: ${GEMINI_API_KEY}
     full-url: https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent

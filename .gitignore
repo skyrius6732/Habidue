@@ -39,6 +39,7 @@ out/
 ### Custom Ignore ###
 # Backend Secrets
 src/main/resources/application.properties
+src/main/resources/application-local.yml
 
 # Uploads & Logs
 uploads/
