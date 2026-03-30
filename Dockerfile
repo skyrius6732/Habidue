@@ -15,7 +15,7 @@ COPY . .
 RUN ./gradlew clean bootJar --no-daemon -x test
 
 # 2. 실행 스테이지 (최종 이미지)
-FROM openjdk:17-jdk-slim
+FROM eclipse-temurin:17-jre-jammy
 WORKDIR /app
 
 # 타임존 설정 (한국 시간)
