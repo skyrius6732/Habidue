@@ -93,10 +93,6 @@ logging:
     org.hibernate.type.descriptor.sql.BasicBinder: trace
     com.habidue.app.service.notice.collector: debug
 
-lh:
-  api:
-    key: ${LH_API_KEY}
-
 gemini:
   api:
     key: ${GEMINI_API_KEY}
