@@ -132,6 +132,12 @@ public class PostService {
         return PostResponseDto.from(savedPost);
     }
 
+    @Transactional(readOnly = true)
+    public Page<PostResponseDto> getMyPosts(Long authorId, Pageable pageable) {
+        return postRepository.findByAuthorIdAndStatus(authorId, "ACTIVE", pageable)
+                .map(PostResponseDto::from);
+    }
+
     @Transactional
     public PostResponseDto updatePost(Long postId, PostRequestDto requestDto, UserPrincipal currentUser) {
         Post post = postRepository.findById(postId).orElseThrow();

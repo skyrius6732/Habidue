@@ -11,7 +11,8 @@
     <div class="settings-content-wrapper">
       <div class="settings-box">
         <div class="settings-sidebar">
-          <div class="sidebar-item" :class="{ active: activeTab === 'activity' }" @click="setActiveTab('activity')">내 활동</div>
+          <div class="sidebar-item" :class="{ active: activeTab === 'activity' }" @click="setActiveTab('activity')">활동 지표</div>
+          <div class="sidebar-item" :class="{ active: activeTab === 'my-activity' }" @click="setActiveTab('my-activity')">내 활동</div>
           <div class="sidebar-item" :class="{ active: activeTab === 'keywords' }" @click="setActiveTab('keywords')">알림 키워드</div>
           <div class="sidebar-item" :class="{ active: activeTab === 'messages' }" @click="setActiveTab('messages')">
             쪽지함
@@ -31,11 +32,11 @@
             </div>
           </div>
 
-          <!-- 1. 내 활동 탭 -->
+          <!-- 1. 활동 지표 탭 (기존 내 활동) -->
           <div v-if="activeTab === 'activity'" class="activity-tab-content">
             <div class="section-header-flex">
               <div class="text-group">
-                <h2 class="section-title">📊 내 활동 지표</h2>
+                <h2 class="section-title">📊 활동 지표</h2>
                 <p class="section-desc">habiDue 커뮤니티에서 쌓아온 소중한 기록들입니다.</p>
               </div>
             </div>
@@ -410,6 +411,117 @@
             </div>
           </div>
 
+          <!-- [신규] 내 활동 탭 (게시글/댓글 보기) -->
+          <div v-if="activeTab === 'my-activity'" class="my-activity-tab-content fade-in">
+            <div class="section-header-flex">
+              <div class="text-group">
+                <h2 class="section-title">📂 내 활동</h2>
+                <p class="section-desc">내가 작성한 글과 댓글을 한눈에 모아보세요.</p>
+              </div>
+            </div>
+
+            <!-- 서브 탭 (세그먼트 컨트롤) -->
+            <div class="sub-tabs-container">
+              <button 
+                class="sub-tab-btn" 
+                :class="{ active: activeSubTab === 'posts' }"
+                @click="activeSubTab = 'posts'"
+              >
+                📝 내 게시글 
+                <span v-if="activityData" class="sub-tab-count">{{ activityData.totalPostCount }}</span>
+              </button>
+              <button 
+                class="sub-tab-btn" 
+                :class="{ active: activeSubTab === 'comments' }"
+                @click="activeSubTab = 'comments'"
+              >
+                💬 내 댓글
+                <span v-if="activityData" class="sub-tab-count">{{ activityData.totalCommentCount }}</span>
+              </button>
+            </div>
+
+            <!-- 내 게시글 리스트 -->
+            <div v-if="activeSubTab === 'posts'" class="sub-content-area">
+              <div v-if="postsLoading && myPosts.length === 0" class="activity-loading">
+                <div v-for="i in 3" :key="i" class="skeleton-activity-card"></div>
+              </div>
+              <div v-else-if="myPosts.length > 0" class="my-posts-grid">
+                <div v-for="post in myPosts" :key="post.id" class="my-post-card" @click="goToDetail(post.id)">
+                  <div class="post-card-main">
+                    <div class="post-card-content">
+                      <div class="post-card-header">
+                        <span class="post-card-date">{{ formatDateDot(post.createdAt) }}</span>
+                        <span class="post-card-category" v-if="post.category">{{ getCategoryLabel(post.category) }}</span>
+                      </div>
+                      <h4 class="post-card-title">{{ post.title }}</h4>
+                      <p class="post-card-summary">{{ post.content }}</p>
+                    </div>
+                    <!-- 인스타 스타일 썸네일 -->
+                    <div v-if="post.imageUrls && post.imageUrls.length > 0" class="post-card-thumb">
+                      <img :src="post.imageUrls[0]" alt="thumbnail" loading="lazy" />
+                      <div v-if="post.imageUrls.length > 1" class="thumb-count">+{{ post.imageUrls.length - 1 }}</div>
+                    </div>
+                  </div>
+                  <div class="post-card-footer">
+                    <div class="post-card-stats">
+                      <span class="p-stat">❤️ {{ post.likeCount }}</span>
+                      <span class="p-stat">💬 {{ post.commentCount }}</span>
+                      <span class="p-stat">👁️ {{ post.viewCount }}</span>
+                    </div>
+                    <span class="btn-go-detail">자세히 보기 →</span>
+                  </div>
+                </div>
+                
+                <div v-if="postsHasMore" class="load-more-btn-area">
+                  <button class="btn-load-more-activity" :disabled="postsLoading" @click="fetchMyPosts(true)">
+                    {{ postsLoading ? '로딩 중...' : '게시글 더보기 ▾' }}
+                  </button>
+                </div>
+              </div>
+              <div v-else class="empty-activity-box">
+                <div class="empty-visual">📝</div>
+                <p>아직 작성한 게시글이 없습니다.<br>이웃들과 다양한 정보를 나누어 보세요!</p>
+                <button @click="$router.push('/board')" class="btn-go-action">글 쓰러 가기</button>
+              </div>
+            </div>
+
+            <!-- 내 댓글 리스트 -->
+            <div v-else-if="activeSubTab === 'comments'" class="sub-content-area">
+              <div v-if="commentsLoading && myComments.length === 0" class="activity-loading">
+                <div v-for="i in 3" :key="i" class="skeleton-activity-card"></div>
+              </div>
+              <div v-else-if="myComments.length > 0" class="my-comments-list">
+                <div v-for="comment in myComments" :key="comment.id" class="my-comment-card" @click="goToCommentLocation(comment.postId, comment.id)">
+                  <div class="comment-card-top">
+                    <div class="comment-context">
+                      <span class="context-label">Re:</span>
+                      <span class="context-post-title">{{ comment.postTitle }}</span>
+                    </div>
+                    <span class="comment-date">{{ formatDateDot(comment.createdAt) }}</span>
+                  </div>
+                  <div class="comment-card-body">
+                    <p class="comment-content">{{ comment.content }}</p>
+                  </div>
+                  <div class="comment-card-footer">
+                    <span class="comment-likes">❤️ {{ comment.likeCount }}</span>
+                    <span class="btn-go-post">원문 보기 →</span>
+                  </div>
+                </div>
+
+                <div v-if="commentsHasMore" class="load-more-btn-area">
+                  <button class="btn-load-more-activity" :disabled="commentsLoading" @click="fetchMyComments(true)">
+                    {{ commentsLoading ? '로딩 중...' : '댓글 더보기 ▾' }}
+                  </button>
+                </div>
+              </div>
+              <div v-else class="empty-activity-box">
+                <div class="empty-visual">💬</div>
+                <p>아직 작성한 댓글이 없습니다.<br>이웃들의 글에 따뜻한 댓글을 남겨보세요!</p>
+                <button @click="$router.push('/board')" class="btn-go-action">커뮤니티 둘러보기</button>
+              </div>
+            </div>
+          </div>
+
           <!-- 2. 키워드 설정 탭 -->
           <div v-if="activeTab === 'keywords'">
             <h2 class="section-title">🏷️ 알림 키워드</h2>
@@ -542,6 +654,7 @@ import axios from '@/plugins/axios'
 import PageHeader from '@/components/PageHeader.vue'
 import AnimatedNickname from '@/components/AnimatedNickname.vue'
 import MessageInbox from '@/components/MessageInbox.vue'
+import { getCategoryLabel } from '@/constants/postConstants'
 import { useAuthStore } from '@/stores/auth'
 import { useBadgeStore } from '@/stores/badge'
 import { useMessageStore } from '@/stores/message'
@@ -556,11 +669,93 @@ const uiStore = useUiStore()
 const route = useRoute()
 const router = useRouter()
 const activeTab = ref(route.query.tab || 'activity')
+const activeSubTab = ref('posts')
+
+// [신규] 내 활동 데이터 상태
+const myPosts = ref([])
+const myComments = ref([])
+const postsLoading = ref(false)
+const commentsLoading = ref(false)
+const postsHasMore = ref(false)
+const commentsHasMore = ref(false)
+const postsPage = ref(0)
+const commentsPage = ref(0)
 
 // [시니어 조치] 탭 전환 시 URL 쿼리 파라미터 업데이트
 const setActiveTab = (tab) => {
   activeTab.value = tab
   router.push({ query: { ...route.query, tab } })
+  
+  // 내 활동 탭 진입 시 데이터 자동 로드
+  if (tab === 'my-activity') {
+    if (activeSubTab.value === 'posts' && myPosts.value.length === 0) fetchMyPosts()
+    if (activeSubTab.value === 'comments' && myComments.value.length === 0) fetchMyComments()
+  }
+}
+
+// 서브 탭 변경 감시
+watch(activeSubTab, (newTab) => {
+  if (newTab === 'posts' && myPosts.value.length === 0) fetchMyPosts()
+  if (newTab === 'comments' && myComments.value.length === 0) fetchMyComments()
+})
+
+// [신규] 내 게시글 페이징 조회
+const fetchMyPosts = async (isMore = false) => {
+  if (postsLoading.value) return
+  postsLoading.value = true
+  
+  if (!isMore) {
+    postsPage.value = 0
+    myPosts.value = []
+  }
+
+  try {
+    const res = await axios.get('/api/users/me/posts', {
+      params: { page: postsPage.value, size: 10, sort: 'createdAt,desc' }
+    })
+    const data = res.data.data
+    myPosts.value = isMore ? [...myPosts.value, ...data.content] : data.content
+    postsHasMore.value = !data.last
+    if (postsHasMore.value) postsPage.value++
+  } catch (e) {
+    console.error('내 게시글 로드 실패', e)
+  } finally {
+    postsLoading.value = false
+  }
+}
+
+// [신규] 내 댓글 페이징 조회
+const fetchMyComments = async (isMore = false) => {
+  if (commentsLoading.value) return
+  commentsLoading.value = true
+
+  if (!isMore) {
+    commentsPage.value = 0
+    myComments.value = []
+  }
+
+  try {
+    const res = await axios.get('/api/users/me/comments', {
+      params: { page: commentsPage.value, size: 10, sort: 'createdAt,desc' }
+    })
+    const data = res.data.data
+    myComments.value = isMore ? [...myComments.value, ...data.content] : data.content
+    commentsHasMore.value = !data.last
+    if (commentsHasMore.value) commentsPage.value++
+  } catch (e) {
+    console.error('내 댓글 로드 실패', e)
+  } finally {
+    commentsLoading.value = false
+  }
+}
+
+const goToDetail = (id) => {
+  router.push(`/board/post/${id}`)
+}
+
+const goToCommentLocation = (postId, commentId) => {
+  // 게시글 상세로 이동 후 해당 댓글 위치로 스크롤되도록 쿼리 파라미터 전달
+  router.push({ path: `/board/post/${postId}`, query: { commentId } })
 }
 
 // [시니어 조치] URL 쿼리 파라미터 변경 감시하여 탭 전환
@@ -744,11 +939,21 @@ const getTypeLabel = (type) => {
 const activeNotificationCount = computed(() => { let c = 0; if (pushEnabled.value) c++; if (mailEnabled.value && isEmailVerified.value) c++; return c })
 const currentBio = computed(() => {
   if (activeTab.value === 'activity') return '커뮤니티 활동을 통해 획득한 나의 배지와 활동 지표를 확인하세요.'
+  if (activeTab.value === 'my-activity') return '내가 작성한 소중한 게시글과 댓글 기록들을 한눈에 확인하세요.'
   if (activeTab.value === 'keywords') return '관심 태그를 설정하여 나에게 꼭 맞는 공고을 가장 먼저 확인하세요.'
   if (activeTab.value === 'messages') return '개인 소통 및 시스템 알림을 확인하는 나만의 우체통입니다.'
   if (activeTab.value === 'notifications') return '나에게 편한 방법으로 공고 알림 소식을 받아보세요.'
   return '내 계정 정보를 확인하고 데이터를 안전하게 관리하세요.'
 })
+
+const formatDateDot = (dateStr) => {
+  if (!dateStr) return '';
+  const date = new Date(dateStr);
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}.${m}.${d}`;
+};
 
 const fetchMyTags = async () => { try { const res = await axios.get('/api/user-tags'); userTags.value = res.data.data } catch (e) {} }
 const fetchUserProfile = async () => { try { const res = await axios.get('/api/users/me'); userProfile.value = res.data.data; if (userProfile.value.reportEmail) reportEmailInput.value = userProfile.value.reportEmail } catch (e) {} }
@@ -1386,6 +1591,274 @@ onMounted(() => {
   transition: all 0.2s; box-shadow: 0 4px 12px rgba(0, 149, 246, 0.2);
 }
 .btn-go-action:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(0, 149, 246, 0.3); opacity: 0.9; }
+
+/* [신규] 내 활동(my-activity) 관련 스타일 */
+.sub-tabs-container {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 25px;
+  background: var(--hover-bg);
+  padding: 6px;
+  border-radius: 14px;
+  width: fit-content;
+}
+.sub-tab-btn {
+  padding: 10px 20px;
+  border-radius: 10px;
+  border: none;
+  background: transparent;
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--text-secondary);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  transition: all 0.2s;
+}
+.sub-tab-btn.active {
+  background: var(--card-bg);
+  color: var(--link-color);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+}
+.sub-tab-count {
+  font-size: 0.75rem;
+  background: rgba(0,0,0,0.05);
+  padding: 2px 8px;
+  border-radius: 8px;
+  opacity: 0.7;
+}
+:global(.dark-mode) .sub-tab-count { background: rgba(255,255,255,0.1); }
+
+/* 내 게시글 카드 스타일 (인스타 감성 믹스) */
+.my-posts-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+.my-post-card {
+  background: var(--card-bg);
+  border: 1px solid var(--border-color);
+  border-radius: 16px;
+  padding: 20px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.my-post-card:hover {
+  transform: translateY(-3px);
+  border-color: var(--link-color);
+  box-shadow: 0 8px 20px rgba(0,0,0,0.05);
+}
+.post-card-main {
+  display: flex;
+  justify-content: space-between;
+  gap: 20px;
+  margin-bottom: 15px;
+}
+.post-card-content {
+  flex: 1;
+  min-width: 0;
+}
+.post-card-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+.post-card-date {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  font-weight: 600;
+}
+.post-card-category {
+  font-size: 0.7rem;
+  font-weight: 800;
+  color: var(--link-color);
+  background: rgba(0, 149, 246, 0.05);
+  padding: 2px 8px;
+  border-radius: 6px;
+}
+.post-card-title {
+  font-size: 1.1rem;
+  font-weight: 800;
+  margin: 0 0 10px;
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.post-card-summary {
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+  line-height: 1.5;
+  margin: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+.post-card-thumb {
+  width: 90px;
+  height: 90px;
+  border-radius: 12px;
+  overflow: hidden;
+  position: relative;
+  flex-shrink: 0;
+  border: 1px solid var(--border-color);
+}
+.post-card-thumb img { width: 100%; height: 100%; object-fit: cover; }
+.thumb-count {
+  position: absolute; bottom: 0; right: 0;
+  background: rgba(0,0,0,0.6); color: white;
+  font-size: 0.65rem; padding: 2px 6px; border-radius: 6px 0 0 0;
+}
+
+.post-card-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-top: 15px;
+  border-top: 1px dashed var(--divider-color);
+}
+.post-card-stats {
+  display: flex;
+  gap: 15px;
+}
+.p-stat {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--text-secondary);
+}
+.btn-go-detail {
+  font-size: 0.8rem;
+  font-weight: 800;
+  color: var(--link-color);
+}
+
+/* 내 댓글 카드 스타일 */
+.my-comments-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.my-comment-card {
+  background: var(--card-bg);
+  border: 1px solid var(--border-color);
+  border-radius: 16px;
+  padding: 18px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.my-comment-card:hover {
+  border-color: var(--link-color);
+  background: var(--hover-bg);
+}
+.comment-card-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+.comment-context {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+.context-label {
+  font-size: 0.75rem;
+  font-weight: 900;
+  color: var(--link-color);
+}
+.context-post-title {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--text-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.comment-date {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+.comment-card-body {
+  margin-bottom: 12px;
+}
+.comment-content {
+  font-size: 0.95rem;
+  color: var(--text-primary);
+  margin: 0;
+  line-height: 1.4;
+  font-weight: 600;
+}
+.comment-card-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.comment-likes {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--text-muted);
+}
+.btn-go-post {
+  font-size: 0.75rem;
+  font-weight: 800;
+  color: var(--link-color);
+}
+
+.empty-activity-box {
+  padding: 60px 20px;
+  text-align: center;
+}
+.empty-visual {
+  font-size: 3rem;
+  margin-bottom: 15px;
+}
+.empty-activity-box p {
+  font-size: 0.95rem;
+  color: var(--text-secondary);
+  line-height: 1.6;
+  margin-bottom: 25px;
+}
+
+.load-more-btn-area {
+  margin-top: 20px;
+  text-align: center;
+}
+.btn-load-more-activity {
+  width: 100%;
+  padding: 15px;
+  background: var(--card-bg);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.btn-load-more-activity:hover {
+  background: var(--hover-bg);
+  color: var(--link-color);
+  border-color: var(--link-color);
+}
+
+.skeleton-activity-card {
+  height: 150px;
+  background: var(--hover-bg);
+  border-radius: 16px;
+  margin-bottom: 15px;
+  animation: pulse 1.5s infinite;
+}
+@keyframes pulse {
+  0% { opacity: 0.6; }
+  50% { opacity: 0.3; }
+  100% { opacity: 0.6; }
+}
 
 /* [시니어 조치] 깨진 키워드/알림 CSS 복구 */
 .tag-search-container { position: relative; margin-bottom: 30px; max-width: 450px; }

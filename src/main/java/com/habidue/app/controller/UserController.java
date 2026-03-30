@@ -38,6 +38,8 @@ public class UserController {
     private final UserService userService;
     private final ExcelService excelService;
     private final com.habidue.app.service.user.KarmaService karmaService;
+    private final com.habidue.app.service.board.PostService postService;
+    private final com.habidue.app.service.board.CommentService commentService;
 
     @GetMapping("/me")
     @Secured("ROLE_USER")
@@ -192,5 +194,27 @@ public class UserController {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
         User user = userRepository.findByUsername(auth.getName()).orElseThrow();
         return ApiResponse.success(karmaService.getKarmaHistory(user.getId()));
+    }
+
+    /**
+     * [시니어 조치] 내 게시글 목록 조회 (페이징)
+     */
+    @GetMapping("/me/posts")
+    @Secured("ROLE_USER")
+    public ResponseEntity<ApiResponse<org.springframework.data.domain.Page<com.habidue.app.dto.board.PostResponseDto>>> getMyPosts(org.springframework.data.domain.Pageable pageable) {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        User user = userRepository.findByUsername(auth.getName()).orElseThrow();
+        return ApiResponse.success(postService.getMyPosts(user.getId(), pageable));
+    }
+
+    /**
+     * [시니어 조치] 내 댓글 목록 조회 (페이징)
+     */
+    @GetMapping("/me/comments")
+    @Secured("ROLE_USER")
+    public ResponseEntity<ApiResponse<org.springframework.data.domain.Page<com.habidue.app.dto.board.CommentResponseDto>>> getMyComments(org.springframework.data.domain.Pageable pageable) {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        User user = userRepository.findByUsername(auth.getName()).orElseThrow();
+        return ApiResponse.success(commentService.getMyComments(user.getId(), pageable));
     }
 }

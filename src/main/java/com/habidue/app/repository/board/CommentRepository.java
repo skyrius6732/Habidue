@@ -21,8 +21,11 @@ public interface CommentRepository extends JpaRepository<Comment, Long>, Comment
     java.util.List<Comment> findByParentId(Long parentId);
 
     // 작성자 ID로 댓글 목록 조회 (작성자 정보 Fetch Join)
-    @EntityGraph(attributePaths = {"author"})
+    @EntityGraph(attributePaths = {"author", "post"})
     Page<Comment> findByAuthorId(Long authorId, Pageable pageable);
+
+    @EntityGraph(attributePaths = {"author", "post"})
+    Page<Comment> findByAuthorIdAndStatus(Long authorId, String status, Pageable pageable);
 
     // 게시글 내 모든 ACTIVE 댓글(+답글)의 likeCount 합산 - karma 회수 시 전체 잔여 좋아요 계산용
     @Query("SELECT COALESCE(SUM(c.likeCount), 0) FROM Comment c WHERE c.post.id = :postId AND c.status = 'ACTIVE'")

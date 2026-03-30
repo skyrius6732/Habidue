@@ -59,6 +59,12 @@ public class CommentService {
         return userRepository.findById(principal.getId()).orElseThrow();
     }
 
+    @Transactional(readOnly = true)
+    public Page<CommentResponseDto> getMyComments(Long authorId, Pageable pageable) {
+        return commentRepository.findByAuthorIdAndStatus(authorId, "ACTIVE", pageable)
+                .map(comment -> CommentResponseDto.from(comment, false, authorId, commentLikeRepository));
+    }
+
     @Transactional
     public CommentResponseDto createComment(Long postId, CommentRequestDto requestDto) {
         User author = getCurrentUser();

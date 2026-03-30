@@ -23,6 +23,7 @@ public class CommentResponseDto {
     private String targetAuthorName;
     private Long parentId;
     private Long postId;
+    private String postTitle;
     private String status;
     private String createdAt;
     private List<com.habidue.app.dto.badge.BadgeResponseDto> authorBadges;
@@ -68,6 +69,7 @@ public class CommentResponseDto {
                         : null)
                 .parentId(comment.getParent() != null ? comment.getParent().getId() : null)
                 .postId(comment.getPost().getId())
+                .postTitle(comment.getPost().getTitle())
                 .status(comment.getStatus())
                 .createdAt(comment.getCreatedAt().toString())
                 .likeCount(comment.getLikeCount())
