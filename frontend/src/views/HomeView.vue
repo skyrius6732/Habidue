@@ -61,8 +61,7 @@ import { useAuthStore } from '@/stores/auth'
 const authStore = useAuthStore()
 const router = useRouter()
 
-// [시니어 조치] 개발/운영 환경에 따른 베이스 URL 처리 (현재는 8081 하드코딩 유지)
-const BASE_URL = 'http://localhost:8081';
+const BASE_URL = import.meta.env.VITE_API_BASE_URL || '';
 
 const loginWithGoogle = () => {
   window.location.href = `${BASE_URL}/oauth2/authorization/google`;
