@@ -1,6 +1,0 @@
-build/
-bin/
-obj/
-.git/
-node_modules/
-*.log
