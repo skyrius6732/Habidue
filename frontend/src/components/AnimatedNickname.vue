@@ -5,9 +5,20 @@
     @mouseenter="handleMouseEnter" 
     @mouseleave="handleMouseLeave"
   >
+    <!-- 아바타 (show-avatar=true 일 때) -->
+    <div v-if="showAvatar" class="an-avatar" :class="currentTierClass">
+      <template v-if="showParticles">
+        <span class="an-av-p p1"></span>
+        <span class="an-av-p p2"></span>
+        <span class="an-av-p p3"></span>
+        <span class="an-av-p p4"></span>
+      </template>
+      <span class="an-av-initial">{{ nickname.charAt(0).toUpperCase() }}</span>
+    </div>
+
     <!-- 등급별 미세 파티클 (50레벨 이상) -->
     <div v-if="showParticles && particleOptions" class="nickname-particles-container">
-      <vue-particles :id="`particles-${nickname}-${level}`" :options="particleOptions" />
+      <vue-particles :id="`particles-${instanceId}`" :options="particleOptions" />
     </div>
 
     <!-- [시니어] 카르마 주의 아이콘 -->
@@ -89,6 +100,7 @@ const props = defineProps({
   exp: { type: Number, default: 0 },
   badges: { type: Array, default: () => [] },
   showEffects: { type: Boolean, default: true },
+  showAvatar: { type: Boolean, default: false },
   equippedBadgeName: { type: String, default: null },
   karmaPoint: { type: Number, default: 1000 },
   tooltipDirection: { type: String, default: 'right' }
@@ -102,6 +114,7 @@ const showTooltip = ref(false)
 // 다크/라이트 테마 감지
 const isDark = ref(document.documentElement.classList.contains('dark-mode'))
 let themeObserver = null
+const instanceId = Math.random().toString(36).slice(2, 8)
 const isPinned = ref(false) 
 const tooltipRef = ref(null)
 const showMessageModal = ref(false)
@@ -233,7 +246,7 @@ onUnmounted(() => { if (themeObserver) themeObserver.disconnect() })
 </script>
 
 <style scoped>
-.animated-nickname-wrapper { position: relative; display: inline-flex; align-items: center; cursor: pointer; }
+.animated-nickname-wrapper { position: relative; display: inline-flex; align-items: center; cursor: pointer; gap: 5px; }
 
 /* 닉네임 크기 최적화 */
 .animated-nickname {
@@ -251,7 +264,7 @@ onUnmounted(() => { if (themeObserver) themeObserver.disconnect() })
 
 /* --- Tier CSS Variables --- */
 .tier-1 { --tier-color: var(--text-secondary); --tier-bg: rgba(0,0,0,0.03); --tier-gradient: var(--text-primary); }
-.tier-5 { --tier-color: #804a00; --tier-bg: rgba(176, 141, 87, 0.08); --tier-gradient: linear-gradient(135deg, #804a00, #b08d57, #804a00); }
+.tier-5 { --tier-color: #a0522d; --tier-bg: rgba(160, 82, 45, 0.1); --tier-gradient: linear-gradient(135deg, #804a00, #a0522d, #804a00); }
 .tier-10 { --tier-color: #94a3b8; --tier-bg: rgba(148, 163, 184, 0.12); --tier-gradient: linear-gradient(135deg, #94a3b8, #f8fafc, #94a3b8); }
 .tier-30 { --tier-color: #facc15; --tier-bg: rgba(250, 204, 21, 0.08); --tier-gradient: linear-gradient(135deg, #a16207, #fde047, #a16207); }
 .tier-50 { --tier-color: #10b981; --tier-bg: rgba(16, 185, 129, 0.08); --tier-gradient: linear-gradient(135deg, #065f46, #34d399, #065f46); }
@@ -262,8 +275,29 @@ onUnmounted(() => { if (themeObserver) themeObserver.disconnect() })
 @media (prefers-color-scheme: dark) { .tier-10 { --tier-color: #cbd5e1; --tier-bg: rgba(203, 213, 225, 0.12); --tier-gradient: linear-gradient(135deg, #94a3b8, #f8fafc, #94a3b8); } }
 
 .animated-nickname.tier-1 { color: var(--text-primary); border: none; padding: 0; overflow: visible; }
-.animated-nickname.tier-5, .animated-nickname.tier-10, .animated-nickname.tier-30, .animated-nickname.tier-50 { 
-  background: var(--tier-gradient); -webkit-background-clip: text; -webkit-text-fill-color: transparent !important; background-color: var(--tier-bg); 
+/* tier-50: 기존 그라디언트 텍스트 유지 */
+.animated-nickname.tier-50 {
+  background: var(--tier-gradient); -webkit-background-clip: text; -webkit-text-fill-color: transparent !important; background-color: var(--tier-bg);
+}
+
+/* tier-5/10/30: 금속 배경 + 검정 텍스트 */
+.animated-nickname.tier-5 {
+  background: linear-gradient(135deg, #6b3a1f 0%, #c68642 35%, #e8a96a 55%, #c68642 75%, #6b3a1f 100%);
+  -webkit-background-clip: initial !important; background-clip: initial !important;
+  -webkit-text-fill-color: #1a0800 !important;
+  border-color: #a0622a;
+}
+.animated-nickname.tier-10 {
+  background: linear-gradient(135deg, #5a5a5a 0%, #b8b8b8 35%, #efefef 55%, #b8b8b8 75%, #5a5a5a 100%);
+  -webkit-background-clip: initial !important; background-clip: initial !important;
+  -webkit-text-fill-color: #111 !important;
+  border-color: #aaaaaa;
+}
+.animated-nickname.tier-30 {
+  background: linear-gradient(135deg, #6b4900 0%, #c8920a 35%, #ffd700 55%, #c8920a 75%, #6b4900 100%);
+  -webkit-background-clip: initial !important; background-clip: initial !important;
+  -webkit-text-fill-color: #1a0e00 !important;
+  border-color: #c8920a;
 }
 
 .animated-nickname.tier-50 { animation: emerald-aura-pulse 2s infinite alternate; }
@@ -286,6 +320,59 @@ onUnmounted(() => { if (themeObserver) themeObserver.disconnect() })
 @keyframes legendary-burn { from { box-shadow: 0 0 8px rgba(250, 204, 21, 0.5); } to { box-shadow: 0 0 20px rgba(250, 204, 21, 0.9); } }
 @keyframes rainbow-aura-pulse { from { box-shadow: 0 0 8px rgba(255, 65, 108, 0.3); } to { box-shadow: 0 0 18px rgba(255, 65, 108, 0.6); } }
 
+/* ── 인라인 아바타 ── */
+.an-avatar {
+  width: 26px; height: 26px; border-radius: 50%; flex-shrink: 0;
+  background: var(--tier-bg, rgba(0,0,0,0.03));
+  border: 1.5px solid var(--tier-color, var(--border-color, #dbdbdb));
+  display: inline-flex; align-items: center; justify-content: center;
+  position: relative; overflow: visible; transition: border-color 0.3s;
+}
+.an-av-initial {
+  font-size: 0.72rem; font-weight: 900;
+  background: var(--tier-gradient, var(--text-primary));
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  background-clip: text; line-height: 1;
+}
+.an-avatar.tier-1 .an-av-initial,
+.an-avatar.tier-none .an-av-initial { -webkit-text-fill-color: var(--text-secondary, #8e8e8e); background: none; }
+
+/* 아바타 파티클 */
+.an-av-p {
+  position: absolute; border-radius: 50%; pointer-events: none; opacity: 0; z-index: 10;
+  width: 3px; height: 3px;
+}
+.an-av-p.p1 { left: 5%;  bottom: 10%; animation: an-float 2.2s 0s     infinite; }
+.an-av-p.p2 { left: 35%; bottom: 0;   animation: an-float 2.2s 0.55s  infinite; }
+.an-av-p.p3 { left: 65%; bottom: 0;   animation: an-float 2.2s 1.1s   infinite; }
+.an-av-p.p4 { left: 90%; bottom: 10%; animation: an-float 2.2s 1.65s  infinite; }
+@keyframes an-float {
+  0%   { opacity: 0;   transform: translateY(0)     scale(0.7); }
+  20%  { opacity: 0.9; }
+  100% { opacity: 0;   transform: translateY(-22px) scale(0.2); }
+}
+/* tier별 파티클 색 */
+.tier-50  .an-av-p { background: #10b981; }
+.tier-70  .an-av-p.p1 { background: #ff416c; }
+.tier-70  .an-av-p.p2 { background: #ffd700; }
+.tier-70  .an-av-p.p3 { background: #4facfe; }
+.tier-70  .an-av-p.p4 { background: #9400d3; }
+.tier-90  .an-av-p { background: #e0f7ff; border-radius: 1px; }
+.tier-90  .an-av-p.p1 { animation: an-snow 3s 0s    infinite; }
+.tier-90  .an-av-p.p2 { animation: an-snow 3s 0.75s infinite; }
+.tier-90  .an-av-p.p3 { animation: an-snow 3s 1.5s  infinite; }
+.tier-90  .an-av-p.p4 { animation: an-snow 3s 2.25s infinite; }
+@keyframes an-snow {
+  0%   { opacity: 0;   transform: translateY(0) translateX(0) rotate(0deg) scale(0.8); }
+  20%  { opacity: 0.8; }
+  100% { opacity: 0;   transform: translateY(-20px) translateX(-2px) rotate(180deg) scale(0.2); }
+}
+.tier-100 .an-av-p { background: #facc15; width: 4px; height: 4px; box-shadow: 0 0 3px rgba(250,204,21,0.7); }
+.tier-100 .an-av-p.p1 { animation-duration: 1.5s; }
+.tier-100 .an-av-p.p2 { animation-duration: 1.5s; }
+.tier-100 .an-av-p.p3 { animation-duration: 1.5s; }
+.tier-100 .an-av-p.p4 { animation-duration: 1.5s; }
+
 /* --- Tooltip System --- */
 .nickname-tooltip {
   position: absolute; 
@@ -306,6 +393,10 @@ onUnmounted(() => { if (themeObserver) themeObserver.disconnect() })
 
 .user-name-styled { font-weight: 900; font-size: 0.85rem; display: inline-block; background: var(--tier-gradient); background-size: 200% auto; -webkit-background-clip: text; -webkit-text-fill-color: transparent !important; }
 .user-name-styled.tier-70, .user-name-styled.tier-90, .user-name-styled.tier-100 { animation: shine-move 3s linear infinite; }
+/* 툴팁 닉네임도 금속 배경 방식 적용 */
+.user-name-styled.tier-5  { background: linear-gradient(135deg, #6b3a1f, #c68642, #e8a96a, #c68642, #6b3a1f); -webkit-background-clip: initial !important; background-clip: initial !important; -webkit-text-fill-color: #1a0800 !important; padding: 1px 6px; border-radius: 4px; }
+.user-name-styled.tier-10 { background: linear-gradient(135deg, #5a5a5a, #b8b8b8, #efefef, #b8b8b8, #5a5a5a); -webkit-background-clip: initial !important; background-clip: initial !important; -webkit-text-fill-color: #111 !important; padding: 1px 6px; border-radius: 4px; }
+.user-name-styled.tier-30 { background: linear-gradient(135deg, #6b4900, #c8920a, #ffd700, #c8920a, #6b4900); -webkit-background-clip: initial !important; background-clip: initial !important; -webkit-text-fill-color: #1a0e00 !important; padding: 1px 6px; border-radius: 4px; }
 
 .glass-reflection-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: linear-gradient(135deg, transparent 45%, rgba(255, 255, 255, 0.15) 50%, transparent 55%); background-size: 300% 300%; z-index: 5; pointer-events: none; animation: sharpShine 6s infinite; }
 @keyframes sharpShine { 0% { background-position: 250% 250%; } 20% { background-position: -150% -150%; } 100% { background-position: -150% -150%; } }

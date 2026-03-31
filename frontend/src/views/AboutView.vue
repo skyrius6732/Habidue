@@ -33,23 +33,43 @@
           <section class="features-section">
             <div class="feature-card">
               <div class="card-icon">🏠</div>
-              <h3>통합 공고 리스트</h3>
-              <p>LH, SH 등 여러 기관의 흩어져 있는 공고를 한곳에 모아 피드 형태로 제공합니다.</p>
+              <h3>통합 공고 수집</h3>
+              <p>LH, SH, 민간임대까지 모든 기관의 공고를 한곳에 모아 피드 형태로 제공합니다.</p>
+            </div>
+            <div class="feature-card">
+              <div class="card-icon">💬</div>
+              <h3>공고 소통방</h3>
+              <p>관심 있는 공고에 대해 입주 희망 이웃들과 실시간으로 정보를 나누고 소통하세요.</p>
             </div>
             <div class="feature-card">
               <div class="card-icon">📅</div>
-              <h3>스마트 캘린더</h3>
-              <p>마감 임박 공고를 달력 형식으로 시각화하여 중요한 신청 기회를 놓치지 않게 도와줍니다.</p>
+              <h3>청약 캘린더</h3>
+              <p>복잡한 청약 일정과 발표일을 내 손안의 캘린더로 스마트하게 관리할 수 있습니다.</p>
             </div>
             <div class="feature-card">
               <div class="card-icon">❤️</div>
               <h3>관심 공고 관리</h3>
-              <p>마음에 드는 공고는 하트를 눌러 스크랩하고, 나만의 메모를 남겨 효율적으로 관리하세요.</p>
+              <p>마음에 드는 공고를 찜하고 나만의 메모를 남겨 중요한 기회를 놓치지 마세요.</p>
             </div>
             <div class="feature-card">
               <div class="card-icon">🔔</div>
-              <h3>키워드 맞춤 알림</h3>
-              <p>나의 주거 희망 지역이나 유형을 알림 키워드로 등록하면 매칭되는 공고를 우선적으로 보여줍니다.</p>
+              <h3>맞춤 키워드 알림</h3>
+              <p>희망 지역이나 유형을 등록하면 조건에 맞는 새 공고를 실시간으로 알려드립니다.</p>
+            </div>
+            <div class="feature-card">
+              <div class="card-icon">🔍</div>
+              <h3>스마트 상세 검색</h3>
+              <p>기관, 지역, 상태별 정밀 필터를 통해 나에게 꼭 필요한 정보를 빠르게 찾아보세요.</p>
+            </div>
+            <div class="feature-card">
+              <div class="card-icon">🏆</div>
+              <h3>활동 랭킹 및 배지</h3>
+              <p>소통을 통해 경험치를 쌓고, 등급별 화려한 닉네임과 명예로운 배지를 획득하세요.</p>
+            </div>
+            <div class="feature-card">
+              <div class="card-icon">📫</div>
+              <h3>1:1 고객센터</h3>
+              <p>서비스 이용 중 궁금한 점이나 개선 제안을 운영진에게 직접 전달하고 답변받으세요.</p>
             </div>
           </section>
 
@@ -422,12 +442,35 @@ onMounted(() => {
 .logo-font { font-family: 'Grand Hotel', cursive; font-size: 4rem; color: var(--text-primary); margin-bottom: 10px; }
 .subtitle { font-size: 1.2rem; color: var(--text-secondary); font-weight: 500; }
 
-.features-section { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; }
-.feature-card { background: var(--card-bg); padding: 30px 20px; border-radius: 16px; border: 1px solid var(--border-color); text-align: center; transition: all 0.3s ease; }
+.features-section { 
+  display: grid; 
+  grid-template-columns: repeat(2, 1fr); /* 기본 2열 (모바일 포함) */
+  gap: 15px; 
+}
+@media (min-width: 768px) {
+  .features-section {
+    grid-template-columns: repeat(3, 1fr); /* 태블릿 3열 */
+    gap: 20px;
+  }
+}
+@media (min-width: 1024px) {
+  .features-section {
+    grid-template-columns: repeat(4, 1fr); /* PC 4열 */
+  }
+}
+.feature-card { background: var(--card-bg); padding: 25px 15px; border-radius: 16px; border: 1px solid var(--border-color); text-align: center; transition: all 0.3s ease; }
 .feature-card:hover { transform: translateY(-5px); border-color: var(--link-color); box-shadow: 0 10px 20px rgba(0,0,0,0.1); }
-.card-icon { font-size: 2.5rem; margin-bottom: 20px; }
-.feature-card h3 { font-size: 1.15rem; font-weight: 700; margin-bottom: 12px; color: var(--text-primary); }
-.feature-card p { font-size: 0.9rem; color: var(--text-secondary); line-height: 1.6; word-break: keep-all; }
+.card-icon { font-size: 2.2rem; margin-bottom: 15px; }
+.feature-card h3 { font-size: 1rem; font-weight: 700; margin-bottom: 10px; color: var(--text-primary); }
+.feature-card p { font-size: 0.82rem; color: var(--text-secondary); line-height: 1.5; word-break: keep-all; }
+
+@media (max-width: 480px) {
+  .features-section { gap: 10px; }
+  .feature-card { padding: 20px 10px; }
+  .card-icon { font-size: 1.8rem; margin-bottom: 10px; }
+  .feature-card h3 { font-size: 0.9rem; }
+  .feature-card p { font-size: 0.75rem; }
+}
 
 /* 2. 공지사항 */
 .announcement-list { display: flex; flex-direction: column; gap: 15px; }
@@ -552,7 +595,6 @@ onMounted(() => {
 @media (max-width: 768px) {
   .pc-only-title { display: none; }
   .about-content-inner { margin: 0 auto; padding: 20px 15px; }
-  .features-section { grid-template-columns: 1fr; }
   .form-footer { flex-direction: column; align-items: stretch; }
   .submit-btn { width: 100%; }
 }

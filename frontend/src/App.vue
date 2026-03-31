@@ -66,9 +66,11 @@ const sidebarEquippedInfo = computed(() =>
   badgeStore.getEquippedBadgeInfo(authStore.user?.equippedBadgeId, authStore.user?.level)
 )
 const sidebarTierClass = computed(() => {
+  if (!authStore.user?.showLevelEffects) return 'sb-tier-1'
   const tier = badgeStore.getAccountTierNumber(authStore.user?.level)
   return `sb-tier-${tier}`
 })
+
 
 watch(() => route.path, () => { isMenuOpen.value = false })
 
@@ -309,15 +311,29 @@ onUnmounted(() => {
         <div class="sidebar-profile-section" v-if="authStore.isAuthenticated">
           <!-- 아바타: 티어 효과 동일 적용 -->
           <div class="profile-avatar" :class="sidebarTierClass">
+            <template v-if="authStore.user?.showLevelEffects && (authStore.user?.level || 0) >= 50">
+              <span class="av-particle p1"></span>
+              <span class="av-particle p2"></span>
+              <span class="av-particle p3"></span>
+              <span class="av-particle p4"></span>
+              <span class="av-particle p5"></span>
+              <span class="av-particle p6"></span>
+            </template>
             <span class="avatar-initial">{{ authStore.user?.nickname?.charAt(0) || 'U' }}</span>
           </div>
           <div class="profile-info">
-            <!-- 1행: [Lv · 닉네임] 배지 + 이모지 계급명 -->
+            <!-- 1행: [Lv · 닉네임] 배지 + 이모지 + 계급명 + 효과 토글 -->
             <div class="profile-name-row" :class="sidebarTierClass">
               <div class="profile-name-badge">
+                <template v-if="authStore.user?.showLevelEffects && (authStore.user?.level || 0) >= 50">
+                  <span class="nk-particle np1"></span>
+                  <span class="nk-particle np2"></span>
+                  <span class="nk-particle np3"></span>
+                  <span class="nk-particle np4"></span>
+                </template>
                 <span class="profile-lv">Lv.{{ authStore.user?.level || 1 }}</span>
                 <span class="profile-nickname">
-                  <span v-if="authStore.user?.level >= 50" class="inner-shine-effect"></span>
+                  <span v-if="authStore.user?.level >= 50 && authStore.user?.showLevelEffects" class="inner-shine-effect"></span>
                   {{ authStore.user?.nickname }}
                 </span>
               </div>
@@ -523,7 +539,7 @@ body { margin: 0; padding: 0; display: block !important; background-color: var(-
 
 /* ── 티어별 CSS 변수 ─────────────────────────────── */
 .sb-tier-1   { --sb-tier-color: var(--text-secondary); --sb-tier-gradient: var(--text-primary); --sb-tier-bg: transparent; }
-.sb-tier-5   { --sb-tier-color: #b08d57; --sb-tier-gradient: linear-gradient(135deg, #804a00, #b08d57, #804a00); --sb-tier-bg: rgba(176,141,87,0.08); }
+.sb-tier-5   { --sb-tier-color: #a0522d; --sb-tier-gradient: linear-gradient(135deg, #804a00, #a0522d, #804a00); --sb-tier-bg: rgba(160, 82, 45, 0.1); }
 .sb-tier-10  { --sb-tier-color: #94a3b8; --sb-tier-gradient: linear-gradient(135deg, #94a3b8, #f8fafc, #94a3b8); --sb-tier-bg: rgba(148,163,184,0.12); }
 .sb-tier-30  { --sb-tier-color: #facc15; --sb-tier-gradient: linear-gradient(135deg, #a16207, #fde047, #a16207); --sb-tier-bg: rgba(250,204,21,0.08); }
 .sb-tier-50  { --sb-tier-color: #10b981; --sb-tier-gradient: linear-gradient(135deg, #065f46, #34d399, #065f46); --sb-tier-bg: rgba(16,185,129,0.08); }
@@ -538,7 +554,63 @@ body { margin: 0; padding: 0; display: block !important; background-color: var(-
   border: 2px solid var(--sb-tier-color, var(--border-color));
   display: flex; align-items: center; justify-content: center;
   transition: border-color 0.3s;
+  position: relative; overflow: visible;
 }
+
+/* ── 아바타 파티클 (50레벨 이상) ── */
+.av-particle {
+  position: absolute; border-radius: 50%; pointer-events: none; opacity: 0; z-index: 10;
+  width: 4px; height: 4px;
+}
+.av-particle.p1 { left: 5%;  bottom: 15%; animation: av-float 2.2s 0s     infinite; }
+.av-particle.p2 { left: 22%; bottom: 5%;  animation: av-float 2.2s 0.37s  infinite; }
+.av-particle.p3 { left: 42%; bottom: 0;   animation: av-float 2.2s 0.74s  infinite; }
+.av-particle.p4 { left: 62%; bottom: 5%;  animation: av-float 2.2s 1.1s   infinite; }
+.av-particle.p5 { left: 80%; bottom: 15%; animation: av-float 2.2s 1.47s  infinite; }
+.av-particle.p6 { left: 92%; bottom: 5%;  animation: av-float 2.2s 1.84s  infinite; }
+
+@keyframes av-float {
+  0%   { opacity: 0;   transform: translateY(0)     scale(0.7); }
+  20%  { opacity: 0.9; }
+  100% { opacity: 0;   transform: translateY(-30px) scale(0.2); }
+}
+
+/* tier-50: 에메랄드 초록 방울 */
+.sb-tier-50 .av-particle { background: #10b981; width: 3px; height: 3px; }
+
+/* tier-70: 무지개 방울 */
+.sb-tier-70 .av-particle { width: 4px; height: 4px; }
+.sb-tier-70 .av-particle.p1 { background: #ff416c; animation-duration: 1.8s; }
+.sb-tier-70 .av-particle.p2 { background: #ffd700; animation-duration: 1.8s; }
+.sb-tier-70 .av-particle.p3 { background: #48bb78; animation-duration: 1.8s; }
+.sb-tier-70 .av-particle.p4 { background: #4facfe; animation-duration: 1.8s; }
+.sb-tier-70 .av-particle.p5 { background: #9400d3; animation-duration: 1.8s; }
+.sb-tier-70 .av-particle.p6 { background: #ff8c00; animation-duration: 1.8s; }
+
+/* tier-90: 눈송이 (흰 정사각형, 회전하며 떠오름) */
+.sb-tier-90 .av-particle { background: #e0f7ff; width: 3px; height: 3px; border-radius: 1px; }
+.sb-tier-90 .av-particle.p1 { animation: av-snow 3s 0s    infinite; }
+.sb-tier-90 .av-particle.p2 { animation: av-snow 3s 0.5s  infinite; }
+.sb-tier-90 .av-particle.p3 { animation: av-snow 3s 1s    infinite; }
+.sb-tier-90 .av-particle.p4 { animation: av-snow 3s 1.5s  infinite; }
+.sb-tier-90 .av-particle.p5 { animation: av-snow 3s 2s    infinite; }
+.sb-tier-90 .av-particle.p6 { animation: av-snow 3s 2.5s  infinite; }
+
+@keyframes av-snow {
+  0%   { opacity: 0;   transform: translateY(0)     translateX(0)   rotate(0deg)   scale(0.8); }
+  20%  { opacity: 0.8; }
+  60%  { transform: translateY(-16px)  translateX(3px)  rotate(90deg)  scale(0.55); }
+  100% { opacity: 0;   transform: translateY(-28px)  translateX(-2px) rotate(180deg) scale(0.2); }
+}
+
+/* tier-100: 금빛 스파클 */
+.sb-tier-100 .av-particle { background: #facc15; width: 5px; height: 5px; box-shadow: 0 0 4px rgba(250,204,21,0.7); }
+.sb-tier-100 .av-particle.p1 { animation-duration: 1.5s; }
+.sb-tier-100 .av-particle.p2 { animation-duration: 1.5s; }
+.sb-tier-100 .av-particle.p3 { animation-duration: 1.5s; }
+.sb-tier-100 .av-particle.p4 { animation-duration: 1.5s; }
+.sb-tier-100 .av-particle.p5 { animation-duration: 1.5s; }
+.sb-tier-100 .av-particle.p6 { animation-duration: 1.5s; }
 .avatar-initial {
   font-size: 1.3rem; font-weight: 900;
   background: var(--sb-tier-gradient, var(--text-primary));
@@ -548,8 +620,8 @@ body { margin: 0; padding: 0; display: block !important; background-color: var(-
 .profile-avatar.sb-tier-1 .avatar-initial { -webkit-text-fill-color: var(--text-secondary); background: none; }
 
 /* 정보 영역 */
-.profile-info { display: flex; flex-direction: column; gap: 5px; min-width: 0; overflow: hidden; }
-.profile-name-row { display: flex; align-items: center; gap: 5px; max-width: 100%; overflow: hidden; }
+.profile-info { flex: 1; display: flex; flex-direction: column; gap: 5px; min-width: 0; }
+.profile-name-row { display: flex; align-items: center; gap: 5px; width: 100%; overflow: hidden; }
 
 /* Lv + 닉네임 하나의 테두리 배지 */
 .profile-name-badge {
@@ -558,9 +630,35 @@ body { margin: 0; padding: 0; display: block !important; background-color: var(-
   background: var(--sb-tier-bg, transparent);
   border-radius: 8px;
   padding: 2px 8px 2px 5px;
-  overflow: hidden; max-width: 100%;
+  overflow: visible; max-width: 100%;
   flex-shrink: 1; min-width: 0;
+  position: relative;
 }
+
+/* 닉네임 배지 파티클 (50레벨 이상) */
+.nk-particle {
+  position: absolute; border-radius: 50%; pointer-events: none; opacity: 0; z-index: 10;
+  width: 3px; height: 3px;
+}
+.nk-particle.np1 { left: 15%; bottom: 0; animation: av-float 2.4s 0s     infinite; }
+.nk-particle.np2 { left: 40%; bottom: 0; animation: av-float 2.4s 0.6s   infinite; }
+.nk-particle.np3 { left: 65%; bottom: 0; animation: av-float 2.4s 1.2s   infinite; }
+.nk-particle.np4 { left: 85%; bottom: 0; animation: av-float 2.4s 1.8s   infinite; }
+.sb-tier-50  .nk-particle { background: #10b981; }
+.sb-tier-70  .nk-particle.np1 { background: #ff416c; }
+.sb-tier-70  .nk-particle.np2 { background: #ffd700; }
+.sb-tier-70  .nk-particle.np3 { background: #4facfe; }
+.sb-tier-70  .nk-particle.np4 { background: #9400d3; }
+.sb-tier-90  .nk-particle { background: #e0f7ff; border-radius: 1px; }
+.sb-tier-90  .nk-particle.np1 { animation: av-snow 3s 0s    infinite; }
+.sb-tier-90  .nk-particle.np2 { animation: av-snow 3s 0.75s infinite; }
+.sb-tier-90  .nk-particle.np3 { animation: av-snow 3s 1.5s  infinite; }
+.sb-tier-90  .nk-particle.np4 { animation: av-snow 3s 2.25s infinite; }
+.sb-tier-100 .nk-particle { background: #facc15; width: 4px; height: 4px; box-shadow: 0 0 3px rgba(250,204,21,0.7); }
+.sb-tier-100 .nk-particle.np1 { animation-duration: 1.5s; }
+.sb-tier-100 .nk-particle.np2 { animation-duration: 1.5s; }
+.sb-tier-100 .nk-particle.np3 { animation-duration: 1.5s; }
+.sb-tier-100 .nk-particle.np4 { animation-duration: 1.5s; }
 .profile-lv {
   flex-shrink: 0; font-size: 0.65rem; font-weight: 900; letter-spacing: 0.3px;
   background: var(--sb-tier-gradient, var(--text-secondary));

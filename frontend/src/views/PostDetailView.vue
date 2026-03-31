@@ -82,19 +82,17 @@
               </h1>
               <div class="post-meta-info">
                 <div class="author-block">
-                  <div class="author-avatar">{{ post.authorActive !== false ? (post.authorName || '익명').charAt(0) : '' }}</div>
-                  <div class="author-details-simple">
-                    <AnimatedNickname 
-                      :user-id="post.authorId"
-                      :nickname="post.authorName" 
-                      :level="post.authorLevel || 1" 
-                      :exp="post.authorExp || 0" 
-                      :badges="post.authorBadges" 
-                      :equipped-badge-name="post.authorEquippedBadgeName"
-                      :show-effects="post.showLevelEffects"
-                      :karma-point="post.authorKarmaPoint"
-                    />
-                  </div>
+                  <AnimatedNickname
+                    :user-id="post.authorId"
+                    :nickname="post.authorName"
+                    :level="post.authorLevel || 1"
+                    :exp="post.authorExp || 0"
+                    :badges="post.authorBadges"
+                    :equipped-badge-name="post.authorEquippedBadgeName"
+                    :show-effects="post.showLevelEffects"
+                    :show-avatar="true"
+                    :karma-point="post.authorKarmaPoint"
+                  />
                 </div>
                 <div class="post-info-right">                  <span class="info-item date">{{ formatFullDate(post.createdAt) }}</span>
                 </div>
@@ -168,15 +166,17 @@
             <div class="comment-list-container">
               <div v-for="comment in comments" :key="comment.id" class="comment-group">
                 <div class="comment-item main-item" :id="`comment-${comment.id}`" :class="{ 'highlight': highlightedCommentId === comment.id }">
-                  <div class="c-avatar">{{ comment.authorActive !== false ? (comment.authorName || '익명').charAt(0) : '' }}</div>
                   <div class="c-body">
                     <div class="c-header">
-                      <AnimatedNickname 
+                      <AnimatedNickname
                         :user-id="comment.authorId"
-                        :nickname="comment.authorName || '익명'" 
-                        :level="comment.authorLevel || 1" 
-                        :exp="comment.authorExp || 0" 
-                        :badges="comment.authorBadges" 
+                        :nickname="comment.authorName || '익명'"
+                        :level="comment.authorLevel || 1"
+                        :exp="comment.authorExp || 0"
+                        :badges="comment.authorBadges"
+                        :equipped-badge-name="comment.authorEquippedBadgeName"
+                        :show-effects="comment.showLevelEffects"
+                        :show-avatar="true"
                         :karma-point="comment.authorKarmaPoint"
                       />
                       
@@ -244,15 +244,17 @@
                 <div v-if="comment.children && comment.children.length > 0" class="replies-area-modern">
                   <div v-for="reply in getFlattenedReplies(comment)" :key="reply.id" 
                        class="reply-item-modern" :id="`comment-${reply.id}`" :class="{ 'highlight': highlightedCommentId === reply.id }">
-                    <div class="c-avatar mini">{{ reply.authorActive !== false ? (reply.authorName || '익명').charAt(0) : '' }}</div>
                     <div class="c-body">
                       <div class="c-header">
-                        <AnimatedNickname 
+                        <AnimatedNickname
                           :user-id="reply.authorId"
-                          :nickname="reply.authorName || '익명'" 
-                          :level="reply.authorLevel || 1" 
-                          :exp="reply.authorExp || 0" 
-                          :badges="reply.authorBadges" 
+                          :nickname="reply.authorName || '익명'"
+                          :level="reply.authorLevel || 1"
+                          :exp="reply.authorExp || 0"
+                          :badges="reply.authorBadges"
+                          :equipped-badge-name="reply.authorEquippedBadgeName"
+                          :show-effects="reply.showLevelEffects"
+                          :show-avatar="true"
                           :karma-point="reply.authorKarmaPoint"
                         />
 

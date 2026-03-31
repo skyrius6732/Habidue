@@ -56,14 +56,15 @@
           <!-- 2행: 유저 정보 및 시간 -->
           <div class="meta-row info-row">
             <div class="author-group">
-              <AnimatedNickname 
+              <AnimatedNickname
                 :user-id="post.authorId"
-                :nickname="post.authorName" 
-                :level="post.authorLevel || 1" 
-                :exp="post.authorExp || 0" 
-                :badges="post.authorBadges" 
+                :nickname="post.authorName"
+                :level="post.authorLevel || 1"
+                :exp="post.authorExp || 0"
+                :badges="post.authorBadges"
                 :equipped-badge-name="post.authorEquippedBadgeName"
                 :show-effects="post.showLevelEffects"
+                :show-avatar="true"
                 :karma-point="post.authorKarmaPoint"
               />
             </div>

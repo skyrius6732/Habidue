@@ -306,12 +306,15 @@ watch(() => route.query.q, () => fetchSearchResults())
 
                 <div class="meta-row info-row">
                   <div class="author-group">
-                    <AnimatedNickname 
+                    <AnimatedNickname
                       :user-id="item.post.authorId"
-                      :nickname="item.post.authorName" 
-                      :level="item.post.authorLevel || 1" 
-                      :exp="item.post.authorExp || 0" 
-                      :badges="item.post.authorBadges" 
+                      :nickname="item.post.authorName"
+                      :level="item.post.authorLevel || 1"
+                      :exp="item.post.authorExp || 0"
+                      :badges="item.post.authorBadges"
+                      :equipped-badge-name="item.post.authorEquippedBadgeName"
+                      :show-effects="item.post.showLevelEffects"
+                      :show-avatar="true"
                       :karma-point="item.post.authorKarmaPoint"
                     />
                   </div>

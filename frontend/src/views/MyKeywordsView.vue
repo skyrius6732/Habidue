@@ -73,7 +73,7 @@
                           :equipped-badge-name="equippedBadgeDisplayName"
                           :karma-point="userProfile.karmaPoint"
                         />
-                        <button class="dash-effects-btn" :class="{ active: userProfile.showLevelEffects }" @click="toggleLevelEffects" title="닉네임 효과 토글">
+                        <button class="dash-effects-btn" :class="[{ active: userProfile.showLevelEffects }, `tier-${badgeStore.getAccountTierNumber(userProfile.level)}`]" @click="toggleLevelEffects" title="닉네임 효과 토글">
                           {{ userProfile.showLevelEffects ? '✨' : '👤' }}
                         </button>
                       </div>
@@ -351,6 +351,59 @@
             </div>
 
 
+
+            <!-- 등급별 효과 미리보기 -->
+            <div class="tier-preview-section">
+              <div class="tier-preview-header">
+                <h3 class="sub-section-title">🏆 등급별 닉네임 효과</h3>
+                <p class="tier-preview-desc">레벨업을 통해 새로운 효과를 잠금 해제하세요</p>
+              </div>
+              <div class="tier-preview-grid">
+                <div
+                  v-for="lv in tierPreviewLevels"
+                  :key="lv"
+                  class="tier-preview-card"
+                  :class="[`tier-${lv}`, { 'is-locked': lv > userCurrentTier, 'is-unlocked': lv <= userCurrentTier }]"
+                >
+                  <!-- 잠긴 카드: 블러 미리보기 + 잠금 오버레이 -->
+                  <template v-if="lv > userCurrentTier">
+                    <div class="tier-card-content tier-card-blurred">
+                      <span class="tier-preview-lv">Lv.{{ lv }}</span>
+                      <AnimatedNickname
+                        :nickname="userProfile?.nickname || userProfile?.username || 'HabiDue'"
+                        :level="lv"
+                        :exp="lv * lv * 50 - 1"
+                        :badges="activityData?.badges"
+                        :show-effects="true"
+                        :show-avatar="true"
+                        tooltip-direction="top"
+                      />
+                    </div>
+                    <div class="lock-overlay">
+                      <span class="lock-icon">🔒</span>
+                      <span class="lock-label">Lv.{{ lv }} 달성 시 해금</span>
+                    </div>
+                  </template>
+
+                  <!-- 해금된 카드 -->
+                  <template v-else>
+                    <span class="tier-unlocked-badge">✓ 달성</span>
+                    <div class="tier-card-content">
+                      <span class="tier-preview-lv">Lv.{{ lv }}</span>
+                      <AnimatedNickname
+                        :nickname="userProfile?.nickname || userProfile?.username || 'HabiDue'"
+                        :level="lv"
+                        :exp="lv * lv * 50 - 1"
+                        :badges="activityData?.badges"
+                        :show-effects="true"
+                        :show-avatar="true"
+                        tooltip-direction="top"
+                      />
+                    </div>
+                  </template>
+                </div>
+              </div>
+            </div>
 
             <!-- 실제 내 배지함 (세트 효과 적용) -->
             <div class="badge-section">
@@ -836,6 +889,7 @@ const toggleLevelEffects = async () => {
   try {
     await axios.patch('/api/users/me/level-effects', null, { params: { enabled: newValue } })
     userProfile.value.showLevelEffects = newValue
+    if (authStore.user) authStore.user.showLevelEffects = newValue
   } catch (e) {
     await uiStore.showAlert('설정 변경에 실패했습니다.', '오류')
   }
@@ -850,6 +904,9 @@ const toggleStatTooltip = (type) => {
 }
 
 // [시니어 조치] 장착된 배지 명칭 계산
+const tierPreviewLevels = [1, 5, 10, 30, 50, 70, 90, 100]
+const userCurrentTier = computed(() => badgeStore.getAccountTierNumber(userProfile.value?.level || 1))
+
 const equippedBadgeDisplayName = computed(() => {
   if (!userProfile.value?.equippedBadgeId || !activityData.value?.badges) return null
   const badge = activityData.value.badges.find(b => (b.badgeId || b.id) === userProfile.value.equippedBadgeId)
@@ -1107,14 +1164,27 @@ onMounted(async () => {
 /* --- 공통 티어 색상 변수 (닉네임 세트) --- */
 .tier-1 { --t-color: var(--text-secondary); --t-bg: rgba(0,0,0,0.03); --t-grad: var(--text-primary); }
 .tier-5 { --t-color: #b08d57; --t-bg: rgba(176, 141, 87, 0.08); --t-grad: linear-gradient(135deg, #804a00, #b08d57, #804a00); }
-.tier-10 { --t-color: #475569; --t-bg: rgba(71, 85, 105, 0.08); --t-grad: linear-gradient(135deg, #334155, #94a3b8, #334155); }
-.tier-30 { --t-color: #facc15; --t-bg: rgba(250, 204, 21, 0.08); --t-grad: linear-gradient(135deg, #a16207, #fde047, #a16207); }
+.tier-10 { --t-color: #7a8fa6; --t-bg: rgba(122, 143, 166, 0.08); --t-grad: linear-gradient(135deg, #546e7a, #b0bec5, #546e7a); }
+.tier-30 { --t-color: #c8902a; --t-bg: rgba(200, 144, 42, 0.08); --t-grad: linear-gradient(135deg, #92650a, #f0b429, #92650a); }
 .tier-50 { --t-color: #10b981; --t-bg: rgba(16, 185, 129, 0.08); --t-grad: linear-gradient(135deg, #065f46, #34d399, #065f46); }
 .tier-70 { --t-color: #ff416c; --t-bg: rgba(225, 29, 72, 0.06); --t-grad: linear-gradient(90deg, #ff416c, #ffd700, #48bb78, #4facfe, #9400d3); }
 .tier-90 { --t-color: #22d3ee; --t-bg: rgba(34, 211, 238, 0.06); --t-grad: linear-gradient(135deg, #0891b2, #ffffff, #0891b2); }
 .tier-100 { --t-color: #facc15; --t-bg: rgba(0, 0, 0, 0.95); --t-grad: linear-gradient(to right, #facc15, #ffffff, #facc15); }
+/* tier-100 검은 배경 → 텍스트 흰색 */
+.badge-level-tag-set.tier-100 { color: #fff !important; border-color: rgba(255,255,255,0.4) !important; background: rgba(255,255,255,0.1) !important; }
+.badge-card-set.tier-100 .badge-desc-set { color: rgba(255,255,255,0.75); }
+.badge-tip-set.tier-100 .tip-text-standard { color: rgba(255,255,255,0.85); }
+.badge-card-set.tier-100 .progress-val { color: rgba(255,255,255,0.7); }
+.badge-card-set.tier-100 .progress-val b { color: #fff; }
+.badge-footer-set.tier-100 .badge-metric-set { color: rgba(255,255,255,0.65); }
+.badge-footer-set.tier-100 .badge-metric-set b { color: #fff; }
+.badge-footer-set.tier-100 .badge-date-set { color: rgba(255,255,255,0.5); }
+.tier-preview-card.tier-100 .tier-preview-lv { color: #fff; }
+.badge-name-set.tier-100 { -webkit-text-fill-color: #fff !important; background: none; -webkit-background-clip: initial; background-clip: initial; }
 
+:global(.dark-mode) .tier-5  { --t-color: #d4943a; --t-bg: rgba(212, 148, 58, 0.12); --t-grad: linear-gradient(135deg, #a05e10, #e8b060, #a05e10); }
 :global(.dark-mode) .tier-10 { --t-color: #cbd5e1; --t-bg: rgba(203, 213, 225, 0.12); --t-grad: linear-gradient(135deg, #94a3b8, #f8fafc, #94a3b8); }
+:global(.dark-mode) .tier-30 { --t-color: #facc15; --t-bg: rgba(250, 204, 21, 0.08); --t-grad: linear-gradient(135deg, #a16207, #fde047, #a16207); }
 
 .settings-container { width: 100%; min-height: 100vh; padding-bottom: 80px; }
 .settings-content-wrapper { padding: 0 20px; }
@@ -1274,8 +1344,8 @@ onMounted(async () => {
   transition: all 0.2s;
   font-size: 1.1rem;
 }
-.dash-effects-btn:hover { border-color: var(--link-color); transform: translateY(-2px); }
-.dash-effects-btn.active { background: var(--link-color); color: white; border-color: transparent; box-shadow: 0 4px 10px rgba(0,149,246,0.3); }
+.dash-effects-btn:hover { border-color: var(--t-color, var(--link-color)); transform: translateY(-2px); }
+.dash-effects-btn.active { background: var(--t-color, var(--link-color)); color: white; border-color: transparent; box-shadow: 0 4px 12px color-mix(in srgb, var(--t-color, var(--link-color)) 40%, transparent); }
 
 .dash-username-sub { font-size: 0.95rem; color: var(--text-secondary); font-weight: 600; opacity: 0.7; }
 
@@ -1569,6 +1639,69 @@ onMounted(async () => {
 .badge-metric-set { font-size: 0.75rem; color: var(--text-secondary); }
 .badge-metric-set b { color: var(--t-color); }
 .badge-date-set { font-size: 0.7rem; color: var(--text-muted); }
+
+/* ── 등급별 효과 미리보기 ── */
+.tier-preview-section { margin-bottom: 36px; }
+.tier-preview-header { margin-bottom: 8px; }
+.tier-preview-desc { font-size: 0.82rem; color: var(--text-secondary); margin: -16px 0 20px; }
+.tier-preview-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+  overflow: visible;
+}
+.tier-preview-card {
+  background: var(--t-bg, var(--hover-bg));
+  border: 1.5px solid var(--t-color, var(--border-color));
+  border-radius: 16px;
+  padding: 16px 10px;
+  display: flex; flex-direction: column; align-items: center; gap: 10px;
+  position: relative;
+  transition: transform 0.2s, box-shadow 0.2s;
+  min-height: 90px; justify-content: center;
+}
+.tier-preview-card.is-unlocked:hover { transform: translateY(-3px); box-shadow: 0 8px 20px rgba(0,0,0,0.1); z-index: 20; }
+.tier-preview-card.is-locked { border-color: var(--border-color); background: var(--hover-bg); overflow: hidden; }
+
+.tier-card-content { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+
+/* 블러 미리보기 */
+.tier-card-blurred {
+  filter: blur(4px);
+  pointer-events: none;
+  user-select: none;
+  opacity: 0.85;
+}
+
+/* 잠금 오버레이 */
+.lock-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  background: rgba(0, 0, 0, 0.35);
+  border-radius: 14px;
+  pointer-events: none;
+}
+.lock-icon { font-size: 1.1rem; }
+.lock-label { font-size: 0.62rem; font-weight: 800; color: #fff; text-align: center; line-height: 1.3; text-shadow: 0 1px 4px rgba(0,0,0,0.5); }
+
+/* 달성 배지 */
+.tier-unlocked-badge {
+  position: absolute; top: 8px; right: 8px;
+  font-size: 0.58rem; font-weight: 900;
+  background: var(--t-color, var(--link-color)); color: white;
+  padding: 2px 6px; border-radius: 20px; z-index: 5;
+}
+.tier-preview-lv { font-size: 0.68rem; font-weight: 900; color: var(--t-color, var(--text-secondary)); letter-spacing: 0.02em; }
+
+@media (max-width: 600px) {
+  .tier-preview-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; }
+  .tier-preview-card { padding: 14px 8px; }
+}
 
 /* --- 배지 섹션 및 기존 공통 유지 --- */
 .sub-section-title { font-size: 1.1rem; font-weight: 800; margin-bottom: 24px; display: flex; align-items: center; gap: 10px; }
@@ -1985,8 +2118,45 @@ onMounted(async () => {
 .btn-verify-action { padding: 0 20px; background: var(--link-color); color: white; border: none; border-radius: 8px; font-weight: 700; cursor: pointer; }
 
 /* 계정 정보 스타일 */
-.account-profile-card { display: flex; align-items: center; gap: 25px; margin-bottom: 30px; background: var(--hover-bg); padding: 30px; border-radius: 20px; border: 1px solid var(--border-color); }
-.account-pic-large { width: 80px; height: 80px; background: var(--link-color); color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 2rem; font-weight: bold; flex-shrink: 0; }
+.account-profile-card {
+  display: flex; align-items: center; gap: 24px;
+  margin-bottom: 24px;
+  background: var(--card-bg);
+  padding: 28px 30px;
+  border-radius: 24px;
+  border: 1px solid var(--border-color);
+  position: relative; overflow: hidden;
+  box-shadow: 0 2px 16px rgba(0,0,0,0.04);
+}
+.account-profile-card::before {
+  content: '';
+  position: absolute; top: 0; left: 0; right: 0; height: 3px;
+  background: linear-gradient(90deg, #405de6, #5851db, #833ab4, #c13584, #e1306c, #fd1d1d);
+}
+.account-pic-large {
+  width: 78px; height: 78px;
+  background: linear-gradient(135deg, #405de6 0%, #c13584 50%, #fd1d1d 100%);
+  color: white; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 2rem; font-weight: 900; flex-shrink: 0;
+  outline: 3px solid var(--card-bg);
+  box-shadow: 0 0 0 3px #c13584;
+}
+.account-details { display: flex; flex-direction: column; gap: 0; }
+.acc-display-name { font-size: 1.2rem; font-weight: 900; margin: 0 0 3px; color: var(--text-primary); letter-spacing: -0.02em; }
+.acc-email-label { display: block; font-size: 0.82rem; color: var(--text-secondary); margin-bottom: 8px; }
+.acc-provider {
+  display: inline-flex; align-items: center;
+  font-size: 0.68rem; font-weight: 700;
+  background: rgba(0,149,246,0.08); color: var(--link-color);
+  padding: 3px 10px; border-radius: 20px;
+  border: 1px solid rgba(0,149,246,0.2);
+  width: fit-content;
+}
+.account-management-section {
+  background: var(--card-bg); border: 1px solid var(--border-color);
+  border-radius: 20px; padding: 22px 24px;
+}
 .username-edit-group { display: flex; align-items: center; gap: 12px; margin-bottom: 6px; }
 .btn-username-edit { background: var(--card-bg); border: 1px solid var(--border-color); padding: 4px 8px; border-radius: 6px; cursor: pointer; transition: all 0.2s; }
 .btn-username-edit:hover { border-color: var(--link-color); background: var(--hover-bg); }
@@ -1999,9 +2169,17 @@ onMounted(async () => {
 .btn-save-mini:disabled { opacity: 0.5; cursor: not-allowed; }
 .btn-cancel-mini { background: var(--hover-bg); color: var(--text-secondary); border: 1px solid var(--border-color); padding: 6px 16px; border-radius: 8px; font-weight: 700; font-size: 0.85rem; cursor: pointer; }
 
-.account-actions { display: flex; gap: 15px; margin-top: 20px; }
-.acc-btn { flex: 1; height: 50px; border-radius: 10px; font-weight: 700; cursor: pointer; border: 1px solid var(--border-color); background: var(--card-bg); color: var(--text-primary); }
+.account-actions { display: flex; gap: 12px; margin-top: 18px; }
+.acc-btn {
+  flex: 1; padding: 13px 18px; border-radius: 12px;
+  font-weight: 700; font-size: 0.85rem; cursor: pointer;
+  border: 1px solid var(--border-color); background: var(--hover-bg);
+  color: var(--text-primary); transition: all 0.2s; line-height: 1.3;
+  white-space: nowrap;
+}
+.acc-btn:hover { border-color: var(--link-color); color: var(--link-color); background: rgba(0,149,246,0.05); }
 .delete-btn { border-color: #ff4d4f; color: #ff4d4f; }
+.delete-btn:hover { background: rgba(255,77,79,0.05); border-color: #ff4d4f; color: #ff4d4f; }
 
 @media (max-width: 992px) {
   .settings-content-wrapper { padding: 0; }
@@ -2050,7 +2228,8 @@ onMounted(async () => {
   .badge-grid { grid-template-columns: 1fr; }
   
   /* [시니어 조치] 모바일 계정 정보 레이아웃 최적화 */
-  .account-profile-card { flex-direction: column; text-align: center; padding: 30px 20px; }
+  .account-profile-card { flex-direction: column; text-align: center; padding: 28px 20px; }
+  .acc-provider { margin: 0 auto; }
   
   /* 모바일 레벨 대시보드 (전면 개편 대응) */
   .level-dashboard-card { 
@@ -2080,8 +2259,13 @@ onMounted(async () => {
   .username-input { max-width: 100%; }
   .edit-actions { margin-left: 0; justify-content: flex-end; } /* 버튼들은 입력창 아래 오른쪽 정렬 */
 
-  .account-actions { flex-direction: column; align-items: stretch; }
-  .acc-btn { width: 100%; justify-content: center; }
+  .account-actions { flex-direction: row; flex-wrap: wrap; gap: 10px; }
+  .acc-btn {
+    flex: 1 1 calc(50% - 5px); min-width: 0;
+    height: auto; padding: 14px 10px;
+    font-size: 0.78rem; white-space: normal;
+    text-align: center; word-break: keep-all;
+  }
   
   .verified-actions-horizontal { flex-direction: column; }
   .responsive-input-group { flex-direction: column; }
