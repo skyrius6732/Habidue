@@ -619,7 +619,7 @@ onUnmounted(() => { window.removeEventListener('resize', updateWidth); })
 .card-row-tags { display: flex; flex-wrap: wrap; gap: 6px; min-height: 1.5rem; }
 .mini-tag { font-size: 0.75rem; color: var(--text-secondary); font-weight: 600; }
 .mini-tag.matched { color: var(--link-color); font-weight: 700; }
-.apply-link-btn { display: block; width: 100%; padding: 10px; background-color: var(--link-color); color: white; border-radius: 8px; text-decoration: none; font-size: 0.85rem; font-weight: 700; text-align: center; transition: opacity 0.2s; }
+.apply-link-btn { display: block; width: 100%; padding: 10px; background-color: var(--link-color); color: white; border-radius: 8px; text-decoration: none; font-size: 0.85rem; font-weight: 700; text-align: center; transition: opacity 0.2s; cursor: pointer; }
 .no-data-msg { text-align: center; padding: 40px 0; color: var(--text-secondary); grid-column: span 2; }
 
 @media (max-width: 768px) {

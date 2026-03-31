@@ -28,9 +28,47 @@
           <option v-for="s in statusOptions" :key="s.value" :value="s.value">{{ s.label }}</option>
         </select>
         <button class="btn-new" @click="openCreateModal">➕ 등록</button>
-        <button class="btn-reprocess" @click="handleReprocessTags" :disabled="isReprocessing" title="전체 공고 태그 및 상태 재설정">
-          {{ isReprocessing ? '⏳' : '🔄 태그 재설정' }}
-        </button>
+        <div class="collect-actions">
+          <button class="btn-reprocess" @click="handleReprocessTags" :disabled="isReprocessing" title="전체 공고 태그 및 상태 재설정">
+            {{ isReprocessing ? '⏳ 재설정 중' : '🔄 태그 재설정' }}
+          </button>
+          <button v-if="!isCollecting" class="btn-reprocess btn-collect" @click="handleLhFullCollect" title="LH 전체 공고 수집 (초기 1회용)">
+            📥 LH 전체 수집
+          </button>
+          <button v-else class="btn-reprocess btn-collect-stop" @click="handleLhStopCollect" title="수집 중단">
+            🛑 LH 중단
+          </button>
+          <button v-if="!isCollectingSh" class="btn-reprocess btn-collect" @click="handleShFullCollect" title="SH 전체 공고 수집 (초기 1회용)">
+            📥 SH 전체 수집
+          </button>
+          <button v-else class="btn-reprocess btn-collect-stop" @click="handleShStopCollect" title="수집 중단">
+            🛑 SH 중단
+          </button>
+          <button v-if="!isCollectingPrivate" class="btn-reprocess btn-collect" @click="handlePrivateFullCollect" title="민간임대 전체 공고 수집 (초기 1회용)">
+            📥 민간 전체 수집
+          </button>
+          <button v-else class="btn-reprocess btn-collect-stop" @click="handlePrivateStopCollect" title="수집 중단">
+            🛑 민간 중단
+          </button>
+        </div>
+      </div>
+
+      <!-- [시니어 추가] 백그라운드 작업 진행 상태 영역 -->
+      <div v-if="Object.values(taskStatus).some(t => t.isRunning)" class="task-progress-area">
+        <div v-for="(task, key) in taskStatus" :key="key">
+          <div v-if="task.isRunning" class="task-progress-item">
+            <div class="task-info">
+              <span class="task-label">
+                {{ key === 'lh' ? 'LH 수집' : key === 'sh' ? 'SH 수집' : key === 'private' ? '민간 수집' : '태그 재설정' }}
+              </span>
+              <span class="task-percent">{{ calculatePercent(task) }}%</span>
+              <span class="task-count">({{ task.current }} / {{ task.total }})</span>
+            </div>
+            <div class="progress-track">
+              <div class="progress-fill" :style="{ width: calculatePercent(task) + '%' }"></div>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -70,7 +108,7 @@
                      @mousedown="handleTouchStart(notice)"
                      @mouseup="handleTouchEnd($event)">
                   <span class="notice-title" @click="openEditModal(notice)" :title="notice.title">{{ notice.title }}</span>
-                  <a :href="notice.link" target="_blank" class="link-icon" @click.stop>🔗</a>
+                  <span class="link-icon clickable" @click.stop="openOriginalLink(notice)" title="원문 공고보기">🔗</span>
                 </div>
               </td>
               <td class="col-date date-text announcement-date">
@@ -189,7 +227,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, computed } from 'vue'
+import { ref, onMounted, onUnmounted, computed } from 'vue'
 import axios from '@/plugins/axios'
 
 const notices = ref([])
@@ -216,6 +254,59 @@ const showModal = ref(false)
 const editingId = ref(null)
 const previewNotice = ref(null)
 const isReprocessing = ref(false)
+const isCollecting = ref(false)
+const isCollectingSh = ref(false)
+const isCollectingPrivate = ref(false)
+
+// [시니어 추가] 원문 공고 바로가기 (통합 GET + Referer 차단 방식)
+const openOriginalLink = (notice) => {
+  if (!notice.link) return;
+  const link = document.createElement('a');
+  link.href = notice.link;
+  link.target = '_blank';
+  link.rel = 'noreferrer';
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+};
+
+// [시니어 추가] 실시간 작업 진행 현황 관리
+const taskStatus = ref({
+  lh: { isRunning: false, current: 0, total: 0 },
+  sh: { isRunning: false, current: 0, total: 0 },
+  private: { isRunning: false, current: 0, total: 0 },
+  tags: { isRunning: false, current: 0, total: 0 }
+})
+
+let statusInterval = null
+
+const fetchAllTasksStatus = async () => {
+  try {
+    const res = await axios.get('/api/admin/notices/tasks/status')
+    const data = res.data.data
+    taskStatus.value = data
+    
+    // 개별 버튼 로딩 상태와 동기화
+    isCollecting.value = data.lh.isRunning
+    isCollectingSh.value = data.sh.isRunning
+    isCollectingPrivate.value = data.private.isRunning
+    isReprocessing.value = data.tags.isRunning
+  } catch (e) {
+    console.error('작업 상태 조회 실패:', e)
+  }
+}
+
+const startStatusPolling = () => {
+  if (statusInterval) return
+  fetchAllTasksStatus()
+  statusInterval = setInterval(fetchAllTasksStatus, 2000)
+}
+
+const calculatePercent = (task) => {
+  if (!task || !task.total || task.total === 0) return 0
+  const p = (task.current / task.total) * 100
+  return Math.min(Math.round(p * 10) / 10, 100)
+}
 const selectedIds = ref([])
 let touchTimer = null
 
@@ -262,19 +353,80 @@ const form = ref({
   resultDate: ''
 })
 
+const handleLhFullCollect = async () => {
+  if (!confirm('LH 전체 공고를 수집합니다.\n데이터가 많아 수십 분 소요될 수 있으며 서버 백그라운드에서 실행됩니다.\n계속할까요?')) return
+  try {
+    const res = await axios.post('/api/admin/notices/collect/lh')
+    alert(res.data.data)
+    startStatusPolling()
+  } catch (e) {
+    alert('수집 요청 실패: ' + (e.response?.data?.message || e.message))
+  }
+}
+
+const handleLhStopCollect = async () => {
+  if (!confirm('수집을 중단하시겠습니까?')) return
+  try {
+    await axios.post('/api/admin/notices/collect/lh/stop')
+    alert('중단 요청을 보냈습니다. 현재 페이지 처리 후 중단됩니다.')
+  } catch (e) {
+    alert('중단 요청 실패: ' + (e.response?.data?.message || e.message))
+  }
+}
+
+const handleShFullCollect = async () => {
+  if (!confirm('SH 전체 공고를 수집합니다.\n데이터가 많아 수십 분 소요될 수 있으며 서버 백그라운드에서 실행됩니다.\n계속할까요?')) return
+  try {
+    const res = await axios.post('/api/admin/notices/collect/sh')
+    alert(res.data.data)
+    startStatusPolling()
+  } catch (e) {
+    alert('수집 요청 실패: ' + (e.response?.data?.message || e.message))
+  }
+}
+
+const handleShStopCollect = async () => {
+  if (!confirm('SH 수집을 중단하시겠습니까?')) return
+  try {
+    await axios.post('/api/admin/notices/collect/sh/stop')
+    alert('중단 요청을 보냈습니다. 현재 페이지 처리 후 중단됩니다.')
+  } catch (e) {
+    alert('중단 요청 실패: ' + (e.response?.data?.message || e.message))
+  }
+}
+
+const handlePrivateFullCollect = async () => {
+  if (!confirm('민간임대 전체 공고를 수집합니다.\n데이터가 많아 수십 분 소요될 수 있으며 서버 백그라운드에서 실행됩니다.\n계속할까요?')) return
+  try {
+    const res = await axios.post('/api/admin/notices/collect/private')
+    alert(res.data.data)
+    startStatusPolling()
+  } catch (e) {
+    alert('수집 요청 실패: ' + (e.response?.data?.message || e.message))
+  }
+}
+
+const handlePrivateStopCollect = async () => {
+  if (!confirm('민간임대 수집을 중단하시겠습니까?')) return
+  try {
+    await axios.post('/api/admin/notices/collect/private/stop')
+    alert('중단 요청을 보냈습니다. 현재 페이지 처리 후 중단됩니다.')
+  } catch (e) {
+    alert('중단 요청 실패: ' + (e.response?.data?.message || e.message))
+  }
+}
+
 const handleReprocessTags = async () => {
   if (!confirm('모든 공고의 태그와 상태를 현재 규칙(메타데이터/날짜)에 맞춰 재설정하시겠습니까?\n데이터 양에 따라 시간이 걸릴 수 있습니다.')) return
   
-  isReprocessing.value = true
   try {
-    await axios.post('/api/admin/notices/reprocess-tags')
-    alert('모든 공고의 태그 및 상태 재설정이 완료되었습니다.')
-    fetchNotices()
+    const res = await axios.post('/api/admin/notices/reprocess-tags')
+    alert(res.data.data || '태그 재설정을 시작했습니다.')
+    isReprocessing.value = true
+    startStatusPolling()
   } catch (e) {
     alert('재설정 처리 중 오류가 발생했습니다.')
     console.error(e)
-  } finally {
-    isReprocessing.value = false
   }
 }
 
@@ -382,7 +534,18 @@ const handleSave = async () => {
   }
 }
 
-onMounted(fetchNotices)
+onMounted(async () => {
+  // [시니어 조치] 진행 상태 조회를 최우선으로 실행하여 UI 끊김 방지
+  startStatusPolling()
+  fetchNotices()
+})
+
+onUnmounted(() => {
+  if (statusInterval) {
+    clearInterval(statusInterval)
+    statusInterval = null
+  }
+})
 </script>
 
 <style scoped>
@@ -418,6 +581,21 @@ onMounted(fetchNotices)
 }
 .btn-reprocess:hover { background: var(--hover-bg); border-color: var(--link-color); }
 .btn-reprocess:disabled { opacity: 0.5; cursor: not-allowed; }
+.btn-collect { border-color: #4a9eff; color: #4a9eff; }
+.btn-collect:hover { background: rgba(74, 158, 255, 0.1); border-color: #4a9eff; }
+.btn-collect-stop { border-color: #ff4a4a; color: #ff4a4a; }
+.btn-collect-stop:hover { background: rgba(255, 74, 74, 0.1); border-color: #ff4a4a; }
+
+/* PC: 수집 버튼들을 두 번째 행 오른쪽 정렬 */
+.collect-actions { display: contents; }
+@media (min-width: 769px) {
+  .collect-actions {
+    display: flex;
+    gap: 8px;
+    flex: 0 0 100%;
+    justify-content: flex-end;
+  }
+}
 
 .btn-new { 
   height: 38px; 
@@ -503,7 +681,9 @@ onMounted(fetchNotices)
 .notice-title-wrapper { display: flex; align-items: center; gap: 6px; height: 48px; width: 100%; user-select: none; }
 .notice-title { font-weight: 700; cursor: pointer; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; line-height: 48px; color: var(--text-primary); }
 .notice-title:hover { color: var(--link-color); text-decoration: underline; }
-.link-icon { text-decoration: none; opacity: 0.5; flex-shrink: 0; font-size: 0.85rem; display: flex; align-items: center; height: 48px; }
+.link-icon { text-decoration: none; opacity: 0.5; flex-shrink: 0; font-size: 0.85rem; display: flex; align-items: center; height: 48px; transition: all 0.2s; }
+.link-icon.clickable { cursor: pointer; }
+.link-icon.clickable:hover { opacity: 1; transform: scale(1.2); }
 
 .status-select { width: 100%; padding: 2px 4px; border-radius: 6px; border: 1px solid var(--border-color); background: var(--hover-bg); color: var(--text-primary); font-size: 0.72rem; font-weight: 700; outline: none; cursor: pointer; height: 26px; }
 
@@ -847,4 +1027,41 @@ onMounted(fetchNotices)
 .content-html { font-size: 0.9rem; line-height: 1.6; color: var(--text-primary); }
 .preview-footer { padding: 10px; text-align: center; border-top: 1px solid var(--border-color); }
 .btn-edit-full { width: 100%; background: var(--link-color); color: white; border: none; padding: 12px; border-radius: 8px; font-size: 0.9rem; font-weight: 700; cursor: pointer; }
+
+/* [시니어 추가] 태스크 프로그레스 스타일 */
+.task-progress-area {
+  margin-top: 15px;
+  padding: 15px;
+  background: var(--hover-bg);
+  border-radius: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.task-progress-item {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.task-info {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.8rem;
+}
+.task-label { font-weight: 800; color: var(--text-primary); min-width: 80px; }
+.task-percent { font-weight: 900; color: var(--link-color); }
+.task-count { color: var(--text-secondary); font-size: 0.75rem; }
+.progress-track {
+  height: 6px;
+  background: var(--border-color);
+  border-radius: 3px;
+  overflow: hidden;
+}
+.progress-fill {
+  height: 100%;
+  background: var(--link-color);
+  border-radius: 3px;
+  transition: width 0.3s ease;
+}
 </style>

@@ -402,10 +402,16 @@ onMounted(() => {
 
 /* 탭 UI */
 .about-tabs { display: flex; justify-content: center; gap: 10px; margin-bottom: 50px; border-bottom: 1px solid var(--border-color); padding-bottom: 1px; }
-.tab-btn { background: none; border: none; padding: 15px 30px; font-size: 1rem; font-weight: 700; color: var(--text-secondary); cursor: pointer; position: relative; transition: all 0.2s; }
+.tab-btn { flex-shrink: 0; background: none; border: none; padding: 15px 30px; font-size: 1rem; font-weight: 700; color: var(--text-secondary); cursor: pointer; position: relative; transition: all 0.2s; white-space: nowrap; }
 .tab-btn:hover { color: var(--text-primary); }
 .tab-btn.active { color: var(--link-color); }
 .tab-btn.active::after { content: ''; position: absolute; bottom: -1px; left: 0; right: 0; height: 2px; background-color: var(--link-color); }
+
+@media (max-width: 600px) {
+  .about-tabs { justify-content: flex-start; overflow-x: auto; overflow-y: hidden; -webkit-overflow-scrolling: touch; scrollbar-width: none; flex-wrap: nowrap; padding-bottom: 0; }
+  .about-tabs::-webkit-scrollbar { display: none; }
+  .tab-btn { padding: 14px 20px; font-size: 0.9rem; }
+}
 
 .tab-content-wrapper { min-height: 400px; }
 .fade-in { animation: fadeIn 0.3s ease-in-out; }
@@ -454,9 +460,15 @@ onMounted(() => {
 .inquiry-form-card { background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 16px; padding: 30px; }
 .form-row { margin-bottom: 20px; display: flex; flex-direction: column; gap: 8px; }
 .form-row label { font-size: 0.9rem; font-weight: 700; color: var(--text-secondary); }
-.form-row input, .form-row select, .form-row textarea { 
-  background: var(--bg-color); border: 1px solid var(--border-color); border-radius: 8px; padding: 12px; 
+.form-row input, .form-row select, .form-row textarea {
+  background: var(--bg-color); border: 1px solid var(--border-color); border-radius: 8px; padding: 12px;
   font-size: 0.95rem; color: var(--text-primary); transition: border-color 0.2s;
+}
+.form-row select {
+  padding-right: 36px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%23888' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
 }
 .form-row input:focus, .form-row select:focus, .form-row textarea:focus { outline: none; border-color: var(--link-color); }
 

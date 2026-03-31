@@ -23,6 +23,9 @@ import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Repository;
 
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
+
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -118,6 +121,37 @@ public class NoticeRepositoryImpl implements NoticeRepositoryCustom {
             builder.and(notice.revivedAt.isNull().or(
                 notice.revivedAt.lt(activityThreshold).and(notice.lastPostAt.lt(activityThreshold))
             ));
+            
+            // [시니어 조치] '오픈 준비 중' 탭에서는 이미 마감된 공고는 제외 (현재 접수 중이거나 예정인 것만)
+            builder.and(notice.deadline.goe(now).or(notice.deadline.isNull()));
+        }
+
+        // 0. 기본 노출 기간 및 예외 정책 적용
+        BooleanBuilder visibilityBuilder = new BooleanBuilder();
+        
+        // (1) 최근 1년 이내의 신선한 공고 (기본)
+        visibilityBuilder.or(notice.announcementDate.isNotNull().and(notice.announcementDate.goe(now.minusYears(1))));
+        visibilityBuilder.or(notice.announcementDate.isNull().and(notice.createdAt.goe(now.minusYears(1))));
+        
+        // (2) 이미 활성화된 소통방 (1년이 지났어도 보존)
+        visibilityBuilder.or(notice.isBoardActive.eq(true));
+        
+        // (3) 내가 찜한 공고 (1년이 지났어도 보존)
+        if (currentUser != null) {
+            visibilityBuilder.or(notice.id.in(
+                JPAExpressions.select(userNotice.notice.id)
+                    .from(userNotice)
+                    .where(userNotice.user.id.eq(currentUser.getId()))
+            ));
+        }
+
+        // (4) 관리자는 모든 공고 조회 가능
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        boolean isAdmin = auth != null && auth.getAuthorities().stream()
+                .anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN"));
+        
+        if (!isAdmin) {
+            builder.and(visibilityBuilder);
         }
 
         // 1. 검색 필터
@@ -191,25 +225,27 @@ public class NoticeRepositoryImpl implements NoticeRepositoryCustom {
                     .where(subNT.notice.eq(notice).and(subT.name.in(userKeywords)))));
             
             orders.add(notice.announcementDate.desc().nullsLast());
-        } else if ("interest".equals(sortOrder)) {
-            // [최적화] 서브쿼리 제거: 필드로 관리되는 interestCount를 직접 정렬에 사용 (성능 획기적 향상)
+        } else if ("interest".equals(sortOrder) || (isBoardActive != null && !isBoardActive)) {
+            // [최적화] 소통방 '오픈 준비 중' 탭이거나 '관심도 순' 선택 시: 하트 수 -> 마감 임박 순 정렬
             orders.add(notice.interestCount.desc());
+            orders.add(notice.deadline.asc().nullsLast()); // 마감 임박한 것부터 우선 노출
             orders.add(notice.announcementDate.desc().nullsLast());
         } else if ("deadline".equals(sortOrder)) {
             orders.add(new CaseBuilder().when(notice.deadline.goe(now)).then(0).otherwise(1).asc());
             orders.add(notice.deadline.asc());
         } else {
-            // [시니어 조치] 최신순 정렬 시 DB 생성일(createdAt)을 최우선으로 하여 
-            // 방금 등록된 공고(관리자 수동 등록 포함)가 무조건 상단에 노출되도록 보정
-            orders.add(notice.createdAt.desc());
+            // [시니어 조치] 최신순 정렬 시 공고 게시일(announcementDate)을 최우선으로 하여
+            // 대량 수집 시에도 실제 공고 날짜 순으로 정렬되도록 보정
             orders.add(notice.announcementDate.desc().nullsLast());
+            orders.add(notice.createdAt.desc());
         }
 
         JPAQuery<Notice> query = queryFactory
                 .selectFrom(notice)
-                .leftJoin(notice.noticeTags, noticeTag).fetchJoin() // [시니어 조치] 태그 페치 조인 추가
-                .leftJoin(noticeTag.tag, tag).fetchJoin() // [시니어 조치] 실제 태그 엔티티까지 페치 조인
-                .where(builder); // 불필요한 Join 및 GroupBy 제거 (정확도 및 성능 향상)
+                .leftJoin(notice.noticeTags, noticeTag).fetchJoin() // [시니어 조치] 태그 페치 조인
+                .leftJoin(noticeTag.tag, tag).fetchJoin() // [시니어 조치] 실제 태그 엔티티 페치 조인
+                .where(builder)
+                .distinct(); // [시니어 조치] FetchJoin으로 인한 중복 데이터 제거 필수!
 
         for (OrderSpecifier<?> order : orders) {
             query.orderBy(order);

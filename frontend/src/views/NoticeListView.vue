@@ -63,8 +63,9 @@
       <div class="disclaimer-content">
         <span class="light-bulb">💡</span>
         <p class="text">
+          <span class="highlight">최근 1년 이내의 공고만 표시됩니다.</span>
           자동 수집된 일정은 실제와 다를 수 있으니, 
-          <span class="highlight">정확한 정보는 반드시 원본 공고문을 확인해 주세요.</span>
+          정확한 정보는 반드시 원본 공고문을 확인해 주세요.
         </p>
       </div>
     </div>
@@ -95,7 +96,7 @@
             <td><span class="region-text">{{ notice.region }}</span></td>
             <td class="table-title-cell">
               <div class="title-wrapper">
-                <span v-if="isReallyNew(notice.createdAt)" class="new-tag-mini">NEW</span>
+                <span v-if="isReallyNew(notice)" class="new-tag-mini">NEW</span>
                 <span class="title-text" :title="notice.title">{{ notice.title }}</span>
               </div>
             </td>
@@ -213,7 +214,9 @@
               </div>
             </div>
             <div class="info-footer">
-              <a :href="selectedNotice.link" target="_blank" class="main-apply-btn" :style="{ backgroundColor: sourceColor }">🔗 원문 공고 바로가기</a>
+              <button @click="openOriginalLink(selectedNotice)" class="main-apply-btn" :style="{ backgroundColor: sourceColor }">
+                🔗 원문 공고 바로가기
+              </button>
             </div>
           </div>
           <div v-else class="tab-content board-tab">
@@ -325,6 +328,18 @@ const sourceColor = computed(() => {
   return colors[selectedNotice.value.source] || 'var(--link-color)';
 });
 
+const openOriginalLink = (notice) => {
+  if (!notice.link) return;
+  // 모든 기관(LH, SH, 민간) 공통: 주소창에 직접 입력한 효과(Referer 차단)를 주어 보안 에러를 방지
+  const link = document.createElement('a');
+  link.href = notice.link;
+  link.target = '_blank';
+  link.rel = 'noreferrer';
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+};
+
 const closeDetail = () => { selectedNotice.value = null; activeTab.value = 'info'; const query = { ...route.query }; delete query.openId; router.replace({ query }); }
 const handleOverlayMouseDown = (e) => { isMouseDownOnOverlay.value = e.target.classList.contains('modal-overlay'); }
 const handleOverlayMouseUp = (e) => { if (isMouseDownOnOverlay.value && e.target.classList.contains('modal-overlay')) { closeDetail(); } isMouseDownOnOverlay.value = false; }
@@ -394,23 +409,99 @@ const openDetail = (notice) => {
 }
 const getStatus = (notice) => {
   const systemTag = notice.tags?.find(t => ['접수중', '마감', '결과발표', '발표완료', '안내', '이전안내'].includes(t.name));
-  const statusText = systemTag ? systemTag.name : '안내';
-  let statusClass = 'info'; if (statusText === '접수중') statusClass = 'open'; else if (statusText === '마감' || statusText === '발표완료' || statusText === '이전안내') statusClass = 'closed'; else if (statusText === '결과발표') statusClass = 'result';
+  let statusText = systemTag ? systemTag.name : '안내';
+  
+  // [시니어 조치] D-Day 실시간 보정: 태그는 '마감'이라도 실제 마감시간(오늘 자정)이 남았다면 '접수중'으로 표시
+  if (statusText === '마감' && notice.deadline && !isReallyExpired(notice.deadline)) {
+    statusText = '접수중';
+  }
+  
+  let statusClass = 'info'; 
+  if (statusText === '접수중') statusClass = 'open'; 
+  else if (statusText === '마감' || statusText === '발표완료' || statusText === '이전안내') statusClass = 'closed'; 
+  else if (statusText === '결과발표') statusClass = 'result';
+  
   return { text: statusText, class: statusClass };
 }
-const calculateDDay = (notice) => { if (notice.status === 'CLOSED' || notice.status === 'RESULT' || notice.status === 'INFO' || !notice.deadline) return '-'; const target = new Date(notice.deadline); const today = new Date(); target.setHours(0,0,0,0); today.setHours(0,0,0,0); const diff = Math.ceil((target - today) / 86400000); return diff < 0 ? '-' : (diff === 0 ? 'D-Day' : `D-${diff}`); }
-const isReallyExpired = (deadline) => { if (!deadline) return false; const now = new Date(); const end = new Date(deadline); end.setHours(23, 59, 59, 999); return now > end; }
-
-const isReallyNew = (createdAt) => {
-  if (!createdAt) return false;
-  const created = new Date(createdAt);
+const calculateDDay = (notice) => {
+  if (!notice.deadline) return '-';
+  
+  const target = new Date(notice.deadline);
+  const today = new Date();
+  target.setHours(0,0,0,0);
+  today.setHours(0,0,0,0);
+  
+  const diff = Math.ceil((target - today) / 86400000);
+  
+  if (diff < 0) return '-';
+  if (diff === 0) return 'D-Day';
+  return `D-${diff}`;
+}
+const isReallyExpired = (deadline) => {
+  if (!deadline) return false;
   const now = new Date();
+  const end = new Date(deadline);
+  // 마감일 당일 23:59:59까지는 유효 (만료 전)
+  end.setHours(23, 59, 59, 999);
+  return now > end;
+}
+
+const isReallyNew = (notice) => {
+  if (!notice) return false;
+  // 실제 공고 게시일(announcementDate)이 있는 경우 이를 우선하며, 없는 경우에만 수집일(createdAt)을 참고
+  const targetDate = notice.announcementDate || notice.createdAt;
+  if (!targetDate) return false;
+  
+  const created = new Date(targetDate);
+  const now = new Date();
+  // 최근 48시간 이내인 경우만 NEW로 표시
   return (now - created) < (48 * 60 * 60 * 1000);
 }
 
-const getDisplayTags = (notice, limit = 4) => { if (!notice.tags || notice.tags.length === 0) return []; const systemTags = ['접수중', '마감', '결과발표', '발표완료', '안내', '이전안내']; let allFiltered = notice.tags.filter(tag => !systemTags.includes(tag.name)); allFiltered.sort((a, b) => { const aSpecial = a.type === 'SPECIAL'; const bSpecial = b.type === 'SPECIAL'; if (aSpecial && !bSpecial) return -1; if (!aSpecial && bSpecial) return 1; return 0; }); return allFiltered.slice(0, limit); }
+const getDisplayTags = (notice, limit = 4) => { 
+  if (!notice.tags || notice.tags.length === 0) return []; 
+  const systemTags = ['접수중', '마감', '결과발표', '발표완료', '안내', '이전안내']; 
+  
+  // [시니어 조치] 이름 중복 태그 제거 (백엔드 데이터 중복 대비)
+  const uniqueTags = [];
+  const seenNames = new Set();
+  
+  notice.tags.forEach(tag => {
+    if (!systemTags.includes(tag.name) && !seenNames.has(tag.name)) {
+      uniqueTags.push(tag);
+      seenNames.add(tag.name);
+    }
+  });
 
-const toggleAlertKeyword = async (tag) => { const isRegistered = userKeywords.value.includes(tag.name); try { if (isRegistered) { await axios.delete('/api/user-tags', { params: { name: tag.name, type: tag.type } }); userKeywords.value = userKeywords.value.filter(k => k !== tag.name); } else { await axios.post('/api/user-tags', { name: tag.name, type: tag.type }); userKeywords.value.push(tag.name); } } catch (e) { console.error('키워드 처리 실패:', e); } }
+  uniqueTags.sort((a, b) => { 
+    const aSpecial = a.type === 'SPECIAL'; 
+    const bSpecial = b.type === 'SPECIAL'; 
+    if (aSpecial && !bSpecial) return -1; 
+    if (!aSpecial && bSpecial) return 1; 
+    return 0; 
+  }); 
+  return uniqueTags.slice(0, limit); 
+}
+
+const toggleAlertKeyword = async (tag) => { 
+  if (!tag || !tag.name) return; // 유효성 체크 강화
+  const isRegistered = userKeywords.value.includes(tag.name); 
+  try { 
+    if (isRegistered) { 
+      // [시니어 조치] DELETE 요청 시 params 형식을 백엔드 규격에 맞춰 전송 (404 방지)
+      await axios.delete('/api/user-tags', { params: { name: tag.name, type: tag.type || 'KEYWORD' } }); 
+      userKeywords.value = userKeywords.value.filter(k => k !== tag.name); 
+    } else { 
+      await axios.post('/api/user-tags', { name: tag.name, type: tag.type || 'KEYWORD' }); 
+      userKeywords.value.push(tag.name); 
+    } 
+  } catch (e) { 
+    console.error('키워드 처리 실패:', e); 
+    if (e.response?.status === 404) {
+      alert('키워드 정보를 찾을 수 없습니다. 페이지를 새로고침해 주세요.');
+    }
+  } 
+}
 
 const formatDateDot = (s) => s ? s.split('T')[0].replace(/-/g, '.') : '-';
 
@@ -504,8 +595,9 @@ onUnmounted(() => { window.removeEventListener('keydown', handleKeyDown); if (me
 .search-icon-inside { position: absolute; left: 14px; color: var(--text-secondary); font-size: 0.9rem; opacity: 0.7; pointer-events: none; }
 .input-field-search-v2 { width: 100%; border: 1px solid var(--border-color); border-radius: 12px; padding: 10px 40px 10px 38px; outline: none; background-color: var(--card-bg); color: var(--text-primary); font-size: 0.95rem; transition: all 0.2s; }
 .btn-clear-search-v2 { position: absolute; right: 12px; background: none; border: none; color: var(--text-secondary); font-size: 1.3rem; cursor: pointer; padding: 0; display: flex; align-items: center; justify-content: center; }
-.sort-wrapper-v2 { background-color: var(--card-bg); border: 1px solid var(--border-color); border-radius: 12px; padding: 0 12px; display: flex; align-items: center; height: 44px; }
-.sort-select-v2 { border: none; background: var(--card-bg); font-size: 0.9rem; font-weight: 700; color: var(--text-primary); cursor: pointer; outline: none; height: 100%; }
+.sort-wrapper-v2 { background-color: var(--card-bg); border: 1px solid var(--border-color); border-radius: 12px; padding: 0; display: flex; align-items: center; height: 44px; position: relative; }
+.sort-wrapper-v2::after { content: '▾'; position: absolute; right: 10px; top: 50%; transform: translateY(-50%); font-size: 0.75rem; color: var(--text-secondary); pointer-events: none; }
+.sort-select-v2 { border: none; background-color: var(--card-bg); font-size: 0.9rem; font-weight: 700; color: var(--text-primary); cursor: pointer; outline: none; height: 100%; width: 100%; padding: 0 28px 0 12px; border-radius: 12px; }
 .pc-list-container { max-width: 1200px; margin: 0 auto; padding: 0 20px 50px; }
 .notice-table { width: 100%; border-collapse: collapse; background-color: var(--card-bg); border-radius: 8px; border: 1px solid var(--border-color); table-layout: fixed; }
 .notice-table th { background-color: var(--hover-bg); padding: 15px; text-align: center; font-size: 0.9rem; color: var(--text-secondary); border-bottom: 1px solid var(--border-color); }
@@ -609,10 +701,10 @@ onUnmounted(() => { window.removeEventListener('keydown', handleKeyDown); if (me
 }
 
 .info-footer { flex-shrink: 0; padding-top: 20px; }
-.main-apply-btn { 
+.main-apply-btn {
   display: flex; align-items: center; justify-content: center;
   width: 100%; height: 52px; color: white; text-align: center; border-radius: 12px; text-decoration: none; font-weight: 800; font-size: 0.95rem; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1); transition: all 0.2s;
-  margin: 0;
+  margin: 0; border: none; cursor: pointer;
 }
 .main-apply-btn:hover { transform: translateY(-1px); filter: brightness(1.1); }
 

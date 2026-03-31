@@ -57,9 +57,23 @@ const getAllTags = (notice) => {
   return allFiltered.slice(0, 6); // 최대 6개까지 노출
 }
 
+const isReallyExpired = (deadline) => {
+  if (!deadline) return false;
+  const now = new Date();
+  const end = new Date(deadline);
+  // 마감일 당일 23:59:59까지는 유효 (만료 전)
+  end.setHours(23, 59, 59, 999);
+  return now > end;
+}
+
 const getStatus = (notice) => {
   const systemTag = notice.tags?.find(t => ['접수중', '마감', '결과발표', '발표완료', '안내', '이전안내', '예정'].includes(t.name));
-  const tagName = systemTag ? systemTag.name : '';
+  let tagName = systemTag ? systemTag.name : '';
+
+  // [시니어 조치] D-Day 실시간 보정: 태그는 '마감'이라도 실제 마감시간(오늘 자정)이 남았다면 '접수중'으로 표시
+  if (tagName === '마감' && notice.deadline && !isReallyExpired(notice.deadline)) {
+    tagName = '접수중';
+  }
 
   // [시니어 조치] 태그 정보를 최우선으로 반영 (데이터 일관성 확보)
   if (tagName === '접수중') return { text: '접수중', class: 'open' };
@@ -82,22 +96,33 @@ const getStatus = (notice) => {
 }
 
 const calculateDDay = (notice) => {
-  if (notice.status === 'RESULT' || notice.status === 'INFO' || !notice.deadline) {
-    return null;
-  }
+  if (!notice.deadline) return null;
+  
   const target = new Date(notice.deadline);
   const today = new Date();
-  target.setHours(0,0,0,0); today.setHours(0,0,0,0);
+  target.setHours(0,0,0,0);
+  today.setHours(0,0,0,0);
+  
   const diff = Math.ceil((target - today) / 86400000);
-  return diff === 0 ? 'D-Day' : diff < 0 ? `D+${Math.abs(diff)}` : `D-${diff}`;
+  
+  if (diff < 0) return null;
+  if (diff === 0) return 'D-Day';
+  return `D-${diff}`;
 }
 
-const isNew = computed(() => {
-  if (!props.notice.createdAt) return false;
-  const created = new Date(props.notice.createdAt);
-  const now = new Date();
-  return (now - created) < (48 * 60 * 60 * 1000); // 48시간 이내
-});
+const openOriginalLink = (notice) => {
+  if (!notice.link) return;
+  
+  // [시니어 조치] LH 파라미터 순서가 교정되었으므로, 단순 GET 방식으로도 본문 조회가 가능합니다.
+  // 단, Referer 정보를 제거해야 '비정상 경로' 에러를 피할 수 있습니다.
+  const link = document.createElement('a');
+  link.href = notice.link;
+  link.target = '_blank';
+  link.rel = 'noreferrer'; 
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+};
 </script>
 
 <template>
@@ -122,7 +147,8 @@ const isNew = computed(() => {
         <div class="menu-container">
           <button @click="$emit('toggle-menu', notice.id)" class="menu-btn">•••</button>
           <div v-if="activeMenuId === notice.id" class="dropdown-menu">
-            <button @click="$emit('copy-link', notice.link)">공고 링크 복사</button>
+            <button @click="openOriginalLink(notice)" class="dropdown-item-link">공고 원문보기</button>
+            <button @click="$emit('copy-link', notice.link)">링크 복사</button>
             <button @click="$emit('share-link', notice)">공고 공유하기</button>
           </div>
         </div>
@@ -228,9 +254,10 @@ const isNew = computed(() => {
   overflow: hidden;
   margin-bottom: 8px;
 }
-.dropdown-menu button {
+.dropdown-menu button, .dropdown-item-link {
   width: 100%; padding: 12px 8px; background: none; border: none; border-bottom: 1px solid var(--divider-color);
   font-size: 0.75rem; color: var(--text-primary); text-align: center; cursor: pointer; font-weight: 600;
+  display: block; text-decoration: none;
 }
 .dropdown-menu button:last-child { border-bottom: none; }
 

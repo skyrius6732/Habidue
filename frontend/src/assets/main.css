@@ -9,6 +9,17 @@
 }
 
 /* ============================================================
+   📱 iOS Safari select 기본 흰 배경 제거 (전역)
+   실제 모바일 기기에서 -webkit-appearance: menulist-button이
+   native 흰 배경을 강제 적용하는 문제 해결
+   ============================================================ */
+select {
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+}
+
+/* ============================================================
    🎖️ 하비듀 배찌(Badge) 디자인 시스템
    8단계 등급 체계 (1, 5, 10, 20, 50, 70, 90, 100)
    ============================================================ */
@@ -157,3 +168,56 @@
   border-radius: 6px;
   border: 1px solid var(--border-color);
 }
+
+/* ============================================================
+   🔄 스크롤 복원 토스트 (공통)
+   BoardView, MyKeywordsView 등에서 공유
+   ============================================================ */
+.restore-toast-bar {
+  position: fixed;
+  top: 64px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: rgba(30, 30, 30, 0.88);
+  color: #fff;
+  font-size: 0.875rem;
+  font-weight: 500;
+  padding: 10px 20px;
+  border-radius: 99px;
+  backdrop-filter: blur(8px);
+  box-shadow: 0 4px 20px rgba(0,0,0,0.18);
+  white-space: nowrap;
+  pointer-events: none;
+}
+.dark-mode .restore-toast-bar {
+  background: rgba(255, 255, 255, 0.95);
+  color: #1a1a1a;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+}
+.restore-dots {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+}
+.restore-dots span {
+  display: block;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: currentColor;
+  animation: restore-bounce 0.9s ease-in-out infinite;
+}
+.restore-dots span:nth-child(2) { animation-delay: 0.15s; }
+.restore-dots span:nth-child(3) { animation-delay: 0.3s; }
+@keyframes restore-bounce {
+  0%, 80%, 100% { opacity: 0.3; transform: scale(0.8); }
+  40% { opacity: 1; transform: scale(1.2); }
+}
+.restore-toast-enter-active { transition: opacity 0.2s ease, transform 0.2s ease; }
+.restore-toast-leave-active { transition: opacity 0.3s ease, transform 0.3s ease; }
+.restore-toast-enter-from { opacity: 0; transform: translateX(-50%) translateY(-10px); }
+.restore-toast-leave-to { opacity: 0; transform: translateX(-50%) translateY(-10px); }
