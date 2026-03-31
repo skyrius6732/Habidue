@@ -481,7 +481,7 @@ onMounted(() => {
 .news-tag.info { background-color: rgba(0, 149, 246, 0.1); color: var(--link-color); border: 1px solid rgba(0, 149, 246, 0.2); }
 .news-date { font-size: 0.8rem; color: var(--text-secondary); font-weight: 500; }
 .news-title { font-size: 1.1rem; font-weight: 700; color: var(--text-primary); margin: 0 0 10px 0; }
-.news-content { font-size: 0.92rem; color: var(--text-secondary); line-height: 1.6; margin: 0; }
+.news-content { font-size: 0.92rem; color: var(--text-secondary); line-height: 1.6; margin: 0; white-space: pre-wrap; }
 
 /* 3. 패치 히스토리 */
 .timeline { position: relative; padding-left: 30px; margin-top: 20px; }
