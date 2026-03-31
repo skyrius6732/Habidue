@@ -521,12 +521,21 @@ code { background: var(--hover-bg); padding: 2px 6px; border-radius: 4px; font-f
 /* --- 티어 색상 변수 --- */
 .tier-1 { --t-color: #94a3b8; --t-bg: rgba(148,163,184,0.05); }
 .tier-5 { --t-color: #b08d57; --t-bg: rgba(176,141,87,0.08); }
+:global(.dark-mode) .tier-5 { --t-color: #d4943a; --t-bg: rgba(212,148,58,0.12); }
 .tier-10 { --t-color: #475569; --t-bg: rgba(71,85,105,0.08); }
 .tier-30 { --t-color: #facc15; --t-bg: rgba(250,204,21,0.08); }
 .tier-50 { --t-color: #10b981; --t-bg: rgba(16,185,129,0.08); }
 .tier-70 { --t-color: #ff416c; --t-bg: rgba(225,29,72,0.06); }
 .tier-90 { --t-color: #22d3ee; --t-bg: rgba(34,211,238,0.06); }
 .tier-100 { --t-color: #facc15; --t-bg: rgba(0,0,0,0.95); }
+/* tier-100 검은 배경 → 텍스트 흰색 */
+.badge-level-tag-set.tier-100 { color: #fff !important; border-color: rgba(255,255,255,0.4) !important; background: rgba(255,255,255,0.1) !important; }
+.badge-card-set.tier-100 .badge-desc-set { color: rgba(255,255,255,0.75); }
+.badge-tip-set.tier-100 .tip-text-standard { color: rgba(255,255,255,0.85); }
+.badge-footer-set.tier-100 .badge-metric-set { color: rgba(255,255,255,0.65); }
+.badge-footer-set.tier-100 .badge-metric-set b { color: #fff; }
+.badge-footer-set.tier-100 .badge-date-set { color: rgba(255,255,255,0.5); }
+.badge-name-set.tier-100 { color: #fff; }
 
 /* --- 모바일 대응 --- */
 .mobile-only { display: none; }
@@ -555,6 +564,11 @@ code { background: var(--hover-bg); padding: 2px 6px; border-radius: 4px; font-f
   .card-actions { width: 100%; display: flex; gap: 3px; }
   .btn-edit-m { flex: 1; height: 24px; border-radius: 5px; font-weight: 800; font-size: 0.62rem; background: var(--hover-bg); color: var(--link-color); border: 1px solid var(--border-color); cursor: pointer; }
   .btn-delete-m { flex: 1; height: 24px; border-radius: 5px; font-weight: 800; font-size: 0.62rem; background: #fff5f5; color: #e53e3e; border: 1px solid #feb2b2; cursor: pointer; }
+
+  .badge-preview-grid { grid-template-columns: repeat(2, 1fr); gap: 12px; }
+  .badge-card-set { padding: 14px 12px; gap: 12px; }
+  .badge-visual-set { width: 48px; height: 48px; font-size: 1.6rem; flex-shrink: 0; }
+  .tier-preview-grid { grid-template-columns: repeat(2, 1fr) !important; gap: 10px; }
 }
 
 .slide-fade-enter-active { transition: all 0.3s ease-out; }
