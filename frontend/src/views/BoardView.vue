@@ -34,13 +34,26 @@
               <div class="s-item"><span class="label">지역</span><span class="value">{{ noticeInfo.region }}</span></div>
               <div class="s-item danger"><span class="label">마감</span><span class="value">{{ formatDateDot(noticeInfo.deadline) || '확인필요' }}</span></div>
             </div>
-            <a :href="noticeInfo.link" target="_blank" class="btn-origin">🔗 원문 공고보기</a>
+            <button @click="openOriginalLink(noticeInfo)" class="btn-origin">🔗 원문 공고보기</button>
           </div>
         </template>
       </CommunitySidebar>
 
       <main class="board-main-content">
         <div v-if="activeMenu === 'NOTICE' && !noticeId" class="notice-hub-content">
+          <!-- [시니어 조치] 상태 가이드 및 기간 안내 통합 배너 -->
+          <div class="hub-info-banner">
+            <div class="hub-lifecycle-info">
+              <span v-if="activeSubCategory === 'MY'" class="lifecycle-tip">⭐️ 공고 리스트에서 하트(❤️)를 누르면 내 관심방에 추가돼요!</span>
+              <span v-else-if="activeSubCategory === 'PREPARING'" class="lifecycle-tip">🔒 관심(❤️) 10명이 모이면 소통방이 열려요!</span>
+              <span v-else-if="activeSubCategory === 'ACTIVE'" class="lifecycle-tip">✨ 현재 자유로운 대화가 가능한 활발한 방입니다.</span>
+              <span v-else-if="activeSubCategory === 'ARCHIVED'" class="lifecycle-tip">😴 7일간 글이 없으면 보관돼요. (⚡관심 인원의 10%가 깨워야 함)</span>
+              
+              <span class="info-divider">|</span>
+              <span class="info-text">💡 최근 1년 이내의 공고만 표시됩니다.</span>
+            </div>
+          </div>
+
           <!-- [시니어 추가] 실시간 소통방 검색바 -->
           <div class="hub-search-area">
             <div class="hub-search-wrapper">
@@ -192,11 +205,6 @@
       </main>
     </div>
 
-    <Transition name="fade">
-      <button v-if="showTopBtn" class="btn-scroll-top" @click="scrollToTop">
-        <span class="up-arrow">↑</span>
-      </button>
-    </Transition>
   </div>
 </template>
 
@@ -380,13 +388,40 @@ const fetchNoticeHubData = async () => {
       deadline: un.noticeDeadline, interestCount: un.interestCount || 0, 
       isBoardActive: !!un.isBoardActive, isDormant: !!un.isDormant, status: un.noticeStatus 
     }))
-    const allRes = await axios.get('/api/notices', { params: { size: 200, sortOrder: 'interest' } })
+    
+    // [시니어 조치] 탭에 따라 필요한 상태값을 동적으로 결정
+    let statusFilter = 'RECRUITING';
+    if (activeSubCategory.value === 'ARCHIVED') {
+      statusFilter = 'CLOSED,RESULT,INFO'; // 보관된 탭은 마감 위주
+    } else if (activeSubCategory.value === 'ACTIVE') {
+      statusFilter = 'RECRUITING,CLOSED,RESULT'; // 활성 탭은 마감되었어도 활성 상태라면 포함
+    }
+
+    const allRes = await axios.get('/api/notices', { 
+      params: { 
+        size: 1000, 
+        sortOrder: 'interest', 
+        statuses: statusFilter 
+      } 
+    })
     const allData = allRes.data.data.content
     preparingNoticeBoards.value = allData.filter(b => !b.isBoardActive)
     activeNoticeBoards.value = allData.filter(b => b.isBoardActive && !b.isDormant)
     archivedNoticeBoards.value = allData.filter(b => b.isBoardActive && b.isDormant)
   } catch (e) { console.error('소통방 데이터 로드 실패:', e) } finally { loading.value = false }
 }
+
+const openOriginalLink = (notice) => {
+  if (!notice.link) return;
+  // 모든 기관 공통: Referer 차단(noreferrer)을 통해 보안 에러를 우회
+  const link = document.createElement('a');
+  link.href = notice.link;
+  link.target = '_blank';
+  link.rel = 'noreferrer';
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+};
 
 const enterNoticeBoard = (id) => { router.push({ path: `/board/${id}`, query: { ...route.query } }) }
 const handlePostCreated = () => { if (sidebarRef.value) sidebarRef.value.fetchTrendingPosts(); fetchPosts() }
@@ -456,7 +491,8 @@ watch(() => [route.params.noticeId, route.query.menu, route.query.sub, route.que
 .s-item .label { color: var(--text-secondary); }
 .s-item .value { font-weight: 700; }
 .s-item danger .value { color: #ed4956; }
-.btn-origin { display: block; text-align: center; background: var(--hover-bg); padding: 10px; border-radius: 8px; text-decoration: none; font-size: 0.85rem; font-weight: 700; color: var(--text-primary); }
+.btn-origin { display: block; width: 100%; text-align: center; background: var(--hover-bg); padding: 10px; border-radius: 8px; text-decoration: none; font-size: 0.85rem; font-weight: 700; color: var(--text-primary); border: none; cursor: pointer; box-sizing: border-box; }
+.btn-origin:hover { background: var(--border-color); }
 .mobile-notice-title-box { margin-bottom: 20px; padding-bottom: 15px; border-bottom: 1px solid var(--divider-color); }
 .m-notice-title { font-size: 1.1rem; font-weight: 800; color: var(--text-primary); line-height: 1.4; margin: 0; word-break: keep-all; text-align: center; }
 
@@ -494,7 +530,6 @@ watch(() => [route.params.noticeId, route.query.menu, route.query.sub, route.que
 .general-board-header .btn-write { background: none; border: 1px solid var(--link-color); color: var(--link-color); padding: 6px 12px; border-radius: 6px; font-size: 0.85rem; font-weight: 700; cursor: pointer; }
 .filter-indicator { display: flex; justify-content: space-between; align-items: center; background: rgba(0, 149, 246, 0.05); padding: 12px 20px; border-radius: 12px; margin-bottom: 16px; border: 1px solid rgba(0, 149, 246, 0.1); }
 .btn-clear-filter { background: none; border: none; color: var(--text-secondary); font-size: 0.8rem; cursor: pointer; font-weight: 700; }
-.btn-scroll-top { display: flex; position: fixed; bottom: 50px; left: calc(50% + 480px); width: 45px; height: 45px; border-radius: 50%; background: var(--card-bg); border: 1px solid var(--border-color); box-shadow: 0 4px 12px rgba(0,0,0,0.1); cursor: pointer; z-index: 100; align-items: center; justify-content: center; }
 .up-arrow { font-size: 1.2rem; color: var(--link-color); font-weight: bold; }
 .notice-hub-empty { width: 100%; margin-top: 12px; }
 .empty-state.type-hub { padding: 80px 20px; text-align: center; background: var(--card-bg); border: 1px dashed var(--border-color); border-radius: 24px; }
@@ -524,58 +559,57 @@ watch(() => [route.params.noticeId, route.query.menu, route.query.sub, route.que
   .w-gauge-text { position: static; display: block; margin-bottom: 5px; text-align: right; }
 }
 .load-more-trigger { height: 20px; margin-top: 10px; }
-@media (max-width: 992px) { .board-layout { flex-direction: column; gap: 8px; } .btn-scroll-top { display: none; } }
+@media (max-width: 992px) { .board-layout { flex-direction: column; gap: 8px; } }
 
-/* 스크롤 복원 토스트 */
-.restore-toast-bar {
-  position: fixed;
-  top: 64px;
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 9999;
+/* [시니어 추가] 소통방 허브 기간 및 라이프사이클 안내 통합형 */
+.hub-info-banner {
+  margin-bottom: 16px;
+  display: flex;
+  justify-content: center;
+  padding: 0 10px; /* 모바일 양옆 여백 */
+}
+.hub-lifecycle-info {
   display: flex;
   align-items: center;
   gap: 10px;
-  background: rgba(30, 30, 30, 0.88);
-  color: #fff;
-  font-size: 0.875rem;
-  font-weight: 500;
-  padding: 10px 20px;
-  border-radius: 99px;
-  backdrop-filter: blur(8px);
-  box-shadow: 0 4px 20px rgba(0,0,0,0.18);
+  background: rgba(var(--secondary-rgb), 0.05);
+  padding: 8px 18px;
+  border-radius: 20px;
+  border: 1px dashed var(--border-color);
+  max-width: 100%;
+}
+.lifecycle-tip, .info-text {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--primary-color);
   white-space: nowrap;
-  pointer-events: none;
 }
-:global(.dark-mode .restore-toast-bar) {
-  background: rgba(255, 255, 255, 0.95);
-  color: #1a1a1a;
-  box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+.info-text {
+  color: var(--secondary-text);
+  font-weight: 500;
 }
-:global(.dark-mode .restore-dots span) {
-  background: #1a1a1a;
+.info-divider {
+  color: var(--border-color);
+  font-size: 10px;
+  margin: 0 2px;
 }
-.restore-dots {
-  display: flex;
-  align-items: center;
-  gap: 3px;
+
+/* 모바일 대응 (반응형) */
+@media (max-width: 768px) {
+  .hub-lifecycle-info {
+    flex-direction: column; /* 세로로 쌓기 */
+    gap: 6px;
+    padding: 12px 16px;
+    border-radius: 14px;
+    align-items: center;
+    text-align: center;
+  }
+  .info-divider {
+    display: none; /* 세로 배치 시 구분선 숨김 */
+  }
+  .lifecycle-tip, .info-text {
+    white-space: normal; /* 자동 줄바꿈 허용 */
+    line-height: 1.4;
+  }
 }
-.restore-dots span {
-  display: block;
-  width: 5px;
-  height: 5px;
-  border-radius: 50%;
-  background: #fff;
-  animation: restore-bounce 0.9s ease-in-out infinite;
-}
-.restore-dots span:nth-child(2) { animation-delay: 0.15s; }
-.restore-dots span:nth-child(3) { animation-delay: 0.3s; }
-@keyframes restore-bounce {
-  0%, 80%, 100% { opacity: 0.3; transform: scale(0.8); }
-  40% { opacity: 1; transform: scale(1.2); }
-}
-.restore-toast-enter-active { transition: opacity 0.2s ease, transform 0.2s ease; }
-.restore-toast-leave-active { transition: opacity 0.3s ease, transform 0.3s ease; }
-.restore-toast-enter-from { opacity: 0; transform: translateX(-50%) translateY(-10px); }
-.restore-toast-leave-to { opacity: 0; transform: translateX(-50%) translateY(-10px); }
 </style>

@@ -85,10 +85,16 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        configuration.setAllowedOrigins(List.of("http://localhost:5173"));
+        // [시니어 조치] 로컬, 운영, 모바일 도메인 모두 수용 가능하도록 설정 확장
+        configuration.setAllowedOriginPatterns(Arrays.asList(
+            "http://localhost:5173",
+            "https://habidue.com",
+            "https://www.habidue.com",
+            "http://54.180.67.106:*"
+        ));
         configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"));
         configuration.setAllowedHeaders(Arrays.asList("Authorization", "Content-Type", "Authorization-Refresh"));
-        configuration.setExposedHeaders(List.of("Authorization"));
+        configuration.setExposedHeaders(Arrays.asList("Authorization", "Authorization-Refresh"));
         configuration.setAllowCredentials(true);
         configuration.setMaxAge(3600L);
 

@@ -2,6 +2,7 @@
 import { RouterLink, RouterView, useRouter, useRoute } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useNotificationStore } from '@/stores/notification'
+import { useBadgeStore } from '@/stores/badge'
 import { computed, ref, onMounted, onUnmounted, watch } from 'vue'
 import { formatDistanceToNow } from 'date-fns'
 import { ko } from 'date-fns/locale'
@@ -12,6 +13,7 @@ import { useUiStore } from '@/stores/ui'
 
 const authStore = useAuthStore()
 const notificationStore = useNotificationStore()
+const badgeStore = useBadgeStore()
 const uiStore = useUiStore()
 const router = useRouter()
 const route = useRoute()
@@ -45,7 +47,28 @@ const applyTheme = () => {
   else document.documentElement.classList.remove('dark-mode')
 }
 
-const toggleMenu = () => { isMenuOpen.value = !isMenuOpen.value }
+let lastSidebarRefresh = 0
+const SIDEBAR_REFRESH_COOLDOWN = 30_000 // 30초
+
+const toggleMenu = () => {
+  isMenuOpen.value = !isMenuOpen.value
+  if (isMenuOpen.value && authStore.isAuthenticated) {
+    const now = Date.now()
+    if (now - lastSidebarRefresh > SIDEBAR_REFRESH_COOLDOWN) {
+      lastSidebarRefresh = now
+      authStore.fetchUserProfile().catch(() => {})
+      badgeStore.refresh().catch(() => {})
+    }
+  }
+}
+
+const sidebarEquippedInfo = computed(() =>
+  badgeStore.getEquippedBadgeInfo(authStore.user?.equippedBadgeId, authStore.user?.level)
+)
+const sidebarTierClass = computed(() => {
+  const tier = badgeStore.getAccountTierNumber(authStore.user?.level)
+  return `sb-tier-${tier}`
+})
 
 watch(() => route.path, () => { isMenuOpen.value = false })
 
@@ -159,7 +182,8 @@ onMounted(() => {
   window.addEventListener('scroll', handleScroll)
   if (authStore.isAuthenticated) {
     notificationStore.initialize((noti) => triggerToast(noti))
-    
+    badgeStore.fetchRules()
+
     // [시니어 조치] SSE 연결이 안정화될 때까지 2초만 더 기다린 후 FCM 등록 (인증 정합성 보장)
     setTimeout(() => {
       requestFcmToken()
@@ -171,6 +195,7 @@ onMounted(() => {
 watch(() => authStore.isAuthenticated, (val) => {
   if (val) {
     notificationStore.initialize((noti) => triggerToast(noti))
+    badgeStore.fetchRules()
     
     // [시니어 조치] 로그인 직후에도 인증 토큰이 브라우저에 완전히 안착할 시간을 벌어줌
     setTimeout(() => {
@@ -282,12 +307,28 @@ onUnmounted(() => {
         </div>
         
         <div class="sidebar-profile-section" v-if="authStore.isAuthenticated">
-          <div class="profile-avatar">
-            {{ authStore.user?.nickname?.charAt(0) || 'U' }}
+          <!-- 아바타: 티어 효과 동일 적용 -->
+          <div class="profile-avatar" :class="sidebarTierClass">
+            <span class="avatar-initial">{{ authStore.user?.nickname?.charAt(0) || 'U' }}</span>
           </div>
           <div class="profile-info">
-            <span class="profile-nickname">{{ authStore.user?.nickname }}</span>
-            <span class="profile-sub">Level {{ authStore.user?.level || 1 }} Active Member</span>
+            <!-- 1행: [Lv · 닉네임] 배지 + 이모지 계급명 -->
+            <div class="profile-name-row" :class="sidebarTierClass">
+              <div class="profile-name-badge">
+                <span class="profile-lv">Lv.{{ authStore.user?.level || 1 }}</span>
+                <span class="profile-nickname">
+                  <span v-if="authStore.user?.level >= 50" class="inner-shine-effect"></span>
+                  {{ authStore.user?.nickname }}
+                </span>
+              </div>
+              <span class="profile-tier-emoji">{{ sidebarEquippedInfo?.emoji || '🌱' }}</span>
+              <span class="profile-tier-title">{{ sidebarEquippedInfo?.rankTitle || '새싹' }}</span>
+            </div>
+            <!-- 2행: EXP · P -->
+            <div class="profile-stats-row">
+              <span class="profile-stat exp">⚡{{ authStore.user?.totalExp || 0 }}EXP</span>
+              <span class="profile-stat karma">🛡️{{ ((authStore.user?.karmaPoint || 0) / 10).toFixed(1) }}P</span>
+            </div>
           </div>
         </div>
 
@@ -477,11 +518,106 @@ body { margin: 0; padding: 0; display: block !important; background-color: var(-
 .sidebar-id { font-size: 0.95rem; font-weight: 800; color: var(--text-primary); letter-spacing: -0.3px; }
 .sidebar-close-btn { background: none; border: none; padding: 4px; cursor: pointer; color: var(--text-primary); display: flex; align-items: center; opacity: 0.7; }
 
-.sidebar-profile-section { padding: 25px 20px; display: flex; align-items: center; gap: 15px; background: linear-gradient(to bottom, var(--hover-bg), transparent); }
-.profile-avatar { width: 52px; height: 52px; border-radius: 50%; background: linear-gradient(45deg, #f09433 0%, #e6683c 25%, #dc2743 50%, #cc2366 75%, #bc1888 100%); display: flex; align-items: center; justify-content: center; color: white; font-size: 1.4rem; font-weight: 800; border: 2.5px solid var(--header-bg); box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
-.profile-info { display: flex; flex-direction: column; gap: 1px; }
-.profile-nickname { font-size: 1.05rem; font-weight: 800; color: var(--text-primary); }
-.profile-sub { font-size: 0.7rem; color: var(--text-secondary); font-weight: 600; opacity: 0.8; }
+/* ── 사이드바 프로필 ─────────────────────────────── */
+.sidebar-profile-section { padding: 20px 18px 16px; display: flex; align-items: center; gap: 14px; }
+
+/* ── 티어별 CSS 변수 ─────────────────────────────── */
+.sb-tier-1   { --sb-tier-color: var(--text-secondary); --sb-tier-gradient: var(--text-primary); --sb-tier-bg: transparent; }
+.sb-tier-5   { --sb-tier-color: #b08d57; --sb-tier-gradient: linear-gradient(135deg, #804a00, #b08d57, #804a00); --sb-tier-bg: rgba(176,141,87,0.08); }
+.sb-tier-10  { --sb-tier-color: #94a3b8; --sb-tier-gradient: linear-gradient(135deg, #94a3b8, #f8fafc, #94a3b8); --sb-tier-bg: rgba(148,163,184,0.12); }
+.sb-tier-30  { --sb-tier-color: #facc15; --sb-tier-gradient: linear-gradient(135deg, #a16207, #fde047, #a16207); --sb-tier-bg: rgba(250,204,21,0.08); }
+.sb-tier-50  { --sb-tier-color: #10b981; --sb-tier-gradient: linear-gradient(135deg, #065f46, #34d399, #065f46); --sb-tier-bg: rgba(16,185,129,0.08); }
+.sb-tier-70  { --sb-tier-color: #ff416c; --sb-tier-gradient: linear-gradient(90deg, #ff416c, #ffd700, #48bb78, #4facfe, #9400d3); --sb-tier-bg: rgba(225,29,72,0.06); }
+.sb-tier-90  { --sb-tier-color: #22d3ee; --sb-tier-gradient: linear-gradient(135deg, #0891b2, #ffffff, #0891b2); --sb-tier-bg: rgba(34,211,238,0.06); }
+.sb-tier-100 { --sb-tier-color: #facc15; --sb-tier-gradient: linear-gradient(to right, #facc15, #ffffff, #facc15); --sb-tier-bg: rgba(0,0,0,0.9); }
+
+/* 아바타 — 티어 테두리 + 이니셜 그라데이언트 */
+.profile-avatar {
+  flex-shrink: 0; width: 50px; height: 50px; border-radius: 50%;
+  background: var(--sb-tier-bg, var(--hover-bg));
+  border: 2px solid var(--sb-tier-color, var(--border-color));
+  display: flex; align-items: center; justify-content: center;
+  transition: border-color 0.3s;
+}
+.avatar-initial {
+  font-size: 1.3rem; font-weight: 900;
+  background: var(--sb-tier-gradient, var(--text-primary));
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+.profile-avatar.sb-tier-1 .avatar-initial { -webkit-text-fill-color: var(--text-secondary); background: none; }
+
+/* 정보 영역 */
+.profile-info { display: flex; flex-direction: column; gap: 5px; min-width: 0; overflow: hidden; }
+.profile-name-row { display: flex; align-items: center; gap: 5px; max-width: 100%; overflow: hidden; }
+
+/* Lv + 닉네임 하나의 테두리 배지 */
+.profile-name-badge {
+  display: inline-flex; align-items: center; gap: 5px;
+  border: 1.5px solid var(--sb-tier-color, var(--border-color));
+  background: var(--sb-tier-bg, transparent);
+  border-radius: 8px;
+  padding: 2px 8px 2px 5px;
+  overflow: hidden; max-width: 100%;
+  flex-shrink: 1; min-width: 0;
+}
+.profile-lv {
+  flex-shrink: 0; font-size: 0.65rem; font-weight: 900; letter-spacing: 0.3px;
+  background: var(--sb-tier-gradient, var(--text-secondary));
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+.profile-name-row.sb-tier-1 .profile-lv { -webkit-text-fill-color: var(--text-secondary); background: none; }
+.profile-nickname {
+  font-size: 0.9rem; font-weight: 850; display: inline-block; position: relative;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0;
+  background: var(--sb-tier-gradient, var(--text-primary));
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+.profile-name-row.sb-tier-1 .profile-nickname { -webkit-text-fill-color: var(--text-primary); background: none; }
+.inner-shine-effect {
+  position: absolute; top: 0; left: -100%; width: 50%; height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.35), transparent);
+  transform: skewX(-20deg); pointer-events: none;
+  animation: sb-inner-glint 3s infinite; z-index: 1;
+}
+@keyframes sb-inner-glint { 0% { left: -120%; } 30% { left: 120%; } 100% { left: 120%; } }
+
+/* 이모지 · 계급명 */
+.profile-tier-emoji { font-size: 0.82rem; flex-shrink: 0; }
+.profile-tier-title {
+  font-size: 0.74rem; font-weight: 700; flex-shrink: 0;
+  background: var(--sb-tier-gradient, var(--text-secondary));
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+.profile-name-row.sb-tier-1 .profile-tier-title { -webkit-text-fill-color: var(--text-secondary); background: none; }
+
+/* 2행 — EXP · P */
+.profile-stats-row { display: flex; align-items: center; gap: 8px; }
+.profile-stat { font-size: 0.7rem; font-weight: 700; flex-shrink: 0; }
+.profile-stat.exp   { color: #ca8a04; }
+.profile-stat.karma { color: #3b82f6; }
+
+/* tier-50 에메랄드 펄스 */
+.profile-name-row.sb-tier-50 .profile-nickname { animation: sb-emerald-pulse 2s infinite alternate; }
+@keyframes sb-emerald-pulse { from { filter: drop-shadow(0 0 2px rgba(16,185,129,0.3)); } to { filter: drop-shadow(0 0 6px rgba(16,185,129,0.7)); } }
+
+/* tier-70/90/100 그라데이언트 이동 */
+.profile-name-row.sb-tier-70  .profile-nickname,
+.profile-name-row.sb-tier-90  .profile-nickname,
+.profile-name-row.sb-tier-100 .profile-nickname {
+  background-size: 200% auto;
+  animation: sb-shine-move 3s linear infinite;
+}
+.profile-name-row.sb-tier-70 .profile-nickname  { animation: sb-shine-move 3s linear infinite, sb-rainbow-pulse 3s infinite alternate; }
+.profile-name-row.sb-tier-90 .profile-nickname  { animation: sb-shine-move 2.5s linear infinite, sb-cold-burn 1.5s infinite alternate; }
+.profile-name-row.sb-tier-100 .profile-nickname { animation: sb-shine-move 2s linear infinite, sb-legendary-burn 1.2s infinite alternate; }
+@keyframes sb-shine-move      { to { background-position: 200% center; } }
+@keyframes sb-rainbow-pulse   { from { filter: drop-shadow(0 0 3px rgba(255,65,108,0.4)); } to { filter: drop-shadow(0 0 8px rgba(79,172,254,0.7)); } }
+@keyframes sb-cold-burn       { from { filter: drop-shadow(0 0 3px rgba(34,211,238,0.4)); } to { filter: drop-shadow(0 0 8px rgba(34,211,238,0.9)); } }
+@keyframes sb-legendary-burn  { from { filter: drop-shadow(0 0 4px rgba(250,204,21,0.5)); } to { filter: drop-shadow(0 0 12px rgba(250,204,21,0.9)); } }
 
 .sidebar-nav-grid { padding: 12px; display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; flex: 1; overflow-y: auto; }
 .nav-item { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 20px 10px; background: var(--hover-bg); border-radius: 20px; text-decoration: none; color: var(--text-primary); transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1); gap: 8px; border: 1px solid transparent; }

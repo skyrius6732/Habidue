@@ -18,15 +18,15 @@
             <span class="lock-icon">🔒</span>
             <h3 class="lock-title">이 소통방은 아직 잠겨있어요</h3>
             <p class="lock-desc">
-              관심을 표현한 이웃이 10명이 되면 소통방이 열립니다.<br>
+              해당 공고에 관심 있는 이웃이 <b>10명</b> 모이면 소통방이 열립니다.<br>
               현재 <b>{{ currentInterestCount }}명</b> 참여 중
             </p>
 
             <div class="lock-action-area">
               <button v-if="!isFavorite" class="btn-join-interest" @click="emit('toggleFavorite')">
-                🙋 나도 관심있어요!
+                ❤️ 나도 관심있어요! (활성화 참여)
               </button>
-              <p v-else class="already-joined-msg">✅ 관심을 표현하셨습니다!</p>
+              <p v-else class="already-joined-msg">✅ 참여 완료! 조금만 더 기다려 주세요.</p>
             </div>
           </div>
         </div>
@@ -148,7 +148,8 @@ const sourceThemeClass = computed(() => {
 
 const isBoardClosed = computed(() => {
   if (props.isRevived) return false
-  const closedStatuses = ['CLOSED', 'EXPIRED_INFO', 'RESULT_COMPLETED']
+  if (props.isDormant) return true // [시니어 조치] 보관된 소통방은 무조건 글쓰기 제한
+  const closedStatuses = ['CLOSED', 'EXPIRED_INFO', 'RESULT_COMPLETED', 'RESULT'] // RESULT 상태도 포함
   return closedStatuses.includes(props.noticeStatus?.toUpperCase())
 })
 

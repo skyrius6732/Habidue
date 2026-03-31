@@ -41,6 +41,32 @@
       </div>
     </div>
 
+    <!-- [시니어 추가] 트렌드 분석 그래프 패널 -->
+    <div class="trend-row">
+      <div class="trend-panel">
+        <div class="panel-header">
+          <div class="panel-title-group">
+            <h3>📈 운영 트렌드 분석</h3>
+            <p class="panel-subtitle">공고 등록 및 유저 가입 추이</p>
+          </div>
+          <div class="trend-filters">
+            <button 
+              v-for="f in ['daily', 'weekly', 'monthly']" 
+              :key="f"
+              class="filter-btn"
+              :class="{ active: trendFilter === f }"
+              @click="trendFilter = f"
+            >
+              {{ f === 'daily' ? '일별' : f === 'weekly' ? '주별' : '월별' }}
+            </button>
+          </div>
+        </div>
+        <div class="chart-container">
+          <canvas id="trendChart"></canvas>
+        </div>
+      </div>
+    </div>
+
     <!-- 공고 분포 패널 (기존) -->
     <div class="chart-row">
       <div class="chart-panel">
@@ -177,7 +203,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch, nextTick } from 'vue'
 import axios from '@/plugins/axios'
 
 const stats = ref({
@@ -191,17 +217,157 @@ const stats = ref({
   pendingReports: 0,
   countByReportStatus: {},
   countByUserStatus: {},
-  countByPostStatus: {}
+  countByPostStatus: {},
+  trends: {
+    dailyNotices: {}, dailyUsers: {},
+    weeklyNotices: {}, weeklyUsers: {},
+    monthlyNotices: {}, monthlyUsers: {}
+  }
 })
+
+// [시니어 추가] 트렌드 그래프 관련 상태
+const trendFilter = ref('daily')
+let chartInstance = null
 
 const fetchStats = async () => {
   try {
     const res = await axios.get('/api/admin/dashboard/stats')
     stats.value = { ...stats.value, ...res.data.data }
+    renderChart()
   } catch (e) {
     console.error('통계 로드 실패')
   }
 }
+
+// [시니어 조치] Chart.js 동적 렌더링 로직 (데이터 정합성 및 가독성 고도화)
+const renderChart = async () => {
+  await nextTick()
+  const ctx = document.getElementById('trendChart')
+  if (!ctx) return
+
+  if (!window.Chart) {
+    await new Promise((resolve) => {
+      const script = document.createElement('script')
+      script.src = 'https://cdn.jsdelivr.net/npm/chart.js'
+      script.onload = resolve
+      document.head.appendChild(script)
+    })
+  }
+
+  if (chartInstance) chartInstance.destroy()
+
+  const filter = trendFilter.value
+  const noticeData = stats.value.trends[`${filter}Notices`] || {}
+  const userData = stats.value.trends[`${filter}Users`] || {}
+  
+  // [시니어 조치] 공고와 유저 날짜 키를 합쳐서 정렬된 전체 타임라인 생성 (데이터 누락 방지)
+  const allDateKeys = [...new Set([...Object.keys(noticeData), ...Object.keys(userData)])].sort()
+  
+  // 레이블 가독성 개선 (예: 2026-14 -> 2026년 14주)
+  const labels = allDateKeys.map(key => {
+    if (filter === 'weekly') return key.replace('-', '년 ') + '주'
+    if (filter === 'monthly') return key.replace('-', '년 ') + '월'
+    return key
+  })
+
+  const noticeValues = allDateKeys.map(k => noticeData[k] || 0)
+  const userValues = allDateKeys.map(k => userData[k] || 0)
+
+  chartInstance = new window.Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: labels,
+      datasets: [
+        {
+          label: '신규 공고',
+          data: noticeValues,
+          borderColor: '#38a169',
+          backgroundColor: 'rgba(56, 161, 105, 0.1)',
+          borderWidth: 3,
+          fill: true,
+          tension: 0.4,
+          pointRadius: 4,
+          pointHitRadius: 10,
+          pointBackgroundColor: '#38a169',
+          hidden: false // 초기값 노출
+        },
+        {
+          label: '신규 유저',
+          data: userValues,
+          borderColor: '#3182ce',
+          backgroundColor: 'rgba(49, 130, 206, 0.1)',
+          borderWidth: 3,
+          fill: true,
+          tension: 0.4,
+          pointRadius: 4,
+          pointHitRadius: 10,
+          pointBackgroundColor: '#3182ce',
+          hidden: false // 초기값 노출
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: { intersect: false, mode: 'index' },
+      plugins: {
+        legend: { 
+          display: true,
+          position: 'top', 
+          align: 'end', 
+          cursor: 'pointer',
+          labels: { 
+            boxWidth: 12, 
+            usePointStyle: true, 
+            pointStyle: 'circle',
+            font: { size: 12, weight: 'bold' },
+            padding: 20
+          },
+          onClick: function(e, legendItem, legend) {
+            const index = legendItem.datasetIndex;
+            const ci = legend.chart;
+            if (ci.isDatasetVisible(index)) {
+              ci.hide(index);
+              legendItem.hidden = true;
+            } else {
+              ci.show(index);
+              legendItem.hidden = false;
+            }
+          }
+        },
+        tooltip: { 
+          padding: 12, 
+          backgroundColor: 'rgba(0,0,0,0.8)',
+          borderRadius: 8, 
+          titleFont: { size: 14 },
+          bodyFont: { size: 13 },
+          callbacks: {
+            // [시니어 조치] 데이터셋 라벨에 따라 단위(건/명)를 동적으로 표시
+            label: (context) => {
+              const label = context.dataset.label || '';
+              const value = context.parsed.y.toLocaleString();
+              const unit = label.includes('공고') ? '건' : '명';
+              return ` ${label}: ${value}${unit}`;
+            }
+          }
+        }
+      },
+      scales: {
+        y: { 
+          beginAtZero: true, 
+          grid: { color: 'rgba(0,0,0,0.05)' }, 
+          ticks: { font: { size: 11 }, stepSize: 1 } 
+        },
+        x: { 
+          grid: { display: false }, 
+          ticks: { font: { size: 11 }, maxRotation: 45, minRotation: 0 } 
+        }
+      }
+    }
+  })
+}
+
+watch(trendFilter, renderChart)
 
 const STATUS_LABELS = {
   RECRUITING: '접수중', CLOSED: '마감', UPCOMING: '예정', INFO: '안내',
@@ -267,6 +433,23 @@ onMounted(fetchStats)
 .card-value { font-size: 1.7rem; font-weight: 900; color: var(--text-primary); line-height: 1; }
 .card-sub { font-size: 0.7rem; font-weight: 600; color: var(--link-color); }
 .accent-red .card-sub { color: #ef4444; }
+
+/* [시니어 추가] 트렌드 차트 행 */
+.trend-row { margin-bottom: 8px; }
+.trend-panel {
+  background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 16px; padding: 24px;
+}
+.panel-title-group h3 { margin: 0; font-size: 1rem; font-weight: 800; color: var(--text-primary); }
+.panel-subtitle { margin: 2px 0 0 0; font-size: 0.75rem; color: var(--text-secondary); font-weight: 600; }
+
+.trend-filters { display: flex; gap: 6px; background: var(--hover-bg); padding: 4px; border-radius: 10px; }
+.filter-btn {
+  padding: 6px 14px; border: none; background: transparent; border-radius: 8px;
+  font-size: 0.75rem; font-weight: 700; color: var(--text-secondary); cursor: pointer; transition: all 0.2s;
+}
+.filter-btn.active { background: var(--card-bg); color: var(--link-color); box-shadow: 0 2px 6px rgba(0,0,0,0.1); }
+
+.chart-container { height: 300px; margin-top: 20px; position: relative; }
 
 /* 공고 차트 행 */
 .chart-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }

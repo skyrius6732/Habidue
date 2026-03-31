@@ -20,4 +20,18 @@ public class AdminDashboardResponseDto {
     private Map<String, Long> countByUserStatus;
     private Map<String, Long> countByPostStatus;
     private long pendingReports;
+
+    // [시니어 추가] 시계열 트렌드 데이터
+    private TrendData trends;
+
+    @Getter
+    @Builder
+    public static class TrendData {
+        private Map<String, Long> dailyNotices;
+        private Map<String, Long> dailyUsers;
+        private Map<String, Long> weeklyNotices;
+        private Map<String, Long> weeklyUsers;
+        private Map<String, Long> monthlyNotices;
+        private Map<String, Long> monthlyUsers;
+    }
 }

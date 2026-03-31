@@ -1,5 +1,14 @@
 <template>
   <div class="settings-container">
+    <!-- 내 활동 탭 뒤로가기 스크롤 복원 토스트 -->
+    <Transition name="restore-toast">
+      <div v-if="isRestoring" class="restore-toast-bar">
+        <span class="restore-dots">
+          <span></span><span></span><span></span>
+        </span>
+        이전 게시글로 이동 중...
+      </div>
+    </Transition>
     <PageHeader 
       icon="👤" 
       title="마이 페이지" 
@@ -446,7 +455,7 @@
                 <div v-for="i in 3" :key="i" class="skeleton-activity-card"></div>
               </div>
               <div v-else-if="myPosts.length > 0" class="my-posts-grid">
-                <div v-for="post in myPosts" :key="post.id" class="my-post-card" @click="goToDetail(post.id)">
+                <div v-for="post in myPosts" :key="post.id" :id="'post-' + post.id" class="my-post-card" @click="goToDetail(post.id)">
                   <div class="post-card-main">
                     <div class="post-card-content">
                       <div class="post-card-header">
@@ -491,7 +500,7 @@
                 <div v-for="i in 3" :key="i" class="skeleton-activity-card"></div>
               </div>
               <div v-else-if="myComments.length > 0" class="my-comments-list">
-                <div v-for="comment in myComments" :key="comment.id" class="my-comment-card" @click="goToCommentLocation(comment.postId, comment.id)">
+                <div v-for="comment in myComments" :key="comment.id" :id="'comment-' + comment.id" class="my-comment-card" @click="goToCommentLocation(comment.postId, comment.id)">
                   <div class="comment-card-top">
                     <div class="comment-context">
                       <span class="context-label">Re:</span>
@@ -670,6 +679,7 @@ const route = useRoute()
 const router = useRouter()
 const activeTab = ref(route.query.tab || 'activity')
 const activeSubTab = ref('posts')
+const isRestoring = ref(false)
 
 // [신규] 내 활동 데이터 상태
 const myPosts = ref([])
@@ -750,12 +760,38 @@ const fetchMyComments = async (isMore = false) => {
 }
 
 const goToDetail = (id) => {
+  sessionStorage.setItem('myActivityNavState', JSON.stringify({ subTab: 'posts', itemId: id }))
   router.push(`/board/post/${id}`)
 }
 
 const goToCommentLocation = (postId, commentId) => {
-  // 게시글 상세로 이동 후 해당 댓글 위치로 스크롤되도록 쿼리 파라미터 전달
+  sessionStorage.setItem('myActivityNavState', JSON.stringify({ subTab: 'comments', itemId: commentId }))
   router.push({ path: `/board/post/${postId}`, query: { commentId } })
+}
+
+const scrollToActivityItem = (type, id) => {
+  if (!id) return
+  isRestoring.value = true
+  const elementId = `${type}-${id}`
+  const attemptScroll = () => {
+    const element = document.getElementById(elementId)
+    if (element) {
+      const headerOffset = 145
+      const elementPosition = element.getBoundingClientRect().top + window.pageYOffset
+      window.scrollTo({ top: elementPosition - headerOffset, behavior: 'instant' })
+      setTimeout(() => { isRestoring.value = false }, 500)
+    } else {
+      const hasMore = type === 'posts' ? postsHasMore.value : commentsHasMore.value
+      const isLoading = type === 'posts' ? postsLoading.value : commentsLoading.value
+      if (hasMore && !isLoading) {
+        const fetchFn = type === 'posts' ? fetchMyPosts : fetchMyComments
+        fetchFn(true).then(() => setTimeout(attemptScroll, 100))
+      } else {
+        isRestoring.value = false
+      }
+    }
+  }
+  requestAnimationFrame(() => requestAnimationFrame(attemptScroll))
 }
 
 // [시니어 조치] URL 쿼리 파라미터 변경 감시하여 탭 전환
@@ -1041,12 +1077,29 @@ const getKarmaClass = (point) => {
   return 'danger'
 }
 
-onMounted(() => { 
-  fetchMyTags(); 
-  fetchUserProfile(); 
-  fetchUserActivity(); 
+onMounted(async () => {
+  fetchMyTags();
+  fetchUserProfile();
+  fetchUserActivity();
   fetchKarmaHistory();
   messageStore.fetchReceivedMessages(); // 진입 시 쪽지함 데이터 로드
+
+  const savedState = sessionStorage.getItem('myActivityNavState')
+  if (savedState) {
+    sessionStorage.removeItem('myActivityNavState')
+    try {
+      const { subTab, itemId } = JSON.parse(savedState)
+      activeTab.value = 'my-activity'
+      activeSubTab.value = subTab
+      await router.replace({ query: { ...route.query, tab: 'my-activity' } })
+      const fetchFn = subTab === 'posts' ? fetchMyPosts : fetchMyComments
+      await fetchFn()
+      await nextTick()
+      scrollToActivityItem(subTab === 'posts' ? 'post' : 'comment', itemId)
+    } catch (e) {
+      console.error('내 활동 스크롤 복원 실패', e)
+    }
+  }
 })
 </script>
 
@@ -1319,6 +1372,32 @@ onMounted(() => {
 
 /* 반응형: 모바일 최적화 */
 @media (max-width: 992px) {
+  .level-dashboard-card-v4 {
+    grid-template-columns: 1fr;
+    border-radius: 20px;
+  }
+  .level-dashboard-card-v4 .dash-main-col {
+    border-right: none;
+    border-bottom: 1.5px solid var(--border-color);
+    border-radius: 20px 20px 0 0;
+    padding: 24px 20px;
+  }
+  .level-dashboard-card-v4 .dash-side-col {
+    flex-direction: row;
+    border-radius: 0 0 20px 20px;
+    padding: 20px;
+    gap: 12px;
+  }
+  .level-dashboard-card-v4 .dash-side-col .dash-stat-box {
+    flex: 1;
+    min-width: 0;
+  }
+  .level-dashboard-card-v4 .profile-top-info {
+    gap: 15px;
+  }
+  .level-dashboard-card-v4 .dash-nickname-group :deep(.animated-nickname) {
+    font-size: 1.2rem !important;
+  }
   .level-dashboard-card-v3 { 
     display: flex; /* 모바일은 수직 스택으로 */
     flex-direction: column;
@@ -2180,4 +2259,5 @@ onMounted(() => {
 .exp-text b { color: var(--text-primary); font-weight: 800; }
 .point-badge-group { display: flex; flex-wrap: wrap; gap: 8px; }
 .exp-points { font-size: 0.72rem; font-weight: 900; color: #3498db; background: rgba(52, 152, 219, 0.08); padding: 4px 10px; border-radius: 8px; border: 1px solid rgba(52, 152, 219, 0.15); }
+
 </style>
