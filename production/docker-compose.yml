@@ -1,0 +1,112 @@
+version: '3.8'
+
+services:
+  # 1. Database: MySQL 8.0
+  db:
+    image: mysql:8.0
+    ports:
+      - "3306:3306"
+    container_name: habidue-db
+    restart: always
+    environment:
+      MYSQL_DATABASE: ${DB_NAME}
+      MYSQL_USER: ${DB_USERNAME}
+      MYSQL_PASSWORD: ${DB_PASSWORD}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+    volumes:
+      - ./mysql_data:/var/lib/mysql
+    networks:
+      - habidue-network
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # 2. Cache: Redis
+  redis:
+    image: redis:alpine
+    container_name: habidue-redis
+    restart: always
+    networks:
+      - habidue-network
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "5m"
+        max-file: "2"
+
+  # 3. Application Slot: Blue (Port 8081 -> 8080)
+  app-blue:
+    image: ${DOCKER_IMAGE:-habidue-app:latest}
+    container_name: habidue-app-blue
+    restart: always
+    ports:
+      - "8081:8080"
+    env_file: .env
+    environment:
+      - SPRING_PROFILES_ACTIVE=prod
+      - SERVER_PORT=8080
+    volumes:
+      - ./logs:/app/logs
+    depends_on:
+      - db
+      - redis
+    networks:
+      - habidue-network
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "50m"
+        max-file: "5"
+
+  # 4. Application Slot: Green (Port 8082 -> 8080)
+  app-green:
+    image: ${DOCKER_IMAGE:-habidue-app:latest}
+    container_name: habidue-app-green
+    restart: always
+    ports:
+      - "8082:8080"
+    env_file: .env
+    environment:
+      - SPRING_PROFILES_ACTIVE=prod
+      - SERVER_PORT=8080
+    volumes:
+      - ./logs:/app/logs
+    depends_on:
+      - db
+      - redis
+    networks:
+      - habidue-network
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "50m"
+        max-file: "5"
+
+  # 5. Reverse Proxy: Nginx (Traffic Director)
+  nginx:
+    image: nginx:alpine
+    container_name: habidue-nginx
+    restart: always
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/conf.d:/etc/nginx/conf.d
+      - ./nginx/html:/usr/share/nginx/html
+      - /etc/letsencrypt:/etc/letsencrypt
+    # depends_on:
+    #  - app-blue
+    #  - app-green
+    networks:
+      - habidue-network
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "20m"
+        max-file: "5"
+
+networks:
+  habidue-network:
+    driver: bridge
