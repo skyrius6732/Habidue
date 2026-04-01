@@ -384,7 +384,8 @@ const fetchNotices = async () => {
       const sourcesParam = activeSources.value.includes('ALL') ? null : activeSources.value.join(',');
       const statusesParam = activeStatuses.value.includes('ALL') ? null : activeStatuses.value.join(',');
       response = await axios.get('/api/notices', { 
-        params: { size: 1000, sources: sourcesParam, statuses: statusesParam } 
+        params: { size: 1000, sources: sourcesParam, statuses: statusesParam },
+        timeout: 15000 // 대량 데이터 조회를 위해 타임아웃 연장 (15초)
       });
       notices.value = response.data.data.content;
       totalCount.value = response.data.data.totalElements;

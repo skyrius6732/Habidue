@@ -83,11 +83,10 @@ public class NoticeController {
                 ? userNoticeRepository.findFavoriteIds(currentUser, noticeIds)
                 : Collections.emptySet();
 
-        // 3. [최적화] 엔티티 필드 직접 사용 (별도 카운팅 쿼리 제거)
+        // 3. [최적화] 이미 페치 조인된 엔티티 필드 직접 사용 (N+1 문제 해결: 1000건 추가 쿼리 제거)
         final List<String> finalUserKeywords = userKeywordsList;
         Page<NoticeResponseDto> dtoPage = noticePage.map(notice -> {
-            List<com.habidue.app.domain.tag.NoticeTag> latestTags = noticeTagRepository.findAllByNoticeWithTag(notice);
-            NoticeResponseDto dto = new NoticeResponseDto(notice, latestTags, finalUserKeywords);
+            NoticeResponseDto dto = new NoticeResponseDto(notice, notice.getNoticeTags(), finalUserKeywords);
             dto.setFavorite(favoriteIds.contains(notice.getId()));
             return dto;
         });

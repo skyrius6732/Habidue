@@ -63,7 +63,22 @@ public class NoticeService {
 
     // QueryDSL 통합 검색 및 정렬
     public Page<Notice> searchNotices(String keyword, List<String> sources, List<String> statuses, String sortOrder, List<String> userKeywords, User currentUser, boolean showOnlyFuture, Boolean isBoardActive, Boolean isNew, Pageable pageable) {
-        return noticeRepository.searchNotices(keyword, sources, statuses, sortOrder, userKeywords, currentUser, showOnlyFuture, isBoardActive, isNew, pageable);
+        Page<Notice> noticePage = noticeRepository.searchNotices(keyword, sources, statuses, sortOrder, userKeywords, currentUser, showOnlyFuture, isBoardActive, isNew, pageable);
+        
+        // [시니어 조치] OSIV OFF 대응: 트랜잭션 내에서 지연 로딩 강제 초기화
+        // @BatchSize(100)가 설정되어 있으므로, 실제 쿼리는 100개 단위로 묶여서 효율적으로 실행됨
+        noticePage.getContent().forEach(notice -> {
+            if (notice.getNoticeTags() != null) {
+                // [중요] NoticeTag 뿐만 아니라 내부의 실제 Tag 엔티티까지 초기화 트리거
+                notice.getNoticeTags().forEach(nt -> {
+                    if (nt.getTag() != null) {
+                        nt.getTag().getName(); // Tag 프록시 객체 초기화
+                    }
+                });
+            }
+        });
+        
+        return noticePage;
     }
 
     @Transactional

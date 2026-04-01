@@ -51,7 +51,7 @@ public class RankingService {
 
     // [가중치 및 마일스톤 보너스 상수]
     public static final double SCORE_VIEW = 1.0;          // 단순 조회
-    public static final double SCORE_INTEREST = 20.0;     // 관심 등록(찜)
+    public static final double SCORE_INTEREST = 10.0;     // 관심 등록(찜)
     public static final double SCORE_POST = 30.0;         // 소통방 게시글 작성
     public static final double SCORE_COMMENT = 10.0;      // 댓글/답글 작성
     public static final double SCORE_BOARD_UNLOCK = 100.0; // 소통방 최초 해금 (10명 달성)
