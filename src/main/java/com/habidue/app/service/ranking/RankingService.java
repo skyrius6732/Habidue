@@ -58,11 +58,14 @@ public class RankingService {
     public static final double SCORE_BOARD_REVIVE = 50.0;  // 휴면 소통방 깨우기 성공
 
     /**
-     * 공고의 실시간 점수를 증가시킵니다.
+     * 공고의 실시간 점수를 증가시킵니다. (차감 시 최소값 0 보장)
      */
     public void increaseNoticeScore(Long noticeId, double score) {
         try {
-            redisTemplate.opsForZSet().incrementScore(HOT_NOTICE_KEY, String.valueOf(noticeId), score);
+            Double newScore = redisTemplate.opsForZSet().incrementScore(HOT_NOTICE_KEY, String.valueOf(noticeId), score);
+            if (newScore != null && newScore < 0) {
+                redisTemplate.opsForZSet().add(HOT_NOTICE_KEY, String.valueOf(noticeId), 0.0);
+            }
             redisTemplate.opsForValue().set(HOT_NOTICE_UPDATE_KEY, LocalDateTime.now().format(DateTimeFormatter.ofPattern("HH:mm")));
         } catch (Exception e) {
             log.warn("Failed to update hot notice score: {}", e.getMessage());
