@@ -1,11 +1,11 @@
 {
-  "name": "habiDue - 임대주택 공고 및 커뮤니티",
-  "short_name": "habiDue",
+  "name": "HabiDue - 내 집 마련의 첫걸음",
+  "short_name": "하비듀",
   "description": "임대주택 공고 알림 및 소통을 위한 스마트 커뮤니티",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#4c51bf",
-  "theme_color": "#4c51bf",
+  "background_color": "#5b21b6",
+  "theme_color": "#5b21b6",
   "icons": [
     {
       "src": "/favicon.ico",
@@ -13,13 +13,13 @@
       "type": "image/x-icon"
     },
     {
-      "src": "/Habidue.png",
+      "src": "/Habidue_192.png",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "any maskable"
     },
     {
-      "src": "/Habidue.png",
+      "src": "/Habidue_512.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any maskable"
