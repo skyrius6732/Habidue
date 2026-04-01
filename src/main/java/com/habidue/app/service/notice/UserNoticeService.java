@@ -80,8 +80,8 @@ public class UserNoticeService {
             userActivityStatsRepository.save(stats);
             badgeService.checkAndAwardBadges(stats);
             
-            // [시니어 조치] 실시간 급상승 랭킹 점수 반영 (+10점)
-            rankingService.increaseNoticeScore(notice.getId(), 10.0);
+            // [시니어 조치] 실시간 급상승 랭킹 점수 반영
+            rankingService.increaseNoticeScore(notice.getId(), com.habidue.app.service.ranking.RankingService.SCORE_INTEREST);
         }
 
         return new UserNoticeResponseDto(saved);
@@ -119,8 +119,8 @@ public class UserNoticeService {
         noticeRepository.decrementInterestCount(userNoticeToDelete.getNotice().getId());
         userNoticeRepository.delete(userNoticeToDelete);
         
-        // [시니어 조치] 실시간 급상승 랭킹 점수 차감 (-10점)
-        rankingService.increaseNoticeScore(userNoticeToDelete.getNotice().getId(), -10.0);
+        // [시니어 조치] 실시간 급상승 랭킹 점수 차감
+        rankingService.increaseNoticeScore(userNoticeToDelete.getNotice().getId(), -com.habidue.app.service.ranking.RankingService.SCORE_INTEREST);
 
         userActivityStatsRepository.findById(currentUser.getId()).ifPresent(stats -> {
             stats.decrementNoticeInterestCount();
@@ -140,8 +140,8 @@ public class UserNoticeService {
         noticeRepository.decrementInterestCount(noticeId);
         userNoticeRepository.delete(userNotice);
         
-        // [시니어 조치] 실시간 급상승 랭킹 점수 차감 (-10점)
-        rankingService.increaseNoticeScore(noticeId, -10.0);
+        // [시니어 조치] 실시간 급상승 랭킹 점수 차감
+        rankingService.increaseNoticeScore(noticeId, -com.habidue.app.service.ranking.RankingService.SCORE_INTEREST);
 
         userActivityStatsRepository.findById(currentUser.getId()).ifPresent(stats -> {
             stats.decrementNoticeInterestCount();

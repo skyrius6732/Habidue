@@ -242,10 +242,10 @@ public class NoticeRepositoryImpl implements NoticeRepositoryCustom {
 
         JPAQuery<Notice> query = queryFactory
                 .selectFrom(notice)
-                .leftJoin(notice.noticeTags, noticeTag).fetchJoin() // [시니어 조치] 태그 페치 조인
-                .leftJoin(noticeTag.tag, tag).fetchJoin() // [시니어 조치] 실제 태그 엔티티 페치 조인
+                // [시니어 조치] 컬렉션 페치 조인 제거 (메모리 내 페이징 방지 및 7만 건 Row 폭증 해결)
+                // 엔티티에 설정된 @BatchSize(size = 100)를 통해 지연 로딩 시 배치 조회되도록 유도함
                 .where(builder)
-                .distinct(); // [시니어 조치] FetchJoin으로 인한 중복 데이터 제거 필수!
+                .distinct(); 
 
         for (OrderSpecifier<?> order : orders) {
             query.orderBy(order);
