@@ -41,6 +41,10 @@ dependencies {
 	// Firebase Admin SDK
 	implementation 'com.google.firebase:firebase-admin:9.4.1'
 
+	// AWS SDK v2 - S3
+	implementation platform('software.amazon.awssdk:bom:2.26.12')
+	implementation 'software.amazon.awssdk:s3'
+
 	// QueryDSL 추가
 	implementation 'com.querydsl:querydsl-jpa:5.1.0:jakarta'
 	annotationProcessor "com.querydsl:querydsl-apt:5.1.0:jakarta"
