@@ -48,7 +48,7 @@ public class S3FileService implements FileStorageService {
                     .key(key)
                     .contentType(file.getContentType())
                     .build(),
-                RequestBody.fromInputStream(file.getInputStream(), file.getSize())
+                RequestBody.fromBytes(file.getBytes())
             );
 
             urls.add("https://" + bucket + ".s3." + region + ".amazonaws.com/" + key);
