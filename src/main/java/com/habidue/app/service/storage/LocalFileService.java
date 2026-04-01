@@ -22,8 +22,14 @@ public class LocalFileService implements FileStorageService {
 
     @Override
     public List<String> upload(List<MultipartFile> files) throws IOException {
+        return upload(files, "posts");
+    }
+
+    @Override
+    public List<String> upload(List<MultipartFile> files, String subfolder) throws IOException {
         List<String> urls = new ArrayList<>();
-        File dir = new File(uploadDir);
+        String targetDir = uploadDir.replace("posts", subfolder);
+        File dir = new File(targetDir);
         if (!dir.exists()) dir.mkdirs();
 
         for (MultipartFile file : files) {
@@ -31,8 +37,8 @@ public class LocalFileService implements FileStorageService {
             String original = file.getOriginalFilename();
             String ext = original.substring(original.lastIndexOf("."));
             String filename = UUID.randomUUID() + ext;
-            Files.copy(file.getInputStream(), Paths.get(uploadDir, filename));
-            urls.add("/uploads/posts/" + filename);
+            Files.copy(file.getInputStream(), Paths.get(targetDir, filename));
+            urls.add("/uploads/" + subfolder + "/" + filename);
         }
         return urls;
     }

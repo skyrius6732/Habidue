@@ -9,6 +9,7 @@ import com.habidue.app.dto.message.AiAnalysisResult;
 import com.habidue.app.repository.message.MessageRepository;
 import com.habidue.app.repository.message.UserBlockRepository;
 import com.habidue.app.repository.user.UserRepository;
+import com.habidue.app.service.storage.FileStorageService;
 import com.habidue.app.service.user.KarmaService;
 import com.habidue.app.service.notification.NotificationService;
 import com.habidue.app.domain.notification.NotificationType;
@@ -22,11 +23,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
-import java.io.File;
 import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
@@ -50,8 +47,7 @@ public class MessageService {
     private static final String DAILY_MESSAGE_COUNT_KEY = "message:daily:count:";
     private static final int MAX_DAILY_MESSAGES = 20;
 
-    @Value("${file.upload-dir:/home/skyrius/habiDue/uploads/messages}")
-    private String uploadDir;
+    private final FileStorageService fileStorageService;
 
     @Transactional
     public void sendMessage(Long senderId, Long receiverId, String content, List<MultipartFile> files) {
@@ -172,15 +168,20 @@ public class MessageService {
     }
 
     private void saveFiles(Message message, List<MultipartFile> files) {
-        File dir = new File(uploadDir);
-        if (!dir.exists()) dir.mkdirs();
-        for (MultipartFile file : files) {
-            String savedName = UUID.randomUUID().toString() + file.getOriginalFilename().substring(file.getOriginalFilename().lastIndexOf("."));
-            try {
-                Files.copy(file.getInputStream(), Paths.get(uploadDir, savedName));
-                message.addAttachment(MessageFile.builder().message(message).originalFileName(file.getOriginalFilename()).fileType(file.getContentType()).fileSize(file.getSize()).fileUrl("/uploads/messages/" + savedName).build());
-            } catch (IOException e) { log.error("파일 저장 실패", e); }
-        }
+        try {
+            List<String> urls = fileStorageService.upload(files, "messages");
+            for (int i = 0; i < files.size(); i++) {
+                MultipartFile file = files.get(i);
+                if (file.isEmpty()) continue;
+                message.addAttachment(MessageFile.builder()
+                    .message(message)
+                    .originalFileName(file.getOriginalFilename())
+                    .fileType(file.getContentType())
+                    .fileSize(file.getSize())
+                    .fileUrl(urls.get(i))
+                    .build());
+            }
+        } catch (IOException e) { log.error("파일 저장 실패", e); }
     }
 
     @Transactional(readOnly = true)

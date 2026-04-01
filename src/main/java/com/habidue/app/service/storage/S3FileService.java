@@ -29,13 +29,18 @@ public class S3FileService implements FileStorageService {
 
     @Override
     public List<String> upload(List<MultipartFile> files) throws IOException {
+        return upload(files, "posts");
+    }
+
+    @Override
+    public List<String> upload(List<MultipartFile> files, String subfolder) throws IOException {
         List<String> urls = new ArrayList<>();
 
         for (MultipartFile file : files) {
             if (file.isEmpty()) continue;
             String original = file.getOriginalFilename();
             String ext = original.substring(original.lastIndexOf("."));
-            String key = "posts/" + UUID.randomUUID() + ext;
+            String key = subfolder + "/" + UUID.randomUUID() + ext;
 
             s3Client.putObject(
                 PutObjectRequest.builder()
