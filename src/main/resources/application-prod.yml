@@ -25,6 +25,16 @@ spring:
 app:
   frontend-url: https://habidue.com
 
+file:
+  storage: s3
+
+cloud:
+  aws:
+    s3:
+      bucket: ${S3_BUCKET_NAME}
+    region:
+      static: ${AWS_REGION}
+
 logging:
   level:
     org.hibernate.SQL: warn
