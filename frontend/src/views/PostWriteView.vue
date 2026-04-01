@@ -390,8 +390,9 @@ const submitPost = async () => {
     if (images.value.length > 0) {
       const formData = new FormData();
       images.value.forEach(file => { formData.append('files', file); });
-      const uploadRes = await axios.post('/api/images/upload', formData, { 
-        headers: { 'Content-Type': 'multipart/form-data' } 
+      const uploadRes = await axios.post('/api/images/upload', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+        timeout: 60000
       });
       imageUrls = [...imageUrls, ...uploadRes.data.data];
     }
