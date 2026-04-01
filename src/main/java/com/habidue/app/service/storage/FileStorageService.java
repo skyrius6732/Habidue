@@ -7,4 +7,5 @@ import java.util.List;
 
 public interface FileStorageService {
     List<String> upload(List<MultipartFile> files) throws IOException;
+    List<String> upload(List<MultipartFile> files, String subfolder) throws IOException;
 }
