@@ -31,16 +31,18 @@ app.provide('axios', axiosInstance); // provide/inject를 위한 등록
 
 app.mount('#app');
 
-// [PWA 조치] 서비스 워커 등록
+// [PWA 조치] 서비스 워커 및 FCM 등록
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
+    // 1. 기본 PWA 워커 등록
     navigator.serviceWorker.register('/sw.js')
-      .then(registration => {
-        console.log('PWA ServiceWorker registered with scope: ', registration.scope);
-      })
-      .catch(err => {
-        console.log('PWA ServiceWorker registration failed: ', err);
-      });
+      .then(reg => console.log('PWA ServiceWorker registered:', reg.scope))
+      .catch(err => console.log('PWA ServiceWorker failed:', err));
+
+    // 2. FCM 전용 워커 등록 (상단 알림 필수)
+    navigator.serviceWorker.register('/firebase-messaging-sw.js')
+      .then(reg => console.log('FCM ServiceWorker registered:', reg.scope))
+      .catch(err => console.log('FCM ServiceWorker failed:', err));
   });
 }
 
