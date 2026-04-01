@@ -68,7 +68,8 @@ export const useMessageStore = defineStore('message', () => {
       const res = await axios.post(`/api/messages/${receiverId}`, formData, {
         headers: {
           'Content-Type': 'multipart/form-data'
-        }
+        },
+        timeout: 60000
       })
       
       await fetchDailyStatus() 
