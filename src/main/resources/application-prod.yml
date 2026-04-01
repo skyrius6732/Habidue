@@ -45,3 +45,4 @@ logging:
   level:
     org.hibernate.SQL: warn
     com.habidue.app.service.notice.collector: info
+    com.habidue.app.config.jwt.JwtAuthenticationEntryPoint: warn
