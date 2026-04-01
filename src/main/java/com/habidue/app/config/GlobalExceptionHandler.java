@@ -11,6 +11,7 @@ import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
 
 import java.util.NoSuchElementException;
 
@@ -67,6 +68,13 @@ public class GlobalExceptionHandler {
     protected ResponseEntity<ApiResponse<Void>> handleAccessDeniedException(AccessDeniedException e) {
         log.error("handleAccessDeniedException", e);
         return ApiResponse.error(HttpStatus.FORBIDDEN, "접근 권한이 없습니다.", e.getClass().getSimpleName());
+    }
+
+    // 파일 크기 초과
+    @ExceptionHandler(MaxUploadSizeExceededException.class)
+    protected ResponseEntity<ApiResponse<Void>> handleMaxUploadSizeExceededException(MaxUploadSizeExceededException e) {
+        log.error("handleMaxUploadSizeExceededException", e);
+        return ApiResponse.error(HttpStatus.BAD_REQUEST, "파일 크기가 너무 큽니다. 최대 50MB까지 업로드 가능합니다.", e.getClass().getSimpleName());
     }
 
     // 그 외 모든 예외
