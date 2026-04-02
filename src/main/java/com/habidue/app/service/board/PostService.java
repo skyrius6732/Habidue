@@ -61,6 +61,7 @@ public class PostService {
     private final NotificationService notificationService;
     private final com.habidue.app.service.ranking.RankingService rankingService;
     private final StringRedisTemplate redisTemplate;
+    private final jakarta.persistence.EntityManager entityManager;
 
     private static final String LIKE_NOTI_COOLDOWN_KEY = "like:noti:cooldown:";
 
@@ -235,6 +236,10 @@ public class PostService {
         if (postLike.isPresent()) {
             postLikeRepository.delete(postLike.get());
             postRepository.decrementLikeCount(postId);
+            // [시니어 조치] DB 직접 수정 쿼리 후 엔티티 새로고침으로 상태 동기화 (음수 발생 버그 방지)
+            entityManager.flush();
+            entityManager.refresh(post);
+            
             userActivityStatsRepository.decrementPostLikeReceivedCount(author.getId());
 
             // [시니어 조치] 본인이 아닐 때만 경험치 회수 (대칭성 확보)
@@ -249,6 +254,10 @@ public class PostService {
         } else {
             postLikeRepository.save(PostLike.builder().post(post).user(user).build());
             postRepository.incrementLikeCount(postId);
+            // [시니어 조치] DB 직접 수정 쿼리 후 엔티티 새로고침으로 상태 동기화
+            entityManager.flush();
+            entityManager.refresh(post);
+
             userActivityStatsRepository.incrementPostLikeReceivedCount(author.getId());
 
             // [시니어 조치] 본인이 아닐 때만 경험치 부여 (대칭성 확보)

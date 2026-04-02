@@ -27,6 +27,18 @@ public interface CommentRepository extends JpaRepository<Comment, Long>, Comment
     @EntityGraph(attributePaths = {"author", "post"})
     Page<Comment> findByAuthorIdAndStatus(Long authorId, String status, Pageable pageable);
 
+    @Query("select c from Comment c left join fetch c.author where c.id = :id")
+    java.util.Optional<Comment> findWithAuthorById(@Param("id") Long id);
+
+    @Query("select c from Comment c " +
+           "join fetch c.author a " +
+           "join fetch c.post p " +
+           "join fetch p.author pa " +
+           "left join fetch c.parent pr " +
+           "left join fetch pr.author pra " +
+           "where c.id = :id")
+    java.util.Optional<Comment> findByIdWithAllInfo(@Param("id") Long id);
+
     // 게시글 내 모든 ACTIVE 댓글(+답글)의 likeCount 합산 - karma 회수 시 전체 잔여 좋아요 계산용
     @Query("SELECT COALESCE(SUM(c.likeCount), 0) FROM Comment c WHERE c.post.id = :postId AND c.status = 'ACTIVE'")
     Integer sumActiveLikeCountByPostId(@Param("postId") Long postId);
@@ -36,11 +48,11 @@ public interface CommentRepository extends JpaRepository<Comment, Long>, Comment
     Integer sumActiveLikeCountByPostIdAndAuthorId(@Param("postId") Long postId, @Param("authorId") Long authorId);
 
     // [시니어 조치] Atomic 좋아요 수 증감
-    @org.springframework.data.jpa.repository.Modifying(clearAutomatically = true)
+    @org.springframework.data.jpa.repository.Modifying
     @Query("UPDATE Comment c SET c.likeCount = c.likeCount + 1 WHERE c.id = :id")
     void incrementLikeCount(@Param("id") Long id);
 
-    @org.springframework.data.jpa.repository.Modifying(clearAutomatically = true)
+    @org.springframework.data.jpa.repository.Modifying
     @Query("UPDATE Comment c SET c.likeCount = CASE WHEN c.likeCount > 0 THEN c.likeCount - 1 ELSE 0 END WHERE c.id = :id")
     void decrementLikeCount(@Param("id") Long id);
 }

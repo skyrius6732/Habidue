@@ -280,18 +280,37 @@
         </div>
 
         <!-- [시니어 조치] 본인일 경우 이펙트 설정 노출 -->
-        <div class="tooltip-effect-settings stagger-item" v-if="(isMe && level >= 50)">
-          <span class="effect-label-mini">MY EFFECT</span>
-          <div class="effect-toggle-group">
-            <button 
-              v-for="eff in specialEffects" :key="eff.id"
-              class="effect-toggle-btn" 
-              :class="{ active: (equippedEffect === eff.id) || (!equippedEffect && !eff.id) }"
-              @click.stop="updateEffect(eff.id)"
-              :disabled="isUpdatingEffect"
-            >
-              {{ eff.icon }}
-            </button>
+        <div class="tooltip-effect-settings stagger-item" v-if="(isMe && (level >= 50 || isAdmin))">
+          <div class="effect-header-mini">
+            <span class="effect-label-mini">MY EFFECT</span>
+            <span v-if="!isAdmin" class="effect-lock-guide">Lv.50 이상 해제</span>
+          </div>
+          
+          <div 
+            class="effect-scroll-viewport"
+            ref="scrollContainer"
+            @mousedown="handleDragStart"
+            @mousemove="handleDragMove"
+            @mouseleave="handleDragEnd"
+            @mouseup="handleDragEnd"
+          >
+            <div class="effect-toggle-group">
+              <button 
+                v-for="eff in specialEffects" :key="eff.id"
+                class="effect-toggle-btn" 
+                :class="{ 
+                  active: (displayEquippedEffect === eff.id) || (!displayEquippedEffect && !eff.id),
+                  locked: !isAdmin && eff.id && level < 50
+                }"
+                @click.stop="isAdmin || !eff.id || level >= 50 ? updateEffect(eff.id, $event) : null"
+                :disabled="isUpdatingEffect"
+                :title="!isAdmin && eff.id && level < 50 ? '레벨 50 달성 시 해제됩니다' : eff.name"
+              >
+                <span class="eff-icon">{{ eff.icon }}</span>
+                <span v-if="!isAdmin && eff.id && level < 50" class="lock-overlay">🔒</span>
+                <span v-if="(displayEquippedEffect === eff.id) || (!displayEquippedEffect && !eff.id)" class="active-check">✓</span>
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -322,9 +341,9 @@ import gsap from 'gsap'
 const specialEffects = [
   { id: null, name: 'OFF', icon: '❌' },
   { id: 'PIONEER_WINGS', name: '화이트윙', icon: '🕊️' },
-  { id: 'GOLD_WINGS', name: '골드', icon: '👑' },
-  { id: 'SILVER_WINGS', name: '실버', icon: '🥈' },
   { id: 'BRONZE_WINGS', name: '브론즈', icon: '🥉' },
+  { id: 'SILVER_WINGS', name: '실버', icon: '🥈' },
+  { id: 'GOLD_WINGS', name: '골드', icon: '👑' },
   { id: 'MAGIC_BUBBLES', name: '버블', icon: '🫧' },
   { id: 'STARRY_NIGHT', name: '별빛', icon: '✨' },
   { id: 'THUNDER_BLUE', name: '번개', icon: '⚡' },
@@ -344,7 +363,7 @@ const specialEffects = [
 
 // 이펙트별 색상 정의
 const wingColors = computed(() => {
-  const effect = props.equippedEffect
+  const effect = displayEquippedEffect.value
   if (effect === 'GOLD_WINGS') return { s1: '#fef08a', s2: '#facc15', s3: '#a16207', glow: 'rgba(250, 204, 21, 0.6)' }
   if (effect === 'SILVER_WINGS') return { s1: '#f8fafc', s2: '#94a3b8', s3: '#475569', glow: 'rgba(148, 163, 184, 0.6)' }
   if (effect === 'BRONZE_WINGS') return { s1: '#fed7aa', s2: '#ea580c', s3: '#7c2d12', glow: 'rgba(234, 88, 12, 0.5)' }
@@ -357,12 +376,14 @@ const props = defineProps({
   level: { type: Number, default: 1 },
   exp: { type: Number, default: 0 },
   badges: { type: Array, default: () => [] },
-  showEffects: { type: Boolean, default: true },
+  showEffects: { type: Boolean, default: true }, // 기본 효과 표시 여부 (fallback)
+  showLevelEffects: { type: Boolean, default: null }, // [표준] 백엔드 showLevelEffects 필드와 직접 매핑
   showAvatar: { type: Boolean, default: false },
   equippedBadgeName: { type: String, default: null },
   karmaPoint: { type: Number, default: 1000 },
   tooltipDirection: { type: String, default: 'right' },
-  equippedEffect: { type: String, default: null } // 장착 중인 특수 효과 코드
+  equippedEffect: { type: String, default: null }, // 장착 중인 특수 효과 코드
+  authorEquippedEffect: { type: String, default: null } // [시니어 대응] 백엔드 DTO 필드명 호환용
 })
 
 const badgeStore = useBadgeStore()
@@ -447,22 +468,51 @@ const isMe = computed(() => {
   return authStore.user && props.userId && String(authStore.user.id) === String(props.userId)
 })
 
-const isWingsEffect = computed(() => props.equippedEffect?.endsWith('_WINGS'))
-const isBubblesEffect = computed(() => props.equippedEffect === 'MAGIC_BUBBLES')
-const isStarsEffect = computed(() => props.equippedEffect === 'STARRY_NIGHT')
-const isThunderEffect = computed(() => props.equippedEffect === 'THUNDER_BLUE')
-const isFlameEffect = computed(() => props.equippedEffect === 'AURORA_FLAME')
-const isIceFrostEffect = computed(() => props.equippedEffect === 'ICE_FROST')
-const isSakuraEffect = computed(() => props.equippedEffect === 'SAKURA_BLOOM')
-const isShadowEffect = computed(() => props.equippedEffect === 'SHADOW_DEMON')
-const isNeonEffect = computed(() => props.equippedEffect === 'NEON_SIGN')
-const isGlitchEffect = computed(() => props.equippedEffect === 'PIXEL_GLITCH')
-const isVoidEffect = computed(() => props.equippedEffect === 'VOID_RIFT')
-const isHeartEffect = computed(() => props.equippedEffect === 'LOVE_HEART')
-const isRainbowEffect = computed(() => props.equippedEffect === 'RAINBOW_WAVE')
-const isShootingStarEffect = computed(() => props.equippedEffect === 'SHOOTING_STAR')
-const isBlackholeEffect = computed(() => props.equippedEffect === 'BLACK_HOLE')
-const isWhiteholeEffect = computed(() => props.equippedEffect === 'WHITE_HOLE')
+const isAdmin = computed(() => authStore.user?.role === 'ROLE_ADMIN')
+
+// [시니어 조치] 닉네임 효과 표시 여부 실시간 동기화 (필드명: showLevelEffects)
+const displayShowEffects = computed(() => {
+  // 1. 백엔드에서 명시적으로 효과 표시 여부를 내려준 경우 (댓글/게시글 리스트 등) 이를 최우선함
+  if (props.showLevelEffects !== null && props.showLevelEffects !== undefined) {
+    // 단, '나'일 경우에는 마이페이지 토글 즉시 반영을 위해 스토어 상태를 우선함
+    if (isMe.value && authStore.user && authStore.user.showLevelEffects !== undefined) {
+      return authStore.user.showLevelEffects
+    }
+    return props.showLevelEffects
+  }
+  
+  // 2. 백엔드 데이터가 없는 경우 (fallback)
+  if (isMe.value && authStore.user && authStore.user.showLevelEffects !== undefined) {
+    return authStore.user.showLevelEffects
+  }
+  
+  return props.showEffects
+})
+
+// [시니어 조치] 실시간 반응성을 위해 스토어와 props를 통합 참조
+const displayEquippedEffect = computed(() => {
+  if (isMe.value && authStore.user) {
+    return authStore.user.equippedEffect
+  }
+  return props.authorEquippedEffect || props.equippedEffect
+})
+
+const isWingsEffect = computed(() => displayEquippedEffect.value?.endsWith('_WINGS'))
+const isBubblesEffect = computed(() => displayEquippedEffect.value === 'MAGIC_BUBBLES')
+const isStarsEffect = computed(() => displayEquippedEffect.value === 'STARRY_NIGHT')
+const isThunderEffect = computed(() => displayEquippedEffect.value === 'THUNDER_BLUE')
+const isFlameEffect = computed(() => displayEquippedEffect.value === 'AURORA_FLAME')
+const isIceFrostEffect = computed(() => displayEquippedEffect.value === 'ICE_FROST')
+const isSakuraEffect = computed(() => displayEquippedEffect.value === 'SAKURA_BLOOM')
+const isShadowEffect = computed(() => displayEquippedEffect.value === 'SHADOW_DEMON')
+const isNeonEffect = computed(() => displayEquippedEffect.value === 'NEON_SIGN')
+const isGlitchEffect = computed(() => displayEquippedEffect.value === 'PIXEL_GLITCH')
+const isVoidEffect = computed(() => displayEquippedEffect.value === 'VOID_RIFT')
+const isHeartEffect = computed(() => displayEquippedEffect.value === 'LOVE_HEART')
+const isRainbowEffect = computed(() => displayEquippedEffect.value === 'RAINBOW_WAVE')
+const isShootingStarEffect = computed(() => displayEquippedEffect.value === 'SHOOTING_STAR')
+const isBlackholeEffect = computed(() => displayEquippedEffect.value === 'BLACK_HOLE')
+const isWhiteholeEffect = computed(() => displayEquippedEffect.value === 'WHITE_HOLE')
 
 const wingLayers = computed(() => {
   const effect = props.equippedEffect
@@ -470,6 +520,33 @@ const wingLayers = computed(() => {
   if (effect === 'SILVER_WINGS') return 3
   return 1
 })
+
+// [드래그 스크롤 로직]
+const scrollContainer = ref(null)
+const isDragging = ref(false)
+const startX = ref(0)
+const scrollLeftState = ref(0)
+
+const handleDragStart = (e) => {
+  if (isUpdatingEffect.value) return 
+  isDragging.value = true
+  startX.value = e.pageX - scrollContainer.value.offsetLeft
+  scrollLeftState.value = scrollContainer.value.scrollLeft
+  scrollContainer.value.style.cursor = 'grabbing'
+}
+
+const handleDragMove = (e) => {
+  if (!isDragging.value) return
+  e.preventDefault()
+  const x = e.pageX - scrollContainer.value.offsetLeft
+  const walk = (x - startX.value) * 2
+  scrollContainer.value.scrollLeft = scrollLeftState.value - walk
+}
+
+const handleDragEnd = () => {
+  isDragging.value = false
+  if (scrollContainer.value) scrollContainer.value.style.cursor = 'grab'
+}
 
 const openMessageModal = () => {
   if (!props.userId) {
@@ -482,25 +559,40 @@ const openMessageModal = () => {
 }
 
 const isUpdatingEffect = ref(false)
-const updateEffect = async (effectId) => {
-  if (!isMe.value || isUpdatingEffect.value) return
-  isUpdatingEffect.value = true
-  try {
-    await axios.patch(`/api/users/${authStore.user.id}/effect`, null, { params: { effectCode: effectId } })
-    if (authStore.user) {
-      authStore.user.equippedEffect = effectId
-    }
-    uiStore.showToast('특수 효과 설정이 변경되었습니다.', 'success')
-  } catch (e) {
-    uiStore.showToast('효과 변경에 실패했습니다.', 'error')
-  } finally {
-    isUpdatingEffect.value = false
+let debounceTimer = null
+
+const updateEffect = (effectId, event) => {
+  if (!isMe.value) return
+  
+  // UI 즉시 업데이트
+  if (authStore.user) {
+    authStore.user.equippedEffect = effectId
   }
+
+  // 클릭 애니메이션
+  if (event && event.currentTarget) {
+    gsap.fromTo(event.currentTarget, 
+      { scale: 0.85 }, 
+      { scale: 1, duration: 0.4, ease: "elastic.out(1.2, 0.5)" }
+    )
+  }
+
+  if (debounceTimer) clearTimeout(debounceTimer)
+  debounceTimer = setTimeout(async () => {
+    isUpdatingEffect.value = true
+    try {
+      await axios.patch(`/api/users/${authStore.user.id}/effect`, null, { params: { effectCode: effectId } })
+    } catch (e) {
+      uiStore.showAlert('효과 저장 실패', '안내')
+    } finally {
+      isUpdatingEffect.value = false
+    }
+  }, 500)
 }
 
 const onMessageSuccess = () => {}
 
-const showParticles = computed(() => props.showEffects && (props.level >= 50))
+const showParticles = computed(() => displayShowEffects.value && (props.level >= 50))
 const particleOptions = computed(() => {
   const lv = props.level
   if (lv >= 100) return { fullScreen: { enable: false }, particles: { number: { value: 15 }, color: { value: "#facc15" }, size: { value: { min: 1, max: 2.5 } }, move: { enable: true, speed: 1.2, direction: "top" } } }
@@ -511,7 +603,7 @@ const particleOptions = computed(() => {
 })
 
 const currentTierClass = computed(() => {
-  if (!props.showEffects) return 'tier-none'
+  if (!displayShowEffects.value) return 'tier-none'
   return `tier-${badgeStore.getAccountTierNumber(props.level)}`
 })
 
@@ -1049,13 +1141,42 @@ onUnmounted(() => { if (themeObserver) themeObserver.disconnect() })
 .msg-send-btn { width: 100%; padding: 6px; border-radius: 8px; border: 1.2px solid var(--tier-color); background: transparent; color: var(--tier-color) !important; font-size: 0.7rem; font-weight: 850; cursor: pointer; transition: all 0.2s; display: flex; align-items: center; justify-content: center; }
 .msg-send-btn:hover { background: var(--tier-color); color: white !important; }
 .beta-badge { font-size: 0.6rem; background: linear-gradient(135deg, #3b82f6, #2563eb); color: white !important; padding: 1px 4px; border-radius: 4px; margin-left: 4px; font-weight: 800; vertical-align: middle; box-shadow: 0 0 5px rgba(37, 99, 235, 0.4); text-transform: uppercase; }
-.tooltip-effect-settings { margin-top: 15px; padding-top: 12px; border-top: 1px dashed var(--tier-color); display: flex; flex-direction: column; gap: 8px; }
+/* [시니어 조치] 툴팁 내 이펙트 설정 스타일 */
+.tooltip-effect-settings {
+  margin-top: 15px; padding-top: 12px; border-top: 1px dashed var(--tier-color); display: flex; flex-direction: column; gap: 8px;
+}
+.effect-header-mini { display: flex; justify-content: space-between; align-items: center; }
 .effect-label-mini { font-size: 0.55rem !important; font-weight: 850; opacity: 0.6; color: var(--tier-color) !important; letter-spacing: 0.05em; }
-.effect-toggle-group { display: flex; gap: 6px; }
-.effect-toggle-btn { flex: 1; height: 32px; border-radius: 8px; border: 1.2px solid var(--tier-color); background: transparent; cursor: pointer; transition: all 0.2s; display: flex; align-items: center; justify-content: center; font-size: 0.9rem; }
-.effect-toggle-btn.active { background: var(--tier-color); border-color: var(--tier-color); }
-.effect-toggle-btn:disabled { opacity: 0.4; cursor: not-allowed; }
-.effect-toggle-btn:not(.active):hover { background: rgba(0,0,0,0.05); }
+.effect-lock-guide { font-size: 0.5rem !important; color: #ff4d4d !important; font-weight: 800; }
+
+.effect-scroll-viewport {
+  overflow-x: auto; scrollbar-width: none; -ms-overflow-style: none;
+  cursor: grab; padding: 2px 0; margin: 0 -4px;
+}
+.effect-scroll-viewport::-webkit-scrollbar { display: none; }
+
+.effect-toggle-group { display: flex; gap: 6px; padding: 0 4px; width: max-content; }
+.effect-toggle-btn { 
+  flex-shrink: 0; width: 34px; height: 34px; border-radius: 10px; border: 1.5px solid var(--tier-color); background: var(--card-bg); cursor: pointer; transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); display: flex; align-items: center; justify-content: center; font-size: 1.1rem; position: relative; overflow: visible;
+}
+.effect-toggle-btn.active { 
+  border-width: 2px; border-color: var(--tier-color); 
+  box-shadow: 0 0 10px var(--tier-color), inset 0 0 5px rgba(255,255,255,0.2);
+  transform: scale(1.05);
+  z-index: 2;
+}
+.effect-toggle-btn.locked { opacity: 0.3; filter: grayscale(1); cursor: not-allowed; border-style: dashed; }
+.effect-toggle-btn:not(.active):not(.locked):hover { background: var(--hover-bg); transform: translateY(-2px); border-color: var(--tier-color); }
+
+.active-check {
+  position: absolute; right: -4px; bottom: -4px; width: 12px; height: 12px; background: #22c55e; color: white; border-radius: 50%; font-size: 8px; display: flex; align-items: center; justify-content: center; font-weight: 950; border: 1.5px solid var(--card-bg); z-index: 10; box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+}
+
+.effect-toggle-btn:disabled { cursor: wait; opacity: 0.7; }
+
+.lock-overlay {
+  position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 0.6rem; background: rgba(0,0,0,0.2);
+}
 
 @media (max-width: 768px) {
   .nickname-tooltip { width: 170px; padding: 10px; border-radius: 12px; }

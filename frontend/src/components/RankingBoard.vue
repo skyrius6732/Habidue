@@ -34,7 +34,6 @@ const fetchRanking = async () => {
     const res = await axios.get('/api/ranking', {
       params: { period: activePeriod.value, category: activeCategory.value, limit: 100 }
     });
-    console.log('📢 랭킹 데이터 수신:', res.data.data); // 디버깅용 로그
     allRankers.value = (res.data.data || []).filter(r => r.exp > 0);
   } catch (e) {
     console.error('랭킹 로드 실패:', e);
@@ -113,27 +112,24 @@ onUnmounted(() => {
       </div>
 
       <!-- [PC 전용 시상대] -->
-      <div class="pc-ranking-showcase pc-only" :class="{ 'glow-active': !loading }" v-if="topRankers.length > 0">
-        <div class="effects-overlay" v-if="!loading">
-          <div class="confetti-container">
-            <div v-for="n in (isMobile ? 150 : 100)" :key="n" class="confetti" 
-                 :class="`c-${n%8}`" 
-                 :style="{ 
-                   left: Math.random() * 100 + '%', 
-                   animationDelay: (Math.random() * 10) + 's',
-                   animationDuration: (10 + Math.random() * 5) + 's'
-                 }"></div>
-          </div>
-          <div class="glass-shimmer"></div>
-        </div>
-
+      <div class="pc-ranking-showcase pc-only" :class="{ 'glow-active': !loading }" v-if="(topRankers.length > 0)">
         <div class="podium-wrapper">
             <!-- 2등 -->
             <div class="podium-column rank-2" v-if="topRankers[1]">
               <div class="podium-card">
                 <div class="medal-circle">🏆</div>
                 <div class="user-avatar-wrap">
-                  <AnimatedNickname :user-id="topRankers[1].userId" :nickname="topRankers[1].nickname" :level="topRankers[1].level" :exp="topRankers[1].exp" :karma-point="topRankers[1].karmaPoint" :equipped-badge-name="topRankers[1].equippedBadgeName" tooltip-direction="top" />
+                  <AnimatedNickname 
+                    :user-id="topRankers[1].userId" 
+                    :nickname="topRankers[1].nickname" 
+                    :level="topRankers[1].level" 
+                    :exp="topRankers[1].exp" 
+                    :karma-point="topRankers[1].karmaPoint" 
+                    :equipped-badge-name="topRankers[1].equippedBadgeName" 
+                    :equipped-effect="topRankers[1].equippedEffect"
+                    :show-level-effects="topRankers[1].showLevelEffects"
+                    tooltip-direction="top" 
+                  />
                 </div>
                 <div class="unified-exp-badge rank-2">
                   <span class="val">{{ topRankers[1].exp.toLocaleString() }}</span>
@@ -148,7 +144,17 @@ onUnmounted(() => {
               <div class="podium-card">
                 <div class="medal-circle gold">👑</div>
                 <div class="user-avatar-wrap main">
-                  <AnimatedNickname :user-id="topRankers[0].userId" :nickname="topRankers[0].nickname" :level="topRankers[0].level" :exp="topRankers[0].exp" :karma-point="topRankers[0].karmaPoint" :equipped-badge-name="topRankers[0].equippedBadgeName" tooltip-direction="top" />
+                  <AnimatedNickname 
+                    :user-id="topRankers[0].userId" 
+                    :nickname="topRankers[0].nickname" 
+                    :level="topRankers[0].level" 
+                    :exp="topRankers[0].exp" 
+                    :karma-point="topRankers[0].karmaPoint" 
+                    :equipped-badge-name="topRankers[0].equippedBadgeName" 
+                    :equipped-effect="topRankers[0].equippedEffect"
+                    :show-level-effects="topRankers[0].showLevelEffects"
+                    tooltip-direction="top" 
+                  />
                 </div>
                 <div class="unified-exp-badge rank-1">
                   <span class="val">{{ topRankers[0].exp.toLocaleString() }}</span>
@@ -163,7 +169,17 @@ onUnmounted(() => {
               <div class="podium-card">
                 <div class="medal-circle">🏆</div>
                 <div class="user-avatar-wrap">
-                  <AnimatedNickname :user-id="topRankers[2].userId" :nickname="topRankers[2].nickname" :level="topRankers[2].level" :exp="topRankers[2].exp" :karma-point="topRankers[2].karmaPoint" :equipped-badge-name="topRankers[2].equippedBadgeName" tooltip-direction="top" />
+                  <AnimatedNickname 
+                    :user-id="topRankers[2].userId" 
+                    :nickname="topRankers[2].nickname" 
+                    :level="topRankers[2].level" 
+                    :exp="topRankers[2].exp" 
+                    :karma-point="topRankers[2].karmaPoint" 
+                    :equipped-badge-name="topRankers[2].equippedBadgeName" 
+                    :equipped-effect="topRankers[2].equippedEffect"
+                    :show-level-effects="topRankers[2].showLevelEffects"
+                    tooltip-direction="top" 
+                  />
                 </div>
                 <div class="unified-exp-badge rank-3">
                   <span class="val">{{ topRankers[2].exp.toLocaleString() }}</span>
@@ -176,7 +192,7 @@ onUnmounted(() => {
       </div>
 
       <!-- [모바일 전용 하이라이트 리스트] -->
-      <div class="mobile-ranking-top mobile-only" v-if="topRankers.length > 0">
+      <div class="mobile-ranking-top mobile-only" v-if="(topRankers.length > 0)">
         <div v-for="(ranker, idx) in topRankers" :key="idx" class="mobile-top-card" :class="`rank-${idx+1}`">
           <div class="m-rank-num">
             <template v-if="idx === 0">👑</template>
@@ -185,7 +201,17 @@ onUnmounted(() => {
             <template v-else>{{ idx + 1 }}</template>
           </div>
           <div class="m-user-info">
-            <AnimatedNickname :user-id="ranker.userId" :nickname="ranker.nickname" :level="ranker.level" :exp="ranker.exp" :karma-point="ranker.karmaPoint" :equipped-badge-name="ranker.equippedBadgeName" tooltip-direction="top" />
+            <AnimatedNickname 
+              :user-id="ranker.userId" 
+              :nickname="ranker.nickname" 
+              :level="ranker.level" 
+              :exp="ranker.exp" 
+              :karma-point="ranker.karmaPoint" 
+              :equipped-badge-name="ranker.equippedBadgeName" 
+              :equipped-effect="ranker.equippedEffect"
+              :show-level-effects="ranker.showLevelEffects"
+              tooltip-direction="top" 
+            />
           </div>
           <div class="unified-exp-badge" :class="`rank-${idx+1}`">
             <span class="val">{{ ranker.exp.toLocaleString() }}</span>
@@ -195,7 +221,7 @@ onUnmounted(() => {
       </div>
 
       <!-- 4위 이하 공통 리스트 -->
-      <div class="general-ranking-list" v-if="generalRankers.length > 0">
+      <div class="general-ranking-list" v-if="(generalRankers.length > 0)">
         <div v-for="(ranker, idx) in generalRankers" :key="idx" 
              class="ranking-item-row" :class="idx + 4 <= 10 ? 'tier-elite' : (idx + 4 <= 30 ? 'tier-rising' : 'tier-normal')">
           <div class="rank-pos-group">
@@ -203,7 +229,18 @@ onUnmounted(() => {
             <span class="rank-diff" :class="getDiffClass(ranker.rankDiff)">{{ getDiffText(ranker.rankDiff) }}</span>
           </div>
           <div class="user-cell">
-            <AnimatedNickname :user-id="ranker.userId" :nickname="ranker.nickname" :level="ranker.level" :exp="ranker.exp" :karma-point="ranker.karmaPoint" :equipped-badge-name="ranker.equippedBadgeName" :show-effects="idx + 4 <= 30" :tooltip-direction="isMobile ? 'top' : 'right'" />
+            <AnimatedNickname 
+              :user-id="ranker.userId" 
+              :nickname="ranker.nickname" 
+              :level="ranker.level" 
+              :exp="ranker.exp" 
+              :karma-point="ranker.karmaPoint" 
+              :equipped-badge-name="ranker.equippedBadgeName" 
+              :show-effects="idx + 4 <= 30" 
+              :equipped-effect="ranker.equippedEffect"
+              :show-level-effects="ranker.showLevelEffects"
+              :tooltip-direction="isMobile ? 'top' : 'right'" 
+            />
           </div>
           <div class="exp-cell">
             <div class="unified-exp-badge" :class="idx + 4 <= 10 ? 'elite' : (idx + 4 <= 30 ? 'rising' : 'normal')">
@@ -216,7 +253,7 @@ onUnmounted(() => {
       </div>
 
       <!-- 데이터 없음 -->
-      <div v-if="!loading && allRankers.length === 0" class="empty-ranking">
+      <div v-if="(!loading && allRankers.length === 0)" class="empty-ranking">
         <span class="empty-icon">🎖️</span>
         <p>이 기간에는 아직 활동한 유저가 없습니다.<br>여러분이 주인공이 되어보세요!</p>
       </div>
@@ -353,7 +390,6 @@ onUnmounted(() => {
   .general-ranking-list { padding: 10px 10px; }
   .rank-pos-group { width: 45px; }
   
-  /* 모바일 경험치 배지 1/4 축소 */
   .unified-exp-badge { padding: 1px 4px; gap: 2px; border-width: 1px; }
   .unified-exp-badge .val { font-size: 0.45rem; }
   .unified-exp-badge .unit { font-size: 0.3rem; }

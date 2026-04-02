@@ -231,6 +231,8 @@ public class RankingService {
                     .karmaPoint(p.getKarmaPoint() != null ? p.getKarmaPoint() : 1000)
                     .rankDiff(isAllTime ? "0" : calculateRankDiff(i + 1, prevRankerIds.indexOf(p.getUserId()) + 1))
                     .equippedBadgeName(badgeName)
+                    .equippedEffect(p.getEquippedEffect())
+                    .showLevelEffects(p.isShowLevelEffects())
                     .build());
         }
 

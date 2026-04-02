@@ -15,6 +15,9 @@ import java.util.Optional;
 public interface NoticeRepository extends JpaRepository<Notice, Long>, NoticeRepositoryCustom {
     Optional<Notice> findByLink(String link);
 
+    @Query("select n from Notice n left join fetch n.noticeTags nt left join fetch nt.tag where n.id = :id")
+    Optional<Notice> findByIdWithTags(@Param("id") Long id);
+
     /**
      * [시니어 조치] 휴면 대상 공고 조회: 
      * 1. 활성 상태이고
