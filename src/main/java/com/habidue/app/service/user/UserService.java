@@ -79,12 +79,11 @@ public class UserService {
     public UserActivityResponseDto getUserActivity(Long userId) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new NoSuchElementException("사용자를 찾을 수 없습니다."));
-        
-        UserActivityStats stats = userActivityStatsRepository.findById(userId)
-                .orElseGet(() -> userActivityStatsRepository.save(UserActivityStats.createEmpty(user)));
+
+        userActivityStatsRepository.insertIgnore(userId);
+        UserActivityStats stats = userActivityStatsRepository.findById(userId).orElseThrow();
 
         List<com.habidue.app.dto.badge.BadgeResponseDto> badges = badgeService.getMyBadgeDtos(user);
-
         List<com.habidue.app.dto.badge.BadgeLevelRuleResponseDto> badgeRules = null;
         try {
             String cachedRules = redisTemplate.opsForValue().get(BADGE_RULES_CACHE_KEY);

@@ -63,23 +63,20 @@ public class UserNoticeService {
             
             // [시니어 조치] 최초 10명 달성 시 소통방 해금 보너스 부여 (+100점)
             // notice.getInterestCount() 대신 Atomic 업데이트 결과인 updatedCount 사용
-            if (updatedCount >= 10) {
-                int activated = noticeRepository.activateBoardIfNotActive(notice.getId());
-                if (activated > 0) {
-                    rankingService.increaseNoticeScore(notice.getId(), com.habidue.app.service.ranking.RankingService.SCORE_BOARD_UNLOCK);
-                }
+            if (updatedCount >= 10 && Boolean.FALSE.equals(notice.getIsBoardActive())) {
+                notice.setIsBoardActive(true);
+                rankingService.increaseNoticeScore(notice.getId(), com.habidue.app.service.ranking.RankingService.SCORE_BOARD_UNLOCK);
             }
-            
+
             saved = userNoticeRepository.save(UserNotice.builder()
                     .user(currentUser).notice(notice)
                     .memo(userNoticeRequestDto.getMemo())
                     .userDeadline(userNoticeRequestDto.getUserDeadline())
                     .build());
-                    
-            if (!userActivityStatsRepository.existsById(currentUser.getId())) {
-                userActivityStatsRepository.save(UserActivityStats.createEmpty(currentUser));
-            }
+
+            userActivityStatsRepository.insertIgnore(currentUser.getId());
             userActivityStatsRepository.incrementNoticeInterestCount(currentUser.getId());
+
             UserActivityStats freshStats = userActivityStatsRepository.findById(currentUser.getId()).orElseThrow();
             badgeService.checkAndAwardBadges(freshStats);
             

@@ -73,15 +73,13 @@ public class CommentService {
         Comment parent = requestDto.getParentId() != null ? commentRepository.findById(requestDto.getParentId()).orElseThrow() : null;
         Comment comment = Comment.builder().content(requestDto.getContent()).post(post).author(author).parent(parent).build();
         postRepository.incrementCommentCount(postId);
-        
+
         // [복구] 유저 활동 통계 원자적 업데이트 및 배지 체크
-        if (!userActivityStatsRepository.existsById(author.getId())) {
-            userActivityStatsRepository.save(UserActivityStats.createEmpty(author));
-        }
+        // existsById -> save 패턴 대신 insertIgnore 사용 (StaleObjectStateException 방지)
+        userActivityStatsRepository.insertIgnore(author.getId());
         userActivityStatsRepository.incrementCommentCount(author.getId());
         UserActivityStats freshStats = userActivityStatsRepository.findById(author.getId()).orElseThrow();
         badgeService.checkAndAwardBadges(freshStats);
-
         Comment savedComment = commentRepository.save(comment);
         
         // [시니어 조치] 실시간 급상승 랭킹 점수 반영 (댓글 작성 +10점)

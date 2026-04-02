@@ -61,8 +61,9 @@ public class AttendanceService {
         Attendance savedAttendance = attendanceRepository.save(attendance);
 
         // [시니어 조치] 연속 출석 통계 업데이트 및 배지 체크
-        UserActivityStats stats = userActivityStatsRepository.findById(user.getId())
-                .orElseGet(() -> userActivityStatsRepository.save(UserActivityStats.createEmpty(user)));
+        // insertIgnore로 데이터 존재 보장 (StaleObjectStateException 방지)
+        userActivityStatsRepository.insertIgnore(user.getId());
+        UserActivityStats stats = userActivityStatsRepository.findById(user.getId()).orElseThrow();
 
         LocalDate yesterday = today.minusDays(1);
         if (stats.getLastAttendanceDate() != null && stats.getLastAttendanceDate().equals(yesterday)) {
@@ -72,10 +73,12 @@ public class AttendanceService {
         }
         stats.incrementAttendanceCount(); // 누적 출석수 증가
         stats.setLastAttendanceDate(today);
-        userActivityStatsRepository.save(stats);
-        
-        badgeService.checkAndAwardBadges(stats); // 배지 엔진 가동
-        
+
+        // [시니어 조치] save() 대신 Dirty Checking에 의존하거나 명시적으로 필드 업데이트 수행
+        // 여기서는 이미 findById로 가져온 엔티티를 수정하므로 트랜잭션 종료 시 자동 반영됨
+        // 단, 더 안전하게 하기 위해 명시적으로 save를 호출하지 않음 (충돌 방지)
+
+        badgeService.checkAndAwardBadges(stats); // 배지 엔진 가동        
         // [시니어 조치] 출석 EXP 부여
         expService.grantExp(user.getId(), ExpReason.ATTENDANCE, "출석 체크");
 
