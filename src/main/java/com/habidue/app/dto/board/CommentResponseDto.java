@@ -20,6 +20,8 @@ public class CommentResponseDto {
     private int authorLevel;
     private long authorExp;
     private int authorKarmaPoint;
+    private String authorEquippedEffect; // [시니어 조치] 작성자 특수 효과 코드
+    private boolean showLevelEffects; // [시니어 조치] 작성자 닉네임 효과 표시 여부
     private String targetAuthorName;
     private Long parentId;
     private Long postId;
@@ -64,6 +66,8 @@ public class CommentResponseDto {
                 .authorLevel(comment.getAuthor().getLevel())
                 .authorExp(comment.getAuthor().getTotalExp())
                 .authorKarmaPoint(comment.getAuthor().getKarmaPoint())
+                .authorEquippedEffect(comment.getAuthor().getEquippedEffect())
+                .showLevelEffects(comment.getAuthor().isShowLevelEffects())
                 .targetAuthorName(comment.getParent() != null ? 
                         (comment.getParent().getAuthor().getNickname() != null ? comment.getParent().getAuthor().getNickname() : comment.getParent().getAuthor().getUsername()) 
                         : null)

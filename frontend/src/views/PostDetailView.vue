@@ -90,6 +90,8 @@
                     :badges="post.authorBadges"
                     :equipped-badge-name="post.authorEquippedBadgeName"
                     :show-effects="post.showLevelEffects"
+                    :show-level-effects="post.showLevelEffects"
+                    :author-equipped-effect="post.authorEquippedEffect"
                     :show-avatar="true"
                     :karma-point="post.authorKarmaPoint"
                   />
@@ -176,6 +178,8 @@
                         :badges="comment.authorBadges"
                         :equipped-badge-name="comment.authorEquippedBadgeName"
                         :show-effects="comment.showLevelEffects"
+                        :show-level-effects="comment.showLevelEffects"
+                        :author-equipped-effect="comment.authorEquippedEffect"
                         :show-avatar="true"
                         :karma-point="comment.authorKarmaPoint"
                       />
@@ -254,6 +258,8 @@
                           :badges="reply.authorBadges"
                           :equipped-badge-name="reply.authorEquippedBadgeName"
                           :show-effects="reply.showLevelEffects"
+                          :show-level-effects="reply.showLevelEffects"
+                          :author-equipped-effect="reply.authorEquippedEffect"
                           :show-avatar="true"
                           :karma-point="reply.authorKarmaPoint"
                         />

@@ -51,6 +51,7 @@ public class CommentService {
     private final com.habidue.app.repository.board.CommentLikeRepository commentLikeRepository;
     private final NotificationService notificationService;
     private final StringRedisTemplate redisTemplate;
+    private final jakarta.persistence.EntityManager entityManager;
 
     private static final String LIKE_NOTI_COOLDOWN_KEY = "like:noti:cooldown:";
 
@@ -67,44 +68,74 @@ public class CommentService {
 
     @Transactional
     public CommentResponseDto createComment(Long postId, CommentRequestDto requestDto) {
-        User author = getCurrentUser();
+        // [시니어 조치] 최후의 수단: 현재 세션의 오염된 프록시(특히 User #1)를 모두 비우고 시작
+        entityManager.clear();
+
+        UserPrincipal principal = (UserPrincipal) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+        User author = userRepository.findById(principal.getId())
+                .orElseThrow(() -> new NoSuchElementException("사용자를 찾을 수 없습니다."));
+        
         if (karmaService.isRestricted(author)) throw new IllegalArgumentException("활동 제한 상태입니다.");
-        Post post = postRepository.findById(postId).orElseThrow();
-        Comment parent = requestDto.getParentId() != null ? commentRepository.findById(requestDto.getParentId()).orElseThrow() : null;
+        
+        // [시니어 조치] 선제적 Fetch Join으로 캐시 채우기
+        Post post = postRepository.findWithAuthorById(postId)
+                .orElseThrow(() -> new NoSuchElementException("게시글을 찾을 수 없습니다."));
+        
+        Comment parent = null;
+        if (requestDto.getParentId() != null) {
+            parent = commentRepository.findWithAuthorById(requestDto.getParentId())
+                    .orElseThrow(() -> new NoSuchElementException("부모 댓글을 찾을 수 없습니다."));
+        }
+
         Comment comment = Comment.builder().content(requestDto.getContent()).post(post).author(author).parent(parent).build();
         postRepository.incrementCommentCount(postId);
 
-        // [복구] 유저 활동 통계 원자적 업데이트 및 배지 체크
-        // existsById -> save 패턴 대신 insertIgnore 사용 (StaleObjectStateException 방지)
         userActivityStatsRepository.insertIgnore(author.getId());
         userActivityStatsRepository.incrementCommentCount(author.getId());
         UserActivityStats freshStats = userActivityStatsRepository.findById(author.getId()).orElseThrow();
         badgeService.checkAndAwardBadges(freshStats);
-        Comment savedComment = commentRepository.save(comment);
         
-        // [시니어 조치] 실시간 급상승 랭킹 점수 반영 (댓글 작성 +10점)
+        Comment savedComment = commentRepository.save(comment);
+        commentRepository.flush();
+
+        // [시니어 조치] 모든 정보를 포함하여 다시 조회
+        Comment freshComment = commentRepository.findByIdWithAllInfo(savedComment.getId())
+                .orElseThrow(() -> new NoSuchElementException("저장된 댓글을 찾을 수 없습니다."));
+        
         if (post.getNotice() != null) {
             rankingService.increaseNoticeScore(post.getNotice().getId(), com.habidue.app.service.ranking.RankingService.SCORE_COMMENT);
         }
         
-        // 경험치 증여
-        expService.grantExp(author.getId(), ExpReason.COMMENT_CREATED, "댓글 작성: " + savedComment.getId());
+        expService.grantExp(author.getId(), ExpReason.COMMENT_CREATED, "댓글 작성: " + freshComment.getId());
         
-        // 알림 발송 (예외가 발생해도 댓글 작성은 성공해야 함)
+        // [시니어 조치] 알림 발송 전 unproxy 처리
         try {
-            sendCommentNotification(savedComment, author);
+            sendCommentNotification(freshComment);
         } catch (Exception e) {
             log.error("Error sending comment notification: {}", e.getMessage());
         }
 
-        // [시니어 조치] 새 댓글은 자식이 없으므로 복잡한 재귀 없이 단순 변환하여 반환
-        return convertToSimpleDto(savedComment);
+        return convertToSimpleDto(freshComment);
     }
 
     /**
-     * [시니어 조치] 새 댓글 작성을 위한 가벼운 DTO 변환 (순환 참조 및 재귀 방지)
+     * [시니어 조치] 프록시 문제를 완벽히 해결하기 위한 안전한 DTO 변환
      */
     private CommentResponseDto convertToSimpleDto(Comment comment) {
+        if (comment == null) return null;
+
+        // [핵심] 프록시를 실제 엔티티로 변환하여 세션 의존성 제거
+        User author = (User) org.hibernate.Hibernate.unproxy(comment.getAuthor());
+        Post post = (Post) org.hibernate.Hibernate.unproxy(comment.getPost());
+        User postAuthor = (User) org.hibernate.Hibernate.unproxy(post.getAuthor());
+        
+        Comment parent = null;
+        User parentAuthor = null;
+        if (comment.getParent() != null) {
+            parent = (Comment) org.hibernate.Hibernate.unproxy(comment.getParent());
+            parentAuthor = (User) org.hibernate.Hibernate.unproxy(parent.getAuthor());
+        }
+
         boolean isAdmin = false;
         Long currentUserId = null;
         try {
@@ -116,27 +147,29 @@ public class CommentService {
             }
         } catch (Exception e) {}
 
-        // from 메서드 대신 직접 빌더 사용 (재귀 차단)
+        // DTO 빌드 (이제 모든 객체는 실제 엔티티이므로 세션 없이도 접근 가능)
         CommentResponseDto dto = CommentResponseDto.builder()
                 .id(comment.getId())
                 .content(comment.getContent())
-                .authorId(comment.getAuthor().getId())
-                .authorName(comment.getAuthor().getNickname() != null ? comment.getAuthor().getNickname() : comment.getAuthor().getUsername())
-                .authorLevel(comment.getAuthor().getLevel())
-                .authorExp(comment.getAuthor().getTotalExp())
-                .authorKarmaPoint(comment.getAuthor().getKarmaPoint())
-                .targetAuthorName(comment.getParent() != null ? 
-                        (comment.getParent().getAuthor().getNickname() != null ? comment.getParent().getAuthor().getNickname() : comment.getParent().getAuthor().getUsername()) 
+                .authorId(author.getId())
+                .authorName(author.getNickname() != null ? author.getNickname() : author.getUsername())
+                .authorLevel(author.getLevel())
+                .authorExp(author.getTotalExp())
+                .authorKarmaPoint(author.getKarmaPoint())
+                .authorEquippedEffect(author.getEquippedEffect())
+                .showLevelEffects(author.isShowLevelEffects())
+                .targetAuthorName(parentAuthor != null ? 
+                        (parentAuthor.getNickname() != null ? parentAuthor.getNickname() : parentAuthor.getUsername()) 
                         : null)
-                .parentId(comment.getParent() != null ? comment.getParent().getId() : null)
-                .postId(comment.getPost().getId())
+                .parentId(parent != null ? parent.getId() : null)
+                .postId(post.getId())
                 .status(comment.getStatus())
                 .createdAt(comment.getCreatedAt().toString())
                 .likeCount(0)
                 .children(new java.util.ArrayList<>())
                 .build();
         
-        dto.setAuthorBadges(userBadgeRepository.findByUserOrderByAcquiredAtDesc(comment.getAuthor()).stream().map(ub -> {
+        dto.setAuthorBadges(userBadgeRepository.findByUserOrderByAcquiredAtDesc(author).stream().map(ub -> {
             String badgeType = ub.getBadge().getCode().replace("_BASE", "");
             com.habidue.app.domain.badge.BadgeLevelRule rule = badgeLevelRuleRepository.findByBadgeTypeAndLevel(badgeType, ub.getLevel());
             return com.habidue.app.dto.badge.BadgeResponseDto.from(ub, rule != null ? rule.getFullDisplayName() : ub.getBadge().getName());
@@ -145,15 +178,18 @@ public class CommentService {
         return dto;
     }
 
-    private void sendCommentNotification(Comment comment, User author) {
-        Post post = comment.getPost();
+    private void sendCommentNotification(Comment comment) {
+        Post post = (Post) org.hibernate.Hibernate.unproxy(comment.getPost());
+        User author = (User) org.hibernate.Hibernate.unproxy(comment.getAuthor());
+        
         if (comment.getParent() != null) {
-            User parentAuthor = comment.getParent().getAuthor();
+            Comment parent = (Comment) org.hibernate.Hibernate.unproxy(comment.getParent());
+            User parentAuthor = (User) org.hibernate.Hibernate.unproxy(parent.getAuthor());
             if (!parentAuthor.getId().equals(author.getId())) {
                 notificationService.send(parentAuthor, NotificationType.REPLY, String.format("↪️ 회원님의 댓글에 새로운 답글이 달렸습니다: \"%s\"", truncateContent(comment.getContent())), comment.getId(), post.getId());
             }
         } else {
-            User postAuthor = post.getAuthor();
+            User postAuthor = (User) org.hibernate.Hibernate.unproxy(post.getAuthor());
             if (!postAuthor.getId().equals(author.getId())) {
                 notificationService.send(postAuthor, NotificationType.COMMENT, String.format("💬 회원님의 게시글에 새로운 댓글이 달렸습니다: \"%s\"", truncateContent(comment.getContent())), comment.getId(), post.getId());
             }
@@ -166,6 +202,12 @@ public class CommentService {
     }
 
     private CommentResponseDto convertToDtoWithBadges(Comment comment) {
+        // [시니어 조치] LazyInitializationException 예방
+        org.hibernate.Hibernate.initialize(comment.getAuthor());
+        if (comment.getParent() != null) {
+            org.hibernate.Hibernate.initialize(comment.getParent().getAuthor());
+        }
+
         boolean isAdmin = false;
         Long currentUserId = null;
         try {

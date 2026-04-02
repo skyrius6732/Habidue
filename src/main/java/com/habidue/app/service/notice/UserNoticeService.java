@@ -47,7 +47,8 @@ public class UserNoticeService {
     @Transactional
     public UserNoticeResponseDto addUserNotice(UserNoticeRequestDto userNoticeRequestDto) {
         User currentUser = getCurrentUser();
-        Notice notice = noticeRepository.findById(userNoticeRequestDto.getNoticeId())
+        // [시니어 조치] Fetch Join을 사용하여 태그까지 한 번에 로드 (성능 최적화 및 에러 방지)
+        Notice notice = noticeRepository.findByIdWithTags(userNoticeRequestDto.getNoticeId())
                 .orElseThrow(() -> new NoSuchElementException("공고를 찾을 수 없습니다. ID: " + userNoticeRequestDto.getNoticeId()));
 
         UserNotice saved;
@@ -83,6 +84,9 @@ public class UserNoticeService {
             // [시니어 조치] 실시간 급상승 랭킹 점수 반영
             rankingService.increaseNoticeScore(notice.getId(), com.habidue.app.service.ranking.RankingService.SCORE_INTEREST);
         }
+
+        // [시니어 조치] User 엔티티는 여전히 지연 로딩 상태일 수 있으므로 강제 초기화 (OSIV가 켜져 있어도 안전장치로 유지)
+        org.hibernate.Hibernate.initialize(saved.getUser());
 
         return new UserNoticeResponseDto(saved);
     }

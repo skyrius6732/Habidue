@@ -27,23 +27,23 @@ public interface PostRepository extends JpaRepository<Post, Long>, PostRepositor
 
     Page<Post> findByAuthorIdAndStatus(Long authorId, String status, Pageable pageable);
 
-    @Modifying(clearAutomatically = true)
+    @Modifying
     @Query("UPDATE Post p SET p.viewCount = p.viewCount + 1 WHERE p.id = :id")
     int incrementViewCount(@Param("id") Long id);
 
-    @Modifying(clearAutomatically = true)
+    @Modifying
     @Query("UPDATE Post p SET p.commentCount = p.commentCount + 1 WHERE p.id = :id")
     int incrementCommentCount(@Param("id") Long id);
 
-    @Modifying(clearAutomatically = true)
+    @Modifying
     @Query("UPDATE Post p SET p.commentCount = CASE WHEN p.commentCount > 0 THEN p.commentCount - 1 ELSE 0 END WHERE p.id = :id")
     int decrementCommentCount(@Param("id") Long id);
 
-    @Modifying(clearAutomatically = true)
+    @Modifying
     @Query("UPDATE Post p SET p.likeCount = p.likeCount + 1 WHERE p.id = :id")
     int incrementLikeCount(@Param("id") Long id);
 
-    @Modifying(clearAutomatically = true)
+    @Modifying
     @Query("UPDATE Post p SET p.likeCount = CASE WHEN p.likeCount > 0 THEN p.likeCount - 1 ELSE 0 END WHERE p.id = :id")
     int decrementLikeCount(@Param("id") Long id);
 

@@ -80,8 +80,9 @@ public class JwtTokenProvider {
         String email = claims.get("email", String.class); // 정보 제공용 이메일 추출
         String statusStr = claims.get("status", String.class);
         UserStatus status = statusStr != null ? UserStatus.valueOf(statusStr) : UserStatus.ACTIVE;
+        String equippedEffect = claims.get("effect", String.class); // [시니어 조치] 이펙트 추출
         
-        UserPrincipal principal = new UserPrincipal(id, email, username, status, authorities);
+        UserPrincipal principal = new UserPrincipal(id, email, username, status, authorities, equippedEffect);
         return new UsernamePasswordAuthenticationToken(principal, token, authorities);
     }
 

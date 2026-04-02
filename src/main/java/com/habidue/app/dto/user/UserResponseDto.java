@@ -28,6 +28,7 @@ public class UserResponseDto {
     private long totalExp;
     private Long equippedBadgeId;
     private boolean showLevelEffects;
+    private String equippedEffect; // [시니어 조치] 장착 중인 특수 효과 코드 추가
     
     @JsonProperty("isOnline")
     private boolean isOnline; // 실시간 접속 여부 추가
@@ -59,10 +60,12 @@ public class UserResponseDto {
         this.totalExp = user.getTotalExp();
         this.equippedBadgeId = user.getEquippedBadgeId();
         this.showLevelEffects = user.isShowLevelEffects();
+        this.equippedEffect = user.getEquippedEffect();
 
         // [시니어] 카르마 시스템 매핑
         this.karmaPoint = user.getKarmaPoint();
         this.restrictedUntil = user.getRestrictedUntil();
 
-        this.isOnline = isOnline;    }
+        this.isOnline = isOnline;
+    }
 }

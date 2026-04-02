@@ -70,6 +70,8 @@
                           :exp="userProfile.totalExp"
                           :badges="activityData?.badges"
                           :show-effects="userProfile.showLevelEffects"
+                          :show-level-effects="userProfile.showLevelEffects"
+                          :author-equipped-effect="userProfile.equippedEffect"
                           :equipped-badge-name="equippedBadgeDisplayName"
                           :karma-point="userProfile.karmaPoint"
                         />
@@ -375,6 +377,8 @@
                         :exp="lv * lv * 50 - 1"
                         :badges="activityData?.badges"
                         :show-effects="true"
+                        :show-level-effects="true"
+                        :author-equipped-effect="lv >= 100 ? 'GOLD_WINGS' : (lv >= 70 ? 'SILVER_WINGS' : (lv >= 50 ? 'BRONZE_WINGS' : null))"
                         :show-avatar="true"
                         tooltip-direction="top"
                       />
@@ -396,6 +400,8 @@
                         :exp="lv * lv * 50 - 1"
                         :badges="activityData?.badges"
                         :show-effects="true"
+                        :show-level-effects="true"
+                        :author-equipped-effect="lv >= 100 ? 'GOLD_WINGS' : (lv >= 70 ? 'SILVER_WINGS' : (lv >= 50 ? 'BRONZE_WINGS' : null))"
                         :show-avatar="true"
                         tooltip-direction="top"
                       />
@@ -889,7 +895,12 @@ const toggleLevelEffects = async () => {
   try {
     await axios.patch('/api/users/me/level-effects', null, { params: { enabled: newValue } })
     userProfile.value.showLevelEffects = newValue
-    if (authStore.user) authStore.user.showLevelEffects = newValue
+    
+    // [시니어] 전역 스토어 및 로컬 스토리지 동기화 (새로고침 대비)
+    if (authStore.user) {
+      authStore.user.showLevelEffects = newValue
+      localStorage.setItem('user', JSON.stringify(authStore.user))
+    }
   } catch (e) {
     await uiStore.showAlert('설정 변경에 실패했습니다.', '오류')
   }

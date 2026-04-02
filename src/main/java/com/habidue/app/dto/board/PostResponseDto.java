@@ -23,6 +23,7 @@ public class PostResponseDto {
     private long authorExp; // [시니어 조치] 작성자 경험치
     private String authorEquippedBadgeName; // [시니어 조치] 장착 중인 대표 배지 명칭
     private boolean showLevelEffects; // [시니어 조치] 작성자 효과 표시 설정
+    private String authorEquippedEffect; // [시니어 조치] 작성자 특수 효과 코드
     private int authorKarmaPoint; // [시니어 조치] 작성자 카르마 점수 추가
     private Long noticeId;
     private String noticeTitle;
@@ -68,6 +69,7 @@ public class PostResponseDto {
                 .authorLevel(post.getAuthor().getLevel())
                 .authorExp(post.getAuthor().getTotalExp())
                 .showLevelEffects(post.getAuthor().isShowLevelEffects())
+                .authorEquippedEffect(post.getAuthor().getEquippedEffect())
                 .authorKarmaPoint(post.getAuthor().getKarmaPoint()) // [시니어] 카르마 매핑
                 .authorEquippedBadgeName(null) // 매퍼에서 후처리 필요 (Service 단에서 처리 권장)
                 .noticeId(post.getNotice() != null ? post.getNotice().getId() : null)

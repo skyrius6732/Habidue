@@ -314,6 +314,8 @@ watch(() => route.query.q, () => fetchSearchResults())
                       :badges="item.post.authorBadges"
                       :equipped-badge-name="item.post.authorEquippedBadgeName"
                       :show-effects="item.post.showLevelEffects"
+                      :show-level-effects="item.post.showLevelEffects"
+                      :author-equipped-effect="item.post.authorEquippedEffect"
                       :show-avatar="true"
                       :karma-point="item.post.authorKarmaPoint"
                     />

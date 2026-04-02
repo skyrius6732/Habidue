@@ -105,6 +105,27 @@ public class UserController {
         return ApiResponse.success("테스트 리포트 발송 요청 완료. 메일함을 확인해 주세요.");
     }
 
+    /**
+     * [시니어 조치] 유저 특수 효과(날개 등) 장착/변경
+     */
+    @PatchMapping("/{id}/effect")
+    @Secured({"ROLE_USER", "ROLE_ADMIN"})
+    public ResponseEntity<ApiResponse<UserResponseDto>> updateEffect(
+            @PathVariable Long id,
+            @RequestParam(required = false) String effectCode) {
+        
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        User currentUser = userRepository.findByUsername(auth.getName()).orElseThrow();
+        
+        // 본인 또는 관리자만 수정 가능
+        if (!currentUser.getId().equals(id) && !currentUser.getRole().name().equals("ROLE_ADMIN")) {
+            return ApiResponse.error(HttpStatus.FORBIDDEN, "권한이 없습니다.", "Forbidden");
+        }
+        
+        User updatedUser = userService.updateEquippedEffect(id, effectCode);
+        return ApiResponse.success(new UserResponseDto(updatedUser));
+    }
+
     @DeleteMapping("/me")
     @Secured("ROLE_USER")
     public ResponseEntity<ApiResponse<Void>> deleteMe() {
