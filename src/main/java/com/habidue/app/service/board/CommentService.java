@@ -74,12 +74,13 @@ public class CommentService {
         Comment comment = Comment.builder().content(requestDto.getContent()).post(post).author(author).parent(parent).build();
         postRepository.incrementCommentCount(postId);
         
-        // [복구] 유저 활동 통계 업데이트 및 배지 체크
-        UserActivityStats stats = userActivityStatsRepository.findById(author.getId())
-                .orElseGet(() -> userActivityStatsRepository.save(UserActivityStats.createEmpty(author)));
-        stats.incrementCommentCount();
-        userActivityStatsRepository.save(stats);
-        badgeService.checkAndAwardBadges(stats);
+        // [복구] 유저 활동 통계 원자적 업데이트 및 배지 체크
+        if (!userActivityStatsRepository.existsById(author.getId())) {
+            userActivityStatsRepository.save(UserActivityStats.createEmpty(author));
+        }
+        userActivityStatsRepository.incrementCommentCount(author.getId());
+        UserActivityStats freshStats = userActivityStatsRepository.findById(author.getId()).orElseThrow();
+        badgeService.checkAndAwardBadges(freshStats);
 
         Comment savedComment = commentRepository.save(comment);
         
@@ -197,31 +198,28 @@ public class CommentService {
 
         java.util.Optional<com.habidue.app.domain.board.CommentLike> existingLike = commentLikeRepository.findByCommentAndUser(comment, currentUser);
         User author = comment.getAuthor();
-        UserActivityStats stats = userActivityStatsRepository.findById(author.getId())
-                .orElseGet(() -> userActivityStatsRepository.save(UserActivityStats.createEmpty(author)));
         String postKey = "POST_ID: " + comment.getPost().getId();
 
         if (existingLike.isPresent()) {
             commentLikeRepository.delete(existingLike.get());
-            comment.decrementLikeCount();
-            stats.decrementCommentLikeReceivedCount(); 
-            
+            commentRepository.decrementLikeCount(commentId);
+            userActivityStatsRepository.decrementCommentLikeReceivedCount(author.getId());
+
             // [시니어 조치] 댓글 좋아요 취소 시 경험치 회수
             expService.revokeExp(author.getId(), ExpReason.RECEIVED_LIKE, "댓글 좋아요 취소: " + comment.getId());
-            
+
             // [시니어 조치] KarmaService가 DB에서 직접 잔여 좋아요를 계산 (null 전달)
-            // comment.decrementLikeCount()로 영속성 컨텍스트 반영 → JPA auto-flush로 DB에도 반영됨
             karmaService.revokeKarma(author.getId(), 1, postKey, com.habidue.app.domain.user.KarmaReason.LIKE_CANCELED, null, 10);
         } else {
             commentLikeRepository.save(com.habidue.app.domain.board.CommentLike.builder().comment(comment).user(currentUser).build());
-            comment.incrementLikeCount();
-            stats.incrementCommentLikeReceivedCount(); 
-            
+            commentRepository.incrementLikeCount(commentId);
+            userActivityStatsRepository.incrementCommentLikeReceivedCount(author.getId());
+
             // 신뢰 점수 회복 시도 (게시글 당 1.0P 상한 공유)
             int gain = 0;
             try {
                 gain = karmaService.restoreKarma(author.getId(), 1, postKey, null, 10, com.habidue.app.domain.user.KarmaReason.LIKE_RECEIVED);
-                
+
                 // [시니어 조치] 댓글 좋아요 수신 시 경험치(열정파) 부여
                 expService.grantExp(author.getId(), ExpReason.RECEIVED_LIKE, "댓글 좋아요 수신: " + comment.getId());
             } catch (Exception e) {
@@ -237,7 +235,7 @@ public class CommentService {
                     String truncatedComment = truncateContent(comment.getContent());
                     String notiContent = String.format("❤️ '%s'님이 회원님의 댓글을 좋아합니다.", currentUser.getNickname());
                     if (gain > 0) notiContent += " (⚖️ 신뢰 점수 +0.1P)";
-                    
+
                     // relatedTargetId에 comment.getId()를 전달하여 프론트에서 포커싱 가능하게 함
                     notificationService.send(author, NotificationType.SYSTEM, notiContent + ": \"" + truncatedComment + "\"", comment.getId(), comment.getPost().getId());
                 }
@@ -245,8 +243,8 @@ public class CommentService {
                 log.error("Error sending like notification: {}", e.getMessage());
             }
         }
-        userActivityStatsRepository.save(stats);
-        badgeService.checkAndAwardBadges(stats); // [복구]
+        UserActivityStats freshStats = userActivityStatsRepository.findById(author.getId()).orElseThrow();
+        badgeService.checkAndAwardBadges(freshStats);
     }
 
     public Page<CommentResponseDto> getComments(Long postId, Pageable pageable) {
@@ -276,7 +274,6 @@ public class CommentService {
         }
         
         User author = comment.getAuthor();
-        UserActivityStats stats = userActivityStatsRepository.findById(author.getId()).orElse(null);
 
         // [시니어 조치] 경험치 회수 (댓글 작성 및 해당 댓글이 받았던 좋아요 경험치 모두 회수)
         expService.revokeExp(author.getId(), ExpReason.COMMENT_CREATED, "댓글 삭제: " + comment.getId());
@@ -301,15 +298,9 @@ public class CommentService {
             rankingService.increaseNoticeScore(comment.getPost().getNotice().getId(), -com.habidue.app.service.ranking.RankingService.SCORE_COMMENT);
         }
 
-        // [시니어 조치] 유저 활동 통계 차감 (마이페이지 반영)
-        if (stats != null) {
-            stats.decrementCommentCount();
-            // 댓글이 받았던 좋아요 수만큼 통계 차감
-            for (int i = 0; i < originalLikeCount; i++) {
-                stats.decrementCommentLikeReceivedCount();
-            }
-            userActivityStatsRepository.save(stats);
-        }
+        // [시니어 조치] 유저 활동 통계 원자적 차감 (마이페이지 반영)
+        userActivityStatsRepository.decrementCommentCount(author.getId());
+        if (originalLikeCount > 0) userActivityStatsRepository.decrementCommentLikeReceivedCountBy(author.getId(), originalLikeCount);
 
         postRepository.decrementCommentCount(comment.getPost().getId());
     }

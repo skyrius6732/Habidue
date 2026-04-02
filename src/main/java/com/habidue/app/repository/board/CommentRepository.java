@@ -34,4 +34,13 @@ public interface CommentRepository extends JpaRepository<Comment, Long>, Comment
     // 게시글 내 특정 작성자의 ACTIVE 댓글(+답글) likeCount 합산 - 유저별 정밀 카르마 계산용
     @Query("SELECT COALESCE(SUM(c.likeCount), 0) FROM Comment c WHERE c.post.id = :postId AND c.author.id = :authorId AND c.status = 'ACTIVE'")
     Integer sumActiveLikeCountByPostIdAndAuthorId(@Param("postId") Long postId, @Param("authorId") Long authorId);
+
+    // [시니어 조치] Atomic 좋아요 수 증감
+    @org.springframework.data.jpa.repository.Modifying
+    @Query("UPDATE Comment c SET c.likeCount = c.likeCount + 1 WHERE c.id = :id")
+    void incrementLikeCount(@Param("id") Long id);
+
+    @org.springframework.data.jpa.repository.Modifying
+    @Query("UPDATE Comment c SET c.likeCount = CASE WHEN c.likeCount > 0 THEN c.likeCount - 1 ELSE 0 END WHERE c.id = :id")
+    void decrementLikeCount(@Param("id") Long id);
 }

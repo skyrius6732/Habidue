@@ -103,12 +103,12 @@ public class PostService {
         }
         Post savedPost = postRepository.save(post);
         
-        // [시니어 조치] 활동 통계 업데이트 (마이페이지 게시글 수 반영)
-        UserActivityStats stats = userActivityStatsRepository.findById(author.getId())
-                .orElseGet(() -> userActivityStatsRepository.save(UserActivityStats.createEmpty(author)));
-        stats.incrementPostCount();
-        if (requestDto.getType() == PostType.REVIEW) stats.incrementReviewPostCount();
-        userActivityStatsRepository.save(stats);
+        // [시니어 조치] 활동 통계 원자적 업데이트 (마이페이지 게시글 수 반영)
+        if (!userActivityStatsRepository.existsById(author.getId())) {
+            userActivityStatsRepository.save(UserActivityStats.createEmpty(author));
+        }
+        userActivityStatsRepository.incrementPostCount(author.getId());
+        if (requestDto.getType() == PostType.REVIEW) userActivityStatsRepository.incrementReviewPostCount(author.getId());
 
         if (savedPost.getNotice() != null) {
             savedPost.getNotice().setLastPostAt(LocalDateTime.now());
@@ -207,11 +207,8 @@ public class PostService {
         post.getTags().forEach(pt -> pt.getTag().getName());
         postRepository.incrementViewCount(postId);
 
-        // [복구] 작성자 활동 통계 업데이트 (조회수 수신)
-        userActivityStatsRepository.findById(post.getAuthor().getId()).ifPresent(stats -> {
-            stats.incrementViewReceivedCount();
-            userActivityStatsRepository.save(stats);
-        });
+        // [복구] 작성자 활동 통계 원자적 업데이트 (조회수 수신)
+        userActivityStatsRepository.incrementViewReceivedCount(post.getAuthor().getId());
 
         PostResponseDto dto = PostResponseDto.from(post);
         fillAuthorBadgeInfo(dto, post.getAuthor());
@@ -236,14 +233,12 @@ public class PostService {
         
         boolean isNowLiked;
         User author = post.getAuthor();
-        UserActivityStats stats = userActivityStatsRepository.findById(author.getId())
-                .orElseGet(() -> userActivityStatsRepository.save(UserActivityStats.createEmpty(author)));
 
         if (postLike.isPresent()) {
             postLikeRepository.delete(postLike.get());
             postRepository.decrementLikeCount(postId);
-            stats.decrementPostLikeReceivedCount(); 
-            
+            userActivityStatsRepository.decrementPostLikeReceivedCount(author.getId());
+
             // [시니어 조치] 본인이 아닐 때만 경험치 회수 (대칭성 확보)
             if (!author.getId().equals(user.getId())) {
                 ExpReason baseReason = determineExpReason(post.getType(), post.getCategory());
@@ -251,13 +246,13 @@ public class PostService {
                                        (baseReason.getCategory() == ExpCategory.REVIEW) ? ExpReason.REVIEW_LIKE : ExpReason.RECEIVED_LIKE;
                 expService.revokeExp(author.getId(), likeReason, "좋아요 취소: " + post.getId());
             }
-            
+
             isNowLiked = false;
         } else {
             postLikeRepository.save(PostLike.builder().post(post).user(user).build());
             postRepository.incrementLikeCount(postId);
-            stats.incrementPostLikeReceivedCount(); 
-            
+            userActivityStatsRepository.incrementPostLikeReceivedCount(author.getId());
+
             // [시니어 조치] 본인이 아닐 때만 경험치 부여 (대칭성 확보)
             if (!author.getId().equals(user.getId())) {
                 ExpReason baseReason = determineExpReason(post.getType(), post.getCategory());
@@ -265,11 +260,11 @@ public class PostService {
                                        (baseReason.getCategory() == ExpCategory.REVIEW) ? ExpReason.REVIEW_LIKE : ExpReason.RECEIVED_LIKE;
                 expService.grantExp(author.getId(), likeReason, "좋아요 수신: " + post.getId());
             }
-            
+
             isNowLiked = true;
         }
-        userActivityStatsRepository.save(stats);
-        badgeService.checkAndAwardBadges(stats); 
+        UserActivityStats freshStats = userActivityStatsRepository.findById(author.getId()).orElseThrow();
+        badgeService.checkAndAwardBadges(freshStats);
 
         if (!post.getAuthor().getId().equals(user.getId())) {
             String postKey = "POST_ID: " + postId;
@@ -389,9 +384,7 @@ public class PostService {
         revokePostRewards(post);
         
         // 2. 통계 보정 (Review 게시판 출입 시)
-        userActivityStatsRepository.findById(author.getId()).ifPresent(stats -> {
-            if (post.getType() == PostType.REVIEW) stats.decrementReviewPostCount();
-        });
+        if (post.getType() == PostType.REVIEW) userActivityStatsRepository.decrementReviewPostCount(author.getId());
 
         // 3. 타입 및 카테고리 실제 업데이트
         post.setType(newType);
@@ -402,10 +395,7 @@ public class PostService {
         grantPostRewards(post);
         
         // 5. 통계 보정 완료
-        userActivityStatsRepository.findById(author.getId()).ifPresent(stats -> {
-            if (post.getType() == PostType.REVIEW) stats.incrementReviewPostCount();
-            userActivityStatsRepository.save(stats);
-        });
+        if (post.getType() == PostType.REVIEW) userActivityStatsRepository.incrementReviewPostCount(author.getId());
         
         postRepository.save(post);
     }
@@ -423,14 +413,10 @@ public class PostService {
         // 2. [정밀 정산] 실제 DB에 살아있는 댓글 개수 파악 (중복 차감 방지의 핵심)
         long activeCommentCount = post.getComments().stream().filter(c -> "ACTIVE".equals(c.getStatus())).count();
         
-        // 3. 활동 통계 원샷 차감 (루프 대신 직접 수치 차감으로 오차 제거)
-        userActivityStatsRepository.findById(author.getId()).ifPresent(stats -> {
-            stats.decrementPostCount();
-            if (post.getType() == PostType.REVIEW) stats.decrementReviewPostCount();
-            // 글 좋아요 차감
-            for (int i = 0; i < post.getLikeCount(); i++) stats.decrementPostLikeReceivedCount();
-            userActivityStatsRepository.save(stats);
-        });
+        // 3. 활동 통계 원자적 차감
+        userActivityStatsRepository.decrementPostCount(author.getId());
+        if (post.getType() == PostType.REVIEW) userActivityStatsRepository.decrementReviewPostCount(author.getId());
+        if (post.getLikeCount() > 0) userActivityStatsRepository.decrementPostLikeReceivedCountBy(author.getId(), post.getLikeCount());
 
         // 4. 게시글 보상 회수
         revokePostRewards(post);
@@ -441,12 +427,9 @@ public class PostService {
                 .filter(c -> "ACTIVE".equals(c.getStatus()))
                 .forEach(comment -> {
                     User cAuthor = comment.getAuthor();
-                    // 통계 차감
-                    userActivityStatsRepository.findById(cAuthor.getId()).ifPresent(cs -> {
-                        cs.decrementCommentCount();
-                        for (int i = 0; i < comment.getLikeCount(); i++) cs.decrementCommentLikeReceivedCount();
-                        userActivityStatsRepository.save(cs);
-                    });
+                    // 통계 원자적 차감
+                    userActivityStatsRepository.decrementCommentCount(cAuthor.getId());
+                    if (comment.getLikeCount() > 0) userActivityStatsRepository.decrementCommentLikeReceivedCountBy(cAuthor.getId(), comment.getLikeCount());
                     // EXP 및 카르마 회수 (이미 보완된 KarmaService 호출)
                     expService.revokeExp(cAuthor.getId(), ExpReason.COMMENT_CREATED, "게시글 삭제 연쇄 회수");
                     for (int i = 0; i < comment.getLikeCount(); i++) {

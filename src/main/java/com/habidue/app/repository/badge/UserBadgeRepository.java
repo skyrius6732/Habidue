@@ -26,4 +26,9 @@ public interface UserBadgeRepository extends JpaRepository<UserBadge, Long> {
     @org.springframework.data.jpa.repository.Modifying
     @org.springframework.data.jpa.repository.Query("DELETE FROM UserBadge ub WHERE ub.user.id = :userId")
     void deleteByUserId(@Param("userId") Long userId);
+
+    // 현재 레벨보다 높을 때만 업데이트 (중복 승급 및 EXP 중복 지급 방지)
+    @org.springframework.data.jpa.repository.Modifying
+    @org.springframework.data.jpa.repository.Query("UPDATE UserBadge ub SET ub.level = :newLevel WHERE ub.id = :id AND ub.level < :newLevel")
+    int updateLevelIfLower(@Param("id") Long id, @Param("newLevel") int newLevel);
 }

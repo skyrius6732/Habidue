@@ -36,33 +36,26 @@ public class ExpService {
      */
     @Transactional
     public void grantExp(Long userId, ExpReason reason, String description) {
-        User user = userRepository.findById(userId).orElse(null);
-        if (user == null) {
-            log.warn("EXP 부여 실패: 사용자를 찾을 수 없습니다. (ID: {})", userId);
-            return;
-        }
-
+        // 1. 원자적 경험치 업데이트 수행
         int expToGrant = reason.getDefaultExp();
+        userRepository.updateExp(userId, expToGrant);
+
+        // 2. 이력 저장을 위한 유저 조회 (업데이트된 값 포함)
+        User user = userRepository.findById(userId).orElseThrow();
         
-        // 1. 경험치 이력 저장
+        // 3. 경험치 이력 저장
         ExpHistory history = ExpHistory.create(user, expToGrant, reason, description);
         expHistoryRepository.save(history);
 
-        // 2. 유저 누적 경험치 업데이트
-        user.setTotalExp(user.getTotalExp() + expToGrant);
-
-        // 3. 레벨업 체크
+        // 4. 레벨업 체크 및 업데이트
         int oldLevel = user.getLevel();
         int newLevel = calculateLevel(user.getTotalExp());
 
         if (newLevel > oldLevel) {
-            user.setLevel(newLevel);
+            userRepository.updateLevel(userId, newLevel);
             log.info("사용자 레벨업! ID: {}, {} -> {}", userId, oldLevel, newLevel);
-            // TODO: 레벨업 축하 알림(Notification) 로직 추가 가능
         }
 
-        userRepository.save(user); // 변경 감지(Dirty Checking)로 업데이트 되지만 명시적 저장
-        
         // [시니어 조치] 경험치 변동 시 랭킹 캐시 즉시 무효화 (실시간 반영)
         rankingService.clearRankingCache();
     }
@@ -77,34 +70,27 @@ public class ExpService {
             log.warn("EXP 회수 건너뜀: 유효하지 않은 사용자 ID (ID: {})", userId);
             return;
         }
-        User user = userRepository.findById(userId).orElse(null);
-        if (user == null) return;
 
+        // 1. 원자적 경험치 차감 수행 (음수 전달)
         int expToRevoke = reason.getDefaultExp();
+        userRepository.updateExp(userId, -expToRevoke);
 
-        // 2. 유저 누적 경험치 차감 (최소 0 유지)
-        long oldExp = user.getTotalExp();
-        long newExp = Math.max(0, oldExp - expToRevoke);
-        int actualRevoked = (int)(oldExp - newExp); // 실제로 차감되는 양 (클리핑 반영)
+        // 2. 이력 저장을 위한 유저 조회
+        User user = userRepository.findById(userId).orElseThrow();
 
-        // 1. 경험치 회수 이력 저장 - 실제 차감된 양으로 저장해야 totalExp와 이력 합산이 일치
-        ExpHistory history = ExpHistory.create(user, -actualRevoked, reason, "[회수] " + description);
+        // 3. 경험치 회수 이력 저장
+        ExpHistory history = ExpHistory.create(user, -expToRevoke, reason, "[회수] " + description);
         expHistoryRepository.save(history);
 
-        user.setTotalExp(newExp);
-        log.info("EXP 회수 처리: UserID {}, {} -> {} (요청:{}, 실제:{})", userId, oldExp, newExp, expToRevoke, actualRevoked);
-
-        // 3. 레벨 재계산 (레벨 다운 가능)
+        // 4. 레벨 재계산 및 업데이트 (레벨 다운 가능)
         int oldLevel = user.getLevel();
         int newLevel = calculateLevel(user.getTotalExp());
 
         if (newLevel < oldLevel) {
-            user.setLevel(newLevel);
+            userRepository.updateLevel(userId, newLevel);
             log.info("사용자 레벨 다운... ID: {}, {} -> {}", userId, oldLevel, newLevel);
         }
 
-        userRepository.save(user);
-        
         // [시니어 조치] 경험치 변동 시 랭킹 캐시 즉시 무효화 (실시간 반영)
         rankingService.clearRankingCache();
     }

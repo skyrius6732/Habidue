@@ -53,12 +53,11 @@ public class NoticeService {
         
         log.info("[KARMA] Running daily dormancy check. Candidates found: {}", dormantNotices.size());
         
-        for (Notice notice : dormantNotices) {
-            // revivedAt을 초기화하여 다시 깨우기(쓰기 권한 획득)를 유도함
-            notice.setRevivedAt(null);
-            log.info("[KARMA] Notice Board {} marked as Dormant due to 7 days of inactivity.", notice.getId());
+        if (!dormantNotices.isEmpty()) {
+            List<Long> ids = dormantNotices.stream().map(Notice::getId).collect(Collectors.toList());
+            noticeRepository.resetRevivedAtByIds(ids);
+            dormantNotices.forEach(n -> log.info("[KARMA] Notice Board {} marked as Dormant due to 7 days of inactivity.", n.getId()));
         }
-        noticeRepository.saveAll(dormantNotices);
     }
 
     // QueryDSL 통합 검색 및 정렬
