@@ -36,11 +36,11 @@ public interface CommentRepository extends JpaRepository<Comment, Long>, Comment
     Integer sumActiveLikeCountByPostIdAndAuthorId(@Param("postId") Long postId, @Param("authorId") Long authorId);
 
     // [시니어 조치] Atomic 좋아요 수 증감
-    @org.springframework.data.jpa.repository.Modifying
+    @org.springframework.data.jpa.repository.Modifying(clearAutomatically = true)
     @Query("UPDATE Comment c SET c.likeCount = c.likeCount + 1 WHERE c.id = :id")
     void incrementLikeCount(@Param("id") Long id);
 
-    @org.springframework.data.jpa.repository.Modifying
+    @org.springframework.data.jpa.repository.Modifying(clearAutomatically = true)
     @Query("UPDATE Comment c SET c.likeCount = CASE WHEN c.likeCount > 0 THEN c.likeCount - 1 ELSE 0 END WHERE c.id = :id")
     void decrementLikeCount(@Param("id") Long id);
 }

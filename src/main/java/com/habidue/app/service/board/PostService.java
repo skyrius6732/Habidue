@@ -102,16 +102,14 @@ public class PostService {
             tagRepository.findAllById(requestDto.getTagIds()).forEach(tag -> post.addPostTag(com.habidue.app.domain.board.PostTag.create(post, tag)));
         }
         Post savedPost = postRepository.save(post);
-        
+
         // [시니어 조치] 활동 통계 원자적 업데이트 (마이페이지 게시글 수 반영)
-        if (!userActivityStatsRepository.existsById(author.getId())) {
-            userActivityStatsRepository.save(UserActivityStats.createEmpty(author));
-        }
+        // existsById -> save 패턴 대신 insertIgnore 사용 (StaleObjectStateException 방지)
+        userActivityStatsRepository.insertIgnore(author.getId());
         userActivityStatsRepository.incrementPostCount(author.getId());
         if (requestDto.getType() == PostType.REVIEW) userActivityStatsRepository.incrementReviewPostCount(author.getId());
 
-        if (savedPost.getNotice() != null) {
-            savedPost.getNotice().setLastPostAt(LocalDateTime.now());
+        if (savedPost.getNotice() != null) {            savedPost.getNotice().setLastPostAt(LocalDateTime.now());
             // [시니어 조치] 실시간 급상승 랭킹 점수 반영 (소통글 작성 +30점)
             rankingService.increaseNoticeScore(savedPost.getNotice().getId(), com.habidue.app.service.ranking.RankingService.SCORE_POST);
         }
