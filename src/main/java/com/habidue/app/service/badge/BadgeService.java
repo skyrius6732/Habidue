@@ -72,16 +72,14 @@ public class BadgeService {
                         return savedUb;
                     });
 
-            // 승급이 필요한 경우 레벨만 갱신
+            // 승급이 필요한 경우 원자적 업데이트 (중복 승급 및 EXP 중복 지급 방지)
             if (userBadge.getLevel() < targetRule.getLevel()) {
-                userBadge.updateLevel(targetRule.getLevel(), null); // displayName에 null 전달
-                userBadgeRepository.saveAndFlush(userBadge);
-                
-                // [시니어 조치] 배지 레벨업 시 보너스 경험치 부여
-                expService.grantExp(stats.getUser().getId(), ExpReason.BADGE_ACQUIRED, "배지 승급: " + targetRule.getRankTitle() + " " + targetRule.getCategoryName());
-                
-                log.info("🎖️ 유저 [{}]님의 [{}] 배지가 Lv.{}로 승급했습니다!", 
-                        stats.getUser().getNickname(), type, targetRule.getLevel());
+                int updated = userBadgeRepository.updateLevelIfLower(userBadge.getId(), targetRule.getLevel());
+                if (updated > 0) {
+                    expService.grantExp(stats.getUser().getId(), ExpReason.BADGE_ACQUIRED, "배지 승급: " + targetRule.getRankTitle() + " " + targetRule.getCategoryName());
+                    log.info("🎖️ 유저 [{}]님의 [{}] 배지가 Lv.{}로 승급했습니다!",
+                            stats.getUser().getNickname(), type, targetRule.getLevel());
+                }
             }
         });
     }

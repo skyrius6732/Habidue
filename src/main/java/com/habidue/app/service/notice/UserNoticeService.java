@@ -59,13 +59,15 @@ public class UserNoticeService {
             if (userNoticeRequestDto.getMemo() != null) un.setMemo(userNoticeRequestDto.getMemo());
             saved = userNoticeRepository.save(un);
         } else {
-            noticeRepository.incrementInterestCount(notice.getId(), 10);
-            notice.setInterestCount((notice.getInterestCount() != null ? notice.getInterestCount() : 0) + 1);
+            long updatedCount = noticeRepository.incrementInterestCount(notice.getId(), 10);
             
             // [시니어 조치] 최초 10명 달성 시 소통방 해금 보너스 부여 (+100점)
-            if (notice.getInterestCount() >= 10 && Boolean.FALSE.equals(notice.getIsBoardActive())) {
-                notice.setIsBoardActive(true);
-                rankingService.increaseNoticeScore(notice.getId(), com.habidue.app.service.ranking.RankingService.SCORE_BOARD_UNLOCK);
+            // notice.getInterestCount() 대신 Atomic 업데이트 결과인 updatedCount 사용
+            if (updatedCount >= 10) {
+                int activated = noticeRepository.activateBoardIfNotActive(notice.getId());
+                if (activated > 0) {
+                    rankingService.increaseNoticeScore(notice.getId(), com.habidue.app.service.ranking.RankingService.SCORE_BOARD_UNLOCK);
+                }
             }
             
             saved = userNoticeRepository.save(UserNotice.builder()
@@ -74,11 +76,12 @@ public class UserNoticeService {
                     .userDeadline(userNoticeRequestDto.getUserDeadline())
                     .build());
                     
-            UserActivityStats stats = userActivityStatsRepository.findById(currentUser.getId())
-                    .orElseGet(() -> userActivityStatsRepository.save(UserActivityStats.createEmpty(currentUser)));
-            stats.incrementNoticeInterestCount();
-            userActivityStatsRepository.save(stats);
-            badgeService.checkAndAwardBadges(stats);
+            if (!userActivityStatsRepository.existsById(currentUser.getId())) {
+                userActivityStatsRepository.save(UserActivityStats.createEmpty(currentUser));
+            }
+            userActivityStatsRepository.incrementNoticeInterestCount(currentUser.getId());
+            UserActivityStats freshStats = userActivityStatsRepository.findById(currentUser.getId()).orElseThrow();
+            badgeService.checkAndAwardBadges(freshStats);
             
             // [시니어 조치] 실시간 급상승 랭킹 점수 반영
             rankingService.increaseNoticeScore(notice.getId(), com.habidue.app.service.ranking.RankingService.SCORE_INTEREST);
@@ -122,10 +125,7 @@ public class UserNoticeService {
         // [시니어 조치] 실시간 급상승 랭킹 점수 차감
         rankingService.increaseNoticeScore(userNoticeToDelete.getNotice().getId(), -com.habidue.app.service.ranking.RankingService.SCORE_INTEREST);
 
-        userActivityStatsRepository.findById(currentUser.getId()).ifPresent(stats -> {
-            stats.decrementNoticeInterestCount();
-            userActivityStatsRepository.save(stats);
-        });
+        userActivityStatsRepository.decrementNoticeInterestCount(currentUser.getId());
     }
 
     @Transactional
@@ -143,9 +143,6 @@ public class UserNoticeService {
         // [시니어 조치] 실시간 급상승 랭킹 점수 차감
         rankingService.increaseNoticeScore(noticeId, -com.habidue.app.service.ranking.RankingService.SCORE_INTEREST);
 
-        userActivityStatsRepository.findById(currentUser.getId()).ifPresent(stats -> {
-            stats.decrementNoticeInterestCount();
-            userActivityStatsRepository.save(stats);
-        });
+        userActivityStatsRepository.decrementNoticeInterestCount(currentUser.getId());
     }
 }

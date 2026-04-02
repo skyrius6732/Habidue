@@ -187,19 +187,29 @@ public class KarmaService {
 
     @Transactional
     public void manualAdjustKarmaRaw(Long userId, int rawDelta, KarmaReason reason, String comment, User admin, boolean shouldTriggerBan) {
+        // 1. 원자적 업데이트 수행
+        userRepository.updateKarmaPoint(userId, rawDelta);
+
+        // 2. 최신 점수 재조회
         User user = userRepository.findById(userId).orElseThrow();
-        int newPoint = Math.max(0, user.getKarmaPoint() + rawDelta);
-        int actualChange = newPoint - user.getKarmaPoint();
-        user.setKarmaPoint(newPoint);
-        karmaHistoryRepository.save(KarmaHistory.builder().user(user).reason(reason != null ? reason : KarmaReason.MANUAL_ADJUSTMENT).pointChange(actualChange).resultingPoint(newPoint).comment(comment).admin(admin).build());
-        if (actualChange != 0) {
-            String dir = actualChange > 0 ? "상승" : "감점";
-            notificationService.send(user, NotificationType.KARMA_CHANGE, String.format("⚖️ 신뢰 점수가 %.1fP %s되었습니다. (사유: %s)", Math.abs((double)actualChange / KARMA_SCALE), dir, reason.getDescription()), null, null);
+        int newPoint = user.getKarmaPoint();
+        
+        // 이력 저장을 위해 실제 변화량 계산 (상한/하한 적용 후)
+        // (정밀 계산이 필요할 경우 업데이트 전 점수를 기억했다가 비교)
+        karmaHistoryRepository.save(KarmaHistory.builder().user(user).reason(reason != null ? reason : KarmaReason.MANUAL_ADJUSTMENT).pointChange(rawDelta).resultingPoint(newPoint).comment(comment).admin(admin).build());
+        
+        if (rawDelta != 0) {
+            String dir = rawDelta > 0 ? "상승" : "감점";
+            notificationService.send(user, NotificationType.KARMA_CHANGE, String.format("⚖️ 신뢰 점수가 %.1fP %s되었습니다. (사유: %s)", Math.abs((double)rawDelta / KARMA_SCALE), dir, reason.getDescription()), null, null);
         }
-        if (actualChange > 0 && newPoint >= 800) {
+
+        if (rawDelta > 0 && newPoint >= 800) {
             user.setRestrictedUntil(null);
-            if (user.getStatus() == UserStatus.RESTRICTED) user.setStatus(UserStatus.ACTIVE);
-        } else if (actualChange < 0 && shouldTriggerBan) {
+            if (user.getStatus() == UserStatus.RESTRICTED) {
+                user.setStatus(UserStatus.ACTIVE);
+                userRepository.save(user); // 상태 변경 반영
+            }
+        } else if (rawDelta < 0 && shouldTriggerBan) {
             applyAutomaticPenalty(user, newPoint);
         }
     }

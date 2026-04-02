@@ -43,4 +43,14 @@ public interface NoticeRepository extends JpaRepository<Notice, Long>, NoticeRep
     long countRecent(@Param("startDate") LocalDateTime startDate);
 
     long countByStatus(NoticeStatus status);
+
+    // isBoardActive가 false인 경우에만 true로 변경 (중복 해금 방지)
+    @org.springframework.data.jpa.repository.Modifying
+    @Query("UPDATE Notice n SET n.isBoardActive = true WHERE n.id = :id AND n.isBoardActive = false")
+    int activateBoardIfNotActive(@Param("id") Long id);
+
+    // 스케줄러용 배치 revivedAt 초기화
+    @org.springframework.data.jpa.repository.Modifying
+    @Query("UPDATE Notice n SET n.revivedAt = null WHERE n.id IN :ids")
+    void resetRevivedAtByIds(@Param("ids") List<Long> ids);
 }

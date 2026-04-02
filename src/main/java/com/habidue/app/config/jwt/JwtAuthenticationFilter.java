@@ -58,11 +58,11 @@ public class JwtAuthenticationFilter extends GenericFilterBean {
                 SecurityContextHolder.getContext().setAuthentication(authentication);
             }
         } catch (ExpiredJwtException e) {
-            jwtAuthenticationEntryPoint.commence(httpServletRequest, httpServletResponse, new BadCredentialsException("만료된 토큰입니다.", e));
-            return;
+            // [시니어 조치] 토큰이 만료되었더라도 즉시 리턴하지 않고 chain.doFilter를 호출함.
+            // 그래야 permitAll() 경로(로그인 등)에 대한 요청이 정상적으로 처리됨.
+            logger.info("만료된 JWT 토큰입니다. uri: {}", requestURI);
         } catch (Exception e) {
-            jwtAuthenticationEntryPoint.commence(httpServletRequest, httpServletResponse, new BadCredentialsException("유효하지 않은 토큰입니다.", e));
-            return;
+            logger.info("유효하지 않은 JWT 토큰입니다. uri: {}, message: {}", requestURI, e.getMessage());
         }
 
         chain.doFilter(request, response);
