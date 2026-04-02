@@ -23,6 +23,41 @@ const editingId = ref(null)
 const masterForm = ref({ code: '', name: '', description: '', type: 'COMMUNITY', badgeTip: '' })
 const ruleForm = ref({ badgeType: '', level: 1, requiredValue: 0, rankEmoji: '', rankTitle: '', categoryName: '' })
 
+// [시니어 조치] 특수 효과 리스트
+const specialEffects = [
+  { id: null, name: '효과 없음' },
+  { id: 'PIONEER_WINGS', name: '🕊️ 화이트 윙 (White)' },
+  { id: 'GOLD_WINGS', name: '👑 골드 윙 (Gold)' },
+  { id: 'SILVER_WINGS', name: '🥈 실버 윙 (Silver)' },
+  { id: 'BRONZE_WINGS', name: '🥉 브론즈 윙 (Bronze)' },
+  { id: 'MAGIC_BUBBLES', name: '🫧 신비로운 버블 (Bubble)' },
+  { id: 'STARRY_NIGHT', name: '✨ 반짝이는 별무리 (Starry)' },
+  { id: 'THUNDER_BLUE', name: '⚡ 푸른 번개 (Thunder)' },
+  { id: 'AURORA_FLAME', name: '🔥 오로라 화염 (Flame)' },
+  { id: 'ICE_FROST', name: '❄️ 얼음 결정 (Frost)' },
+  { id: 'SAKURA_BLOOM', name: '🌸 벚꽃 (Sakura)' },
+  { id: 'SHADOW_DEMON', name: '👹 섀도우 데몬 (Shadow)' },
+  { id: 'NEON_SIGN', name: '🌟 네온 사인 (Neon)' },
+  { id: 'PIXEL_GLITCH', name: '💥 픽셀 글리치 (Glitch)' },
+  { id: 'VOID_RIFT', name: '🌀 보이드 리프트 (Void)' },
+  { id: 'LOVE_HEART', name: '💕 두근두근 하트 (Heart)' },
+  { id: 'RAINBOW_WAVE', name: '🌈 무지개 (Rainbow)' },
+  { id: 'SHOOTING_STAR', name: '🌠 별똥별 (Shooting Star)' },
+  { id: 'BLACK_HOLE', name: '🕳️ 블랙홀 (Black Hole)' },
+  { id: 'WHITE_HOLE', name: '🤍 화이트홀 (White Hole)' }
+]
+
+const updateEffect = async (effectId) => {
+  if (!userProfile.value) return
+  try {
+    await axios.patch(`/api/users/${userProfile.value.id}/effect`, null, { params: { effectCode: effectId } })
+    userProfile.value.equippedEffect = effectId
+    // alert 제거: 즉시 반영되어 시각적 피드백 제공
+  } catch (e) {
+    console.error('이펙트 적용 실패', e)
+  }
+}
+
 const badgeTypes = computed(() => {
   const tabs = [{ id: 'ALL', name: '전체보기' }]
   masters.value.forEach(m => {
@@ -368,6 +403,21 @@ onMounted(fetchInitialData)
           <h3>✨ 등급별 효과 미리보기</h3>
           <p class="section-desc">현재 계정(@{{ userProfile.username }}) 기준 출력</p>
         </div>
+
+        <!-- 특수 효과 샌드박스 (실시간 적용 테스트) -->
+        <div class="effect-sandbox">
+          <label>🪄 본인에게 효과 즉시 적용 테스트</label>
+          <div class="effect-chips">
+            <button 
+              v-for="eff in specialEffects" :key="eff.id"
+              class="chip-btn-v3" :class="{ active: userProfile.equippedEffect === eff.id }"
+              @click="updateEffect(eff.id)"
+            >
+              {{ eff.name }}
+            </button>
+          </div>
+        </div>
+
         <div class="tier-preview-grid">
           <div v-for="lv in previewLevels" :key="lv" class="preview-item">
             <span class="preview-label">Lv.{{ lv }}</span>
@@ -377,6 +427,7 @@ onMounted(fetchInitialData)
               :exp="lv * lv * 50 - 1"
               :badges="activityData?.badges"
               :show-effects="true"
+              :equipped-effect="userProfile.equippedEffect"
               tooltip-direction="top"
             />
           </div>
@@ -392,7 +443,7 @@ onMounted(fetchInitialData)
         <div class="badge-preview-grid">
           <div v-for="testBadge in tierPreviewBadges" :key="testBadge.level" 
             class="badge-card-set" :class="`tier-${testBadge.designTier}`">
-            <div v-if="testBadge.designTier >= 30" class="card-glass-reflection"></div>
+            <div v-if="(testBadge.designTier >= 30)" class="card-glass-reflection"></div>
             <div class="badge-visual-set" :class="`tier-${testBadge.designTier}`">
               <span class="badge-emoji-set">{{ testBadge.emoji }}</span>
             </div>
@@ -496,6 +547,14 @@ code { background: var(--hover-bg); padding: 2px 6px; border-radius: 4px; font-f
 .tier-preview-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 15px; }
 .preview-item { background: var(--bg-color); padding: 15px; border-radius: 12px; border: 1px solid var(--border-color); display: flex; flex-direction: column; align-items: center; gap: 10px; }
 .preview-label { font-size: 0.7rem; font-weight: 800; color: var(--text-secondary); text-transform: uppercase; }
+
+/* --- 특수 효과 샌드박스 --- */
+.effect-sandbox { margin-bottom: 20px; padding: 15px; background: var(--hover-bg); border-radius: 12px; border: 1px solid var(--divider-color); display: flex; flex-direction: column; gap: 10px; }
+.effect-sandbox label { font-size: 0.75rem; font-weight: 850; color: var(--text-secondary); }
+.effect-chips { display: flex; gap: 8px; flex-wrap: wrap; }
+.chip-btn-v3 { padding: 6px 12px; border-radius: 8px; border: 1px solid var(--border-color); background: var(--card-bg); font-size: 0.72rem; font-weight: 800; color: var(--text-primary); cursor: pointer; transition: all 0.2s; }
+.chip-btn-v3.active { background: #facc15; color: #000; border-color: #facc15; box-shadow: 0 4px 10px rgba(250, 204, 21, 0.3); }
+.chip-btn-v3:hover:not(.active) { background: var(--divider-color); }
 
 .badge-preview-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 20px; }
 .empty-preview-state { 

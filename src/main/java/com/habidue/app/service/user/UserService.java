@@ -153,6 +153,19 @@ public class UserService {
         return userRepository.save(user);
     }
 
+    /**
+     * [시니어 조치] 유저의 특수 효과(날개 등) 장착 상태 업데이트
+     */
+    @Transactional
+    public User updateEquippedEffect(Long userId, String effectCode) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new java.util.NoSuchElementException("사용자를 찾을 수 없습니다."));
+        
+        user.setEquippedEffect(effectCode);
+        log.info("유저 [{}]님의 특수 효과가 [{}]로 변경되었습니다.", user.getNickname(), effectCode);
+        return userRepository.save(user);
+    }
+
     @Transactional
     public void deleteUser(Long userId) {
         // [시니어 조치] ID를 기반으로 영속성 컨텍스트 내에서 다시 조회하여 LazyInitialization 방지
