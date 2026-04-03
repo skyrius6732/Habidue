@@ -177,12 +177,16 @@ const vClickOutside = {
 const isMobile = ref(false)
 const updateIsMobile = () => { isMobile.value = window.innerWidth <= 768 }
 
-onMounted(() => {
+onMounted(async () => {
   applyTheme()
   updateIsMobile()
   window.addEventListener('resize', updateIsMobile)
   window.addEventListener('scroll', handleScroll)
+  
   if (authStore.isAuthenticated) {
+    // [시니어 조치] 접속 즉시 프로필 정보를 동기화하여 ownedEffectCodes(보유 이펙트) 등을 확보
+    authStore.fetchUserProfile().catch(() => {})
+    
     notificationStore.initialize((noti) => triggerToast(noti))
     badgeStore.fetchRules()
 
@@ -322,7 +326,7 @@ onUnmounted(() => {
             <span class="avatar-initial">{{ authStore.user?.nickname?.charAt(0) || 'U' }}</span>
           </div>
           <div class="profile-info">
-            <!-- 1행: [Lv · 닉네임] 배지 + 이모지 + 계급명 + 효과 토글 -->
+            <!-- 1행: [Lv · 닉네임] 배지 -->
             <div class="profile-name-row" :class="sidebarTierClass">
               <div class="profile-name-badge">
                 <template v-if="authStore.user?.showLevelEffects && (authStore.user?.level || 0) >= 50">
@@ -337,13 +341,13 @@ onUnmounted(() => {
                   {{ authStore.user?.nickname }}
                 </span>
               </div>
-              <span class="profile-tier-emoji">{{ sidebarEquippedInfo?.emoji || '🌱' }}</span>
-              <span class="profile-tier-title">{{ sidebarEquippedInfo?.rankTitle || '새싹' }}</span>
             </div>
-            <!-- 2행: EXP · P -->
+            <!-- 2행: EXP · P + 이모지 + 계급명 -->
             <div class="profile-stats-row">
               <span class="profile-stat exp">⚡{{ authStore.user?.totalExp || 0 }}EXP</span>
               <span class="profile-stat karma">🛡️{{ ((authStore.user?.karmaPoint || 0) / 10).toFixed(1) }}P</span>
+              <span class="profile-tier-emoji">{{ sidebarEquippedInfo?.emoji || '🌱' }}</span>
+              <span class="profile-tier-title">{{ sidebarEquippedInfo?.rankTitle || '새싹' }}</span>
             </div>
           </div>
         </div>
@@ -613,11 +617,14 @@ body { margin: 0; padding: 0; display: block !important; background-color: var(-
 .sb-tier-100 .av-particle.p6 { animation-duration: 1.5s; }
 .avatar-initial {
   font-size: 1.3rem; font-weight: 900;
-  background: var(--sb-tier-gradient, var(--text-primary));
-  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
-  background-clip: text;
+  color: #ffffff;
 }
-.profile-avatar.sb-tier-1 .avatar-initial { -webkit-text-fill-color: var(--text-secondary); background: none; }
+.dark-mode .avatar-initial {
+  color: #ffffff;
+}
+:root:not(.dark-mode) .avatar-initial {
+  color: #1f2937;
+}
 
 /* 정보 영역 */
 .profile-info { flex: 1; display: flex; flex-direction: column; gap: 5px; min-width: 0; }
@@ -661,19 +668,25 @@ body { margin: 0; padding: 0; display: block !important; background-color: var(-
 .sb-tier-100 .nk-particle.np4 { animation-duration: 1.5s; }
 .profile-lv {
   flex-shrink: 0; font-size: 0.65rem; font-weight: 900; letter-spacing: 0.3px;
-  background: var(--sb-tier-gradient, var(--text-secondary));
-  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
-  background-clip: text;
+  color: #ffffff;
 }
-.profile-name-row.sb-tier-1 .profile-lv { -webkit-text-fill-color: var(--text-secondary); background: none; }
+.dark-mode .profile-lv {
+  color: #ffffff;
+}
+:root:not(.dark-mode) .profile-lv {
+  color: #1f2937;
+}
 .profile-nickname {
   font-size: 0.9rem; font-weight: 850; display: inline-block; position: relative;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0;
-  background: var(--sb-tier-gradient, var(--text-primary));
-  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
-  background-clip: text;
+  color: #ffffff;
 }
-.profile-name-row.sb-tier-1 .profile-nickname { -webkit-text-fill-color: var(--text-primary); background: none; }
+.dark-mode .profile-nickname {
+  color: #ffffff;
+}
+:root:not(.dark-mode) .profile-nickname {
+  color: #1f2937;
+}
 .inner-shine-effect {
   position: absolute; top: 0; left: -100%; width: 50%; height: 100%;
   background: linear-gradient(90deg, transparent, rgba(255,255,255,0.35), transparent);
@@ -686,11 +699,14 @@ body { margin: 0; padding: 0; display: block !important; background-color: var(-
 .profile-tier-emoji { font-size: 0.82rem; flex-shrink: 0; }
 .profile-tier-title {
   font-size: 0.74rem; font-weight: 700; flex-shrink: 0;
-  background: var(--sb-tier-gradient, var(--text-secondary));
-  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
-  background-clip: text;
+  color: #ffffff;
 }
-.profile-name-row.sb-tier-1 .profile-tier-title { -webkit-text-fill-color: var(--text-secondary); background: none; }
+.dark-mode .profile-tier-title {
+  color: #ffffff;
+}
+:root:not(.dark-mode) .profile-tier-title {
+  color: #1f2937;
+}
 
 /* 2행 — EXP · P */
 .profile-stats-row { display: flex; align-items: center; gap: 8px; }
@@ -754,5 +770,16 @@ body { margin: 0; padding: 0; display: block !important; background-color: var(-
   .noti-content { font-size: 0.75rem; line-height: 1.3; }
   .noti-time { font-size: 0.6rem; }
   .unread-dot { width: 5px; height: 5px; right: 8px; }
+
+  /* 모바일 사이드바 프로필 축소 */
+  .profile-avatar { width: 38px; height: 38px; }
+  .avatar-initial { font-size: 0.95rem; }
+  .profile-nickname { font-size: 0.7rem; }
+  .profile-lv { font-size: 0.55rem; }
+  .sidebar-profile-section { gap: 10px; padding: 15px 15px 12px; }
+  .profile-stats-row { gap: 6px; }
+  .profile-stat { font-size: 0.6rem; }
+  .profile-tier-emoji { font-size: 0.65rem; }
+  .profile-tier-title { font-size: 0.6rem; }
 }
 </style>
