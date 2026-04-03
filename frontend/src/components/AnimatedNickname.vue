@@ -856,7 +856,7 @@ onUnmounted(() => { if (themeObserver) themeObserver.disconnect() })
 }
 
 /* 11. PIXEL_GLITCH — 디지털 글리치 */
-.has-glitch .animated-nickname { animation: glitch-base 3s ease-in-out infinite !important; position: relative; }
+.has-glitch .animated-nickname { animation: glitch-base 2s ease-in-out infinite !important; position: relative; }
 /* inner-shine이 닉네임 밖으로 나가지 않도록 클리핑 유지 */
 .has-glitch .animated-nickname .inner-shine-effect { clip-path: inset(0); }
 .has-glitch .animated-nickname::before,
@@ -869,13 +869,13 @@ onUnmounted(() => { if (themeObserver) themeObserver.disconnect() })
   font-size: inherit; font-weight: inherit; letter-spacing: inherit;
 }
 .has-glitch .animated-nickname::before {
-  animation: glitch-slice-r 3s ease-in-out infinite;
+  animation: glitch-slice-r 2s ease-in-out infinite;
   color: #ff00ea !important; -webkit-text-fill-color: #ff00ea !important;
   clip-path: polygon(0 15%, 100% 15%, 100% 38%, 0 38%);
   z-index: 3;
 }
 .has-glitch .animated-nickname::after {
-  animation: glitch-slice-b 3s ease-in-out infinite;
+  animation: glitch-slice-b 2s ease-in-out infinite;
   color: #00ffff !important; -webkit-text-fill-color: #00ffff !important;
   clip-path: polygon(0 58%, 100% 58%, 100% 76%, 0 76%);
   z-index: 3;
@@ -928,15 +928,17 @@ onUnmounted(() => { if (themeObserver) themeObserver.disconnect() })
   pointer-events: none; z-index: 3; width: 100%; height: 80px;
 }
 .rainbow-arch {
+  stroke-dasharray: 240;
+  stroke-dashoffset: 240;
   filter: drop-shadow(0 0 8px rgba(255, 100, 150, 0.5)) drop-shadow(0 0 15px rgba(120, 80, 255, 0.3));
-  animation: rainbow-fade 5s ease-in-out infinite;
+  animation: rainbow-draw-erase 4s ease-in-out infinite;
 }
-@keyframes rainbow-fade {
-  0%   { opacity: 0; transform: translateY(10px); }
-  15%  { opacity: 1; transform: translateY(0); }
-  50%  { opacity: 1; transform: translateY(0); }
-  85%  { opacity: 1; transform: translateY(0); }
-  100% { opacity: 0; transform: translateY(10px); }
+@keyframes rainbow-draw-erase {
+  0%   { stroke-dashoffset: 240; opacity: 1; }
+  25%  { stroke-dashoffset: 0; opacity: 1; }
+  50%  { stroke-dashoffset: 0; opacity: 1; }
+  75%  { stroke-dashoffset: -240; opacity: 1; }
+  100% { stroke-dashoffset: -240; opacity: 1; }
 }
 
 /* 15. SHOOTING_STAR — 별똥별 가로지름 */
