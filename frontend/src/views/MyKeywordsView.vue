@@ -567,6 +567,7 @@
                       :author-equipped-effect="userProfile?.equippedEffect"
                       :equipped-badge-name="equippedBadgeDisplayName"
                       :karma-point="userProfile?.karmaPoint"
+                      :owned-effect-codes="userProfile?.ownedEffectCodes"
                     />
                   </div>
                   <p class="preview-label">미리보기</p>
@@ -899,18 +900,28 @@ const isEffectLocked = (effectId) => {
 // [시니어 조치] 특수 효과 장착 업데이트
 const updateEquippedEffect = async (effectId) => {
   if (!userProfile.value) return
+
+  // 이미 장착된 것을 다시 클릭하면 해제
+  if (effectId === userProfile.value.equippedEffect) {
+    effectId = null
+  }
+
+  // 새로운 효과를 선택할 때만 잠금 체크
   if (effectId && isEffectLocked(effectId)) {
     return
   }
 
   isUpdatingEffect.value = true
   try {
-    await axios.patch(`/api/users/${userProfile.value.id}/effect`, null, { params: { effectCode: effectId } })
+    const res = await axios.patch(`/api/users/${userProfile.value.id}/effect`, null, { params: { effectCode: effectId } })
     userProfile.value.equippedEffect = effectId
     if (authStore.user) {
       authStore.user.equippedEffect = effectId
       localStorage.setItem('user', JSON.stringify(authStore.user))
     }
+    // user_effects 테이블에서 최신 소유 효과 목록 재조회
+    const profileRes = await axios.get('/api/users/me')
+    userProfile.value.ownedEffectCodes = profileRes.data.data.ownedEffectCodes
   } catch (e) {
     // 실패 시에도 조용히 처리
   } finally {
@@ -1063,7 +1074,7 @@ const searchResults = ref([])
 const selectedIndex = ref(-1) 
 const dropdownRef = ref(null)
 const selectedItemRef = ref(null)
-const userProfile = ref(null)
+const userProfile = ref({ ownedEffectCodes: [] })
 const activityData = ref(null)
 const karmaHistory = ref([]) // [시니어] 활동 신뢰 점수 변동 이력 추가
 const isKarmaHistoryOpen = ref(false) // [시니어] 아코디언 상태 (기본: 접힘)
@@ -1364,8 +1375,8 @@ const getKarmaClass = (point) => {
 }
 
 onMounted(async () => {
+  await fetchUserProfile();
   fetchMyTags();
-  fetchUserProfile();
   fetchUserActivity();
   fetchKarmaHistory();
   messageStore.fetchReceivedMessages(); // 진입 시 쪽지함 데이터 로드
@@ -1934,8 +1945,9 @@ onMounted(async () => {
   box-shadow: 0 2px 8px rgba(34, 197, 94, 0.4);
 }
 .tier-preview-card.is-equipped {
-  border-color: #22c55e !important;
-  background: rgba(34, 197, 94, 0.03);
+  background: rgba(139, 139, 139, 0.12);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  transform: scale(1.05);
 }
 .tier-preview-lv { font-size: 0.68rem; font-weight: 900; color: var(--t-color, var(--text-secondary)); letter-spacing: 0.02em; }
 
@@ -2001,15 +2013,16 @@ onMounted(async () => {
 }
 
 .effect-card:hover:not(.is-locked) {
-  transform: translateY(-2px);
-  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.1);
+  transform: translateY(-4px) scale(1.08);
+  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.12);
+  background: rgba(139, 139, 139, 0.15);
   border-color: var(--link-color);
 }
 
 .effect-card.is-equipped {
-  border-color: #22c55e !important;
-  background: rgba(34, 197, 94, 0.08);
-  box-shadow: 0 0 0 2px rgba(34, 197, 94, 0.2);
+  background: rgba(139, 139, 139, 0.12);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  transform: scale(1.05);
 }
 
 .effect-card.is-locked {
