@@ -23,6 +23,7 @@ public class CommentResponseDto {
     private String authorEquippedEffect; // [시니어 조치] 작성자 특수 효과 코드
     private boolean showLevelEffects; // [시니어 조치] 작성자 닉네임 효과 표시 여부
     private boolean showEquippedEffect; // [시니어 조치] 작성자 이펙트 효과 표시 여부
+    private Integer authorEquippedTier; // [시니어 조치] 작성자 장착 티어 스타일
     private String targetAuthorName;
     private Long parentId;
     private Long postId;
@@ -70,6 +71,7 @@ public class CommentResponseDto {
                 .authorEquippedEffect(comment.getAuthor().getEquippedEffect())
                 .showLevelEffects(comment.getAuthor().isShowLevelEffects())
                 .showEquippedEffect(comment.getAuthor().isShowEquippedEffect()) // [시니어 조치] 이펙트 표시 여부 매핑
+                .authorEquippedTier(comment.getAuthor().getEquippedTier())
                 .targetAuthorName(comment.getParent() != null ? 
                         (comment.getParent().getAuthor().getNickname() != null ? comment.getParent().getAuthor().getNickname() : comment.getParent().getAuthor().getUsername()) 
                         : null)

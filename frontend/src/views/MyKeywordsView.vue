@@ -365,7 +365,12 @@
                   v-for="lv in tierPreviewLevels"
                   :key="lv"
                   class="tier-preview-card"
-                  :class="[`tier-${lv}`, { 'is-locked': lv > userCurrentTier, 'is-unlocked': lv <= userCurrentTier }]"
+                  :class="[`tier-${lv}`, { 
+                    'is-locked': lv > userCurrentTier, 
+                    'is-unlocked': lv <= userCurrentTier,
+                    'is-equipped': userProfile?.equippedTier === lv || (!userProfile?.equippedTier && badgeStore.getAccountTierNumber(userProfile?.level) === lv)
+                  }]"
+                  @click="lv <= userCurrentTier || authStore.isAdmin ? updateEquippedTier(lv) : null"
                 >
                   <!-- 잠긴 카드: 블러 미리보기 + 잠금 오버레이 -->
                   <template v-if="lv > userCurrentTier">
@@ -392,7 +397,8 @@
 
                   <!-- 해금된 카드 -->
                   <template v-else>
-                    <span class="tier-unlocked-badge">✓ 달성</span>
+                    <span v-if="userProfile?.equippedTier === lv || (!userProfile?.equippedTier && badgeStore.getAccountTierNumber(userProfile?.level) === lv)" class="tier-equipped-badge">장착중</span>
+                    <span v-else class="tier-unlocked-badge">✓ 해금됨</span>
                     <div class="tier-card-content">
                       <span class="tier-preview-lv">Lv.{{ lv }}</span>
                       <AnimatedNickname
@@ -741,6 +747,80 @@ const router = useRouter()
 const activeTab = ref(route.query.tab || 'activity')
 const activeSubTab = ref('posts')
 const isRestoring = ref(false)
+
+// [시니어 조치] 특수 효과 리스트
+const specialEffectsList = [
+  { id: null, name: '효과 없음', icon: '🚫' },
+  { id: 'PIONEER_WINGS', name: '🕊️ 화이트 윙 (White)', icon: '🕊️' },
+  { id: 'BRONZE_WINGS', name: '🥉 브론즈 윙 (Bronze)', icon: '🥉' },
+  { id: 'SILVER_WINGS', name: '🥈 실버 윙 (Silver)', icon: '🥈' },
+  { id: 'GOLD_WINGS', name: '👑 골드 윙 (Gold)', icon: '👑' },
+  { id: 'MAGIC_BUBBLES', name: '🫧 신비로운 버블 (Bubble)', icon: '🫧' },
+  { id: 'STARRY_NIGHT', name: '✨ 반짝이는 별무리 (Starry)', icon: '✨' },
+  { id: 'THUNDER_BLUE', name: '⚡ 푸른 번개 (Thunder)', icon: '⚡' },
+  { id: 'AURORA_FLAME', name: '🔥 오로라 화염 (Flame)', icon: '🔥' },
+  { id: 'ICE_FROST', name: '❄️ 얼음 결정 (Frost)', icon: '❄️' },
+  { id: 'SAKURA_BLOOM', name: '🌸 벚꽃 (Sakura)', icon: '🌸' },
+  { id: 'SHADOW_DEMON', name: '👹 섀도우 데몬 (Shadow)', icon: '👹' },
+  { id: 'NEON_SIGN', name: '🌟 네온 사인 (Neon)', icon: '🌟' },
+  { id: 'PIXEL_GLITCH', name: '💥 픽셀 글리치 (Glitch)', icon: '💥' },
+  { id: 'VOID_RIFT', name: '🌀 보이드 리프트 (Void)', icon: '🌀' },
+  { id: 'LOVE_HEART', name: '💕 두근두근 하트 (Heart)', icon: '💕' },
+  { id: 'RAINBOW_WAVE', name: '🌈 무지개 (Rainbow)', icon: '🌈' },
+  { id: 'SHOOTING_STAR', name: '🌠 별똥별 (Shooting Star)', icon: '🌠' },
+  { id: 'BLACK_HOLE', name: '🕳️ 블랙홀 (Black Hole)', icon: '🕳️' },
+  { id: 'WHITE_HOLE', name: '🤍 화이트홀 (White Hole)', icon: '🤍' }
+]
+
+const isUpdatingEffect = ref(false)
+const isUpdatingTier = ref(false)
+
+// [시니어 조치] 특수 효과 장착 업데이트
+const updateEquippedEffect = async (effectId) => {
+  if (!userProfile.value) return
+  if (userProfile.value.level < 50 && !authStore.isAdmin) {
+    uiStore.showAlert('레벨 50 달성 시 해금됩니다.', '안내')
+    return
+  }
+
+  isUpdatingEffect.value = true
+  try {
+    await axios.patch(`/api/users/${userProfile.value.id}/effect`, null, { params: { effectCode: effectId } })
+    userProfile.value.equippedEffect = effectId
+    if (authStore.user) {
+      authStore.user.equippedEffect = effectId
+      localStorage.setItem('user', JSON.stringify(authStore.user))
+    }
+  } catch (e) {
+    uiStore.showAlert('효과 장착에 실패했습니다.', '오류')
+  } finally {
+    isUpdatingEffect.value = false
+  }
+}
+
+// [시니어 조치] 닉네임 스타일 티어 장착 업데이트
+const updateEquippedTier = async (tier) => {
+  if (!userProfile.value) return
+  if (tier > userProfile.value.level && !authStore.isAdmin) {
+    uiStore.showAlert('해당 레벨 달성 시 장착 가능합니다.', '안내')
+    return
+  }
+
+  isUpdatingTier.value = true
+  try {
+    await axios.patch('/api/users/me/nickname-tier', null, { params: { tier } })
+    userProfile.value.equippedTier = tier
+    if (authStore.user) {
+      authStore.user.equippedTier = tier
+      localStorage.setItem('user', JSON.stringify(authStore.user))
+    }
+    await uiStore.showAlert(`Lv.${tier} 스타일이 장착되었습니다.`, '알림')
+  } catch (e) {
+    uiStore.showAlert('스타일 변경에 실패했습니다.', '오류')
+  } finally {
+    isUpdatingTier.value = false
+  }
+}
 
 // [신규] 내 활동 데이터 상태
 const myPosts = ref([])
@@ -1708,6 +1788,17 @@ onMounted(async () => {
   font-size: 0.58rem; font-weight: 900;
   background: var(--t-color, var(--link-color)); color: white;
   padding: 2px 6px; border-radius: 20px; z-index: 5;
+}
+.tier-equipped-badge {
+  position: absolute; top: 8px; right: 8px;
+  font-size: 0.58rem; font-weight: 900;
+  background: #22c55e; color: white;
+  padding: 2px 6px; border-radius: 20px; z-index: 10;
+  box-shadow: 0 2px 8px rgba(34, 197, 94, 0.4);
+}
+.tier-preview-card.is-equipped {
+  border-color: #22c55e !important;
+  background: rgba(34, 197, 94, 0.03);
 }
 .tier-preview-lv { font-size: 0.68rem; font-weight: 900; color: var(--t-color, var(--text-secondary)); letter-spacing: 0.02em; }
 

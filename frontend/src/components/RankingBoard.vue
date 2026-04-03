@@ -138,6 +138,7 @@ onUnmounted(() => {
                     :equipped-badge-name="topRankers[1].equippedBadgeName" 
                     :equipped-effect="topRankers[1].equippedEffect"
                     :show-equipped-effect="topRankers[1].showEquippedEffect"
+                    :equipped-tier="topRankers[1].equippedTier"
                     :show-level-effects="topRankers[1].showLevelEffects"                    tooltip-direction="top" 
                   />
                 </div>
@@ -163,6 +164,7 @@ onUnmounted(() => {
                     :equipped-badge-name="topRankers[0].equippedBadgeName" 
                     :equipped-effect="topRankers[0].equippedEffect"
                     :show-equipped-effect="topRankers[0].showEquippedEffect"
+                    :equipped-tier="topRankers[0].equippedTier"
                     :show-level-effects="topRankers[0].showLevelEffects"                    tooltip-direction="top" 
                   />
                 </div>
@@ -188,6 +190,7 @@ onUnmounted(() => {
                     :equipped-badge-name="topRankers[2].equippedBadgeName" 
                     :equipped-effect="topRankers[2].equippedEffect"
                     :show-equipped-effect="topRankers[2].showEquippedEffect"
+                    :equipped-tier="topRankers[2].equippedTier"
                     :show-level-effects="topRankers[2].showLevelEffects"                    tooltip-direction="top" 
                   />
                 </div>
@@ -220,6 +223,7 @@ onUnmounted(() => {
               :equipped-badge-name="ranker.equippedBadgeName" 
               :equipped-effect="ranker.equippedEffect"
               :show-equipped-effect="ranker.showEquippedEffect"
+              :equipped-tier="ranker.equippedTier"
               :show-level-effects="ranker.showLevelEffects"              tooltip-direction="top" 
             />
           </div>
@@ -249,6 +253,7 @@ onUnmounted(() => {
               :show-effects="idx + 4 <= 30" 
               :equipped-effect="ranker.equippedEffect"
               :show-equipped-effect="ranker.showEquippedEffect"
+              :equipped-tier="ranker.equippedTier"
               :show-level-effects="ranker.showLevelEffects"              :tooltip-direction="isMobile ? 'top' : 'right'" 
             />
           </div>

@@ -22,4 +22,5 @@ public class RankerResponseDto {
     private String equippedEffect; // [시니어 조치] 특수 효과 코드
     private boolean showLevelEffects; // [시니어 조치] 효과 표시 여부
     private boolean showEquippedEffect; // [시니어 조치] 이펙트 효과 표시 여부 추가
+    private Integer equippedTier; // [시니어 조치] 장착 중인 티어 스타일
 }

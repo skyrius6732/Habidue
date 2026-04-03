@@ -193,6 +193,7 @@ public class RankingService {
                     .equippedEffect(p.getEquippedEffect())
                     .showLevelEffects(p.isShowLevelEffects())
                     .showEquippedEffect(p.isShowEquippedEffect())
+                    .equippedTier(p.getEquippedTier())
                     .build());
         }
 
@@ -227,6 +228,7 @@ public class RankingService {
                 dto.setNickname(user.getNickname() != null ? user.getNickname() : user.getUsername());
                 dto.setLevel(user.getLevel());
                 dto.setKarmaPoint(user.getKarmaPoint());
+                dto.setEquippedTier(user.getEquippedTier());
                 dto.setEquippedEffect(user.getEquippedEffect());
                 dto.setShowLevelEffects(user.isShowLevelEffects());
                 dto.setShowEquippedEffect(user.isShowEquippedEffect());

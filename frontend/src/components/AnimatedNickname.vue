@@ -437,6 +437,9 @@ const props = defineProps({
   equippedBadgeName: { type: String, default: null },
   karmaPoint: { type: Number, default: 1000 },
   tooltipDirection: { type: String, default: 'right' },
+  showEquippedEffect: { type: Boolean, default: null }, // [시니어 조치] 이펙트 효과 표시 설정 직접 매핑
+  effectOnly: { type: Boolean, default: false }, // [시니어 조치] 닉네임 없이 이펙트만 렌더링하는 모드
+  equippedTier: { type: Number, default: null }, // [시니어 조치] 장착 중인 티어 스타일
   equippedEffect: { type: String, default: null }, // 장착 중인 특수 효과 코드
   authorEquippedEffect: { type: String, default: null } // [시니어 대응] 백엔드 DTO 필드명 호환용
 })
@@ -647,7 +650,21 @@ const particleOptions = computed(() => {
 
 const currentTierClass = computed(() => {
   if (!displayShowEffects.value) return 'tier-none'
-  return `tier-${badgeStore.getAccountTierNumber(props.level)}`
+  
+  // 1. 장착된 티어 스타일 확인
+  let tierValue = props.equippedTier
+  if (tierValue === null || tierValue === undefined) {
+    if (isMe.value && authStore.user && authStore.user.equippedTier !== undefined) {
+      tierValue = authStore.user.equippedTier
+    }
+  }
+
+  // 2. 장착된 티어가 없으면 현재 레벨 기준 자동 티어
+  if (tierValue === null || tierValue === undefined) {
+    tierValue = badgeStore.getAccountTierNumber(props.level)
+  }
+
+  return `tier-${tierValue}`
 })
 
 const nextLevelExp = computed(() => props.level * props.level * 50)

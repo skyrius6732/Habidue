@@ -222,6 +222,25 @@ public class UserController {
     }
 
     /**
+     * [시니어 조치] 장착 중인 닉네임 스타일 티어 변경
+     */
+    @PatchMapping("/me/nickname-tier")
+    @Secured("ROLE_USER")
+    public ResponseEntity<ApiResponse<UserResponseDto>> updateEquippedTier(@RequestParam(required = false) Integer tier) {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        User user = userRepository.findByUsername(auth.getName()).orElseThrow();
+        
+        // 검증: 본인 레벨보다 높은 티어는 장착 불가 (관리자 제외)
+        if (tier != null && tier > user.getLevel() && !user.getRole().name().equals("ROLE_ADMIN")) {
+            return ApiResponse.error(HttpStatus.BAD_REQUEST, "해당 레벨 달성 후 장착 가능합니다.", "Invalid Tier");
+        }
+
+        user.setEquippedTier(tier);
+        userRepository.save(user);
+        return ApiResponse.success(new UserResponseDto(user));
+    }
+
+    /**
      * [시니어 조치] 내 활동 신뢰 점수(Karma) 변동 이력 조회
      */
     @GetMapping("/me/karma-history")

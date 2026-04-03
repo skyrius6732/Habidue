@@ -316,9 +316,9 @@ watch(() => route.query.q, () => fetchSearchResults())
                       :show-effects="item.post.showLevelEffects"
                       :show-level-effects="item.post.showLevelEffects"
                       :show-equipped-effect="item.post.showEquippedEffect"
+                      :equipped-tier="item.post.authorEquippedTier"
                       :author-equipped-effect="item.post.authorEquippedEffect"
-                      :show-avatar="true"
-                      :karma-point="item.post.authorKarmaPoint"
+                      :show-avatar="true"                      :karma-point="item.post.authorKarmaPoint"
                     />                  </div>
                   <span class="post-date-v2">{{ formatDate(item.post.createdAt) }}</span>
                 </div>
