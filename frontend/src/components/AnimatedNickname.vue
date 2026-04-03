@@ -356,35 +356,73 @@ import gsap from 'gsap'
 
 // [시니어 조치] 특수 효과 리스트
 const specialEffects = [
-  { id: null, name: 'OFF', icon: '❌' },
-  { id: 'PIONEER_WINGS', name: '화이트윙', icon: '🕊️' },
-  { id: 'BRONZE_WINGS', name: '브론즈', icon: '🥉' },
-  { id: 'SILVER_WINGS', name: '실버', icon: '🥈' },
-  { id: 'GOLD_WINGS', name: '골드', icon: '👑' },
-  { id: 'MAGIC_BUBBLES', name: '버블', icon: '🫧' },
-  { id: 'STARRY_NIGHT', name: '별빛', icon: '✨' },
-  { id: 'THUNDER_BLUE', name: '번개', icon: '⚡' },
-  { id: 'AURORA_FLAME', name: '화염', icon: '🔥' },
-  { id: 'ICE_FROST', name: '서리', icon: '❄️' },
-  { id: 'SAKURA_BLOOM', name: '벚꽃', icon: '🌸' },
-  { id: 'SHADOW_DEMON', name: '데몬', icon: '👹' },
-  { id: 'NEON_SIGN', name: '네온', icon: '🌟' },
-  { id: 'PIXEL_GLITCH', name: '글리치', icon: '💥' },
-  { id: 'VOID_RIFT', name: '보이드', icon: '🌀' },
-  { id: 'LOVE_HEART', name: '하트', icon: '💕' },
-  { id: 'RAINBOW_WAVE', name: '무지개', icon: '🌈' },
-  { id: 'SHOOTING_STAR', name: '별똥별', icon: '🌠' },
-  { id: 'BLACK_HOLE', name: '블랙홀', icon: '🕳️' },
-  { id: 'WHITE_HOLE', name: '화이트홀', icon: '🤍' }
+  { id: null, name: '효과 없음', icon: '🚫' },
+  { id: 'PIONEER_WINGS', name: '🕊️ 화이트 윙 (White)', icon: '🕊️' },
+  { id: 'BRONZE_WINGS', name: '🥉 브론즈 윙 (Bronze)', icon: '🥉' },
+  { id: 'SILVER_WINGS', name: '🥈 실버 윙 (Silver)', icon: '🥈' },
+  { id: 'GOLD_WINGS', name: '👑 골드 윙 (Gold)', icon: '👑' },
+  { id: 'MAGIC_BUBBLES', name: '🫧 신비로운 버블 (Bubble)', icon: '🫧' },
+  { id: 'STARRY_NIGHT', name: '✨ 반짝이는 별무리 (Starry)', icon: '✨' },
+  { id: 'THUNDER_BLUE', name: '⚡ 푸른 번개 (Thunder)', icon: '⚡' },
+  { id: 'AURORA_FLAME', name: '🔥 오로라 화염 (Flame)', icon: '🔥' },
+  { id: 'ICE_FROST', name: '❄️ 얼음 결정 (Frost)', icon: '❄️' },
+  { id: 'SAKURA_BLOOM', name: '🌸 벚꽃 (Sakura)', icon: '🌸' },
+  { id: 'SHADOW_DEMON', name: '👹 섀도우 데몬 (Shadow)', icon: '👹' },
+  { id: 'NEON_SIGN', name: '🌟 네온 사인 (Neon)', icon: '🌟' },
+  { id: 'PIXEL_GLITCH', name: '💥 픽셀 글리치 (Glitch)', icon: '💥' },
+  { id: 'VOID_RIFT', name: '🌀 보이드 리프트 (Void)', icon: '🌀' },
+  { id: 'LOVE_HEART', name: '💕 두근두근 하트 (Heart)', icon: '💕' },
+  { id: 'RAINBOW_WAVE', name: '🌈 무지개 (Rainbow)', icon: '🌈' },
+  { id: 'SHOOTING_STAR', name: '🌠 별똥별 (Shooting Star)', icon: '🌠' },
+  { id: 'BLACK_HOLE', name: '🕳️ 블랙홀 (Black Hole)', icon: '🕳️' },
+  { id: 'WHITE_HOLE', name: '🤍 화이트홀 (White Hole)', icon: '🤍' }
 ]
+
+// [시니어 조치] 실제 장착 중인 효과 코드 (UI 선택 상태 표시용)
+const actualEquippedEffect = computed(() => {
+  if (isMe.value && authStore.user) {
+    return authStore.user.equippedEffect
+  }
+  return props.authorEquippedEffect || props.equippedEffect
+})
+
+// [시니어 조치] 실시간 반응성을 위해 스토어와 props를 통합 참조 (화면 렌더링용)
+const displayEquippedEffect = computed(() => {
+  // 1. 표시 여부 확인
+  let isVisible = true
+  
+  // props가 명시적으로 전달된 경우 (true/false) 이를 최우선함
+  if (props.showEquippedEffect !== null && props.showEquippedEffect !== undefined) {
+    isVisible = props.showEquippedEffect
+  } 
+  // props가 없는데 본인일 경우 스토어 설정 참조
+  else if (isMe.value && authStore.user && authStore.user.showEquippedEffect !== undefined) {
+    isVisible = authStore.user.showEquippedEffect
+  }
+  
+  // 효과가 꺼져 있으면 null 반환하여 렌더링 중단
+  if (!isVisible) return null
+
+  return actualEquippedEffect.value
+})
 
 // 이펙트별 색상 정의
 const wingColors = computed(() => {
-  const effect = displayEquippedEffect.value
-  if (effect === 'GOLD_WINGS') return { s1: '#fef08a', s2: '#facc15', s3: '#a16207', glow: 'rgba(250, 204, 21, 0.6)' }
-  if (effect === 'SILVER_WINGS') return { s1: '#f8fafc', s2: '#94a3b8', s3: '#475569', glow: 'rgba(148, 163, 184, 0.6)' }
-  if (effect === 'BRONZE_WINGS') return { s1: '#fed7aa', s2: '#ea580c', s3: '#7c2d12', glow: 'rgba(234, 88, 12, 0.5)' }
+  const effect = actualEquippedEffect.value
+  if (effect === 'GOLD_WINGS') return { s1: '#fff9c4', s2: '#facc15', s3: '#a16207', glow: 'rgba(250, 204, 21, 0.8)' }
+  if (effect === 'SILVER_WINGS') return { s1: '#f8fafc', s2: '#94a3b8', s3: '#475569', glow: 'rgba(148, 163, 184, 0.7)' }
+  if (effect === 'BRONZE_WINGS') return { s1: '#fed7aa', s2: '#ea580c', s3: '#7c2d12', glow: 'rgba(234, 88, 12, 0.6)' }
+  if (effect === 'PIONEER_WINGS') return { s1: '#ffffff', s2: '#e2e8f0', s3: '#94a3b8', glow: 'rgba(255, 255, 255, 0.9)' }
   return { s1: '#ffffff', s2: '#e2e8f0', s3: '#94a3b8', glow: 'rgba(255, 255, 255, 0.8)' }
+})
+
+// [시니어 조치] 날개 레이어 개수 계산 (장착된 이펙트 코드 기준 고정)
+const wingLayers = computed(() => {
+  const effect = actualEquippedEffect.value
+  if (effect === 'GOLD_WINGS') return 4
+  if (effect === 'SILVER_WINGS') return 3
+  if (effect === 'BRONZE_WINGS' || effect === 'PIONEER_WINGS') return 2
+  return 1
 })
 
 const props = defineProps({
@@ -506,14 +544,6 @@ const displayShowEffects = computed(() => {
   return props.showEffects
 })
 
-// [시니어 조치] 실시간 반응성을 위해 스토어와 props를 통합 참조
-const displayEquippedEffect = computed(() => {
-  if (isMe.value && authStore.user) {
-    return authStore.user.equippedEffect
-  }
-  return props.authorEquippedEffect || props.equippedEffect
-})
-
 const isWingsEffect = computed(() => displayEquippedEffect.value?.endsWith('_WINGS'))
 const isBubblesEffect = computed(() => displayEquippedEffect.value === 'MAGIC_BUBBLES')
 const isStarsEffect = computed(() => displayEquippedEffect.value === 'STARRY_NIGHT')
@@ -531,13 +561,6 @@ const isShootingStarEffect = computed(() => displayEquippedEffect.value === 'SHO
 const isBlackholeEffect = computed(() => displayEquippedEffect.value === 'BLACK_HOLE')
 const isWhiteholeEffect = computed(() => displayEquippedEffect.value === 'WHITE_HOLE')
 const isBombEffect = computed(() => displayEquippedEffect.value === 'BOMB')
-
-const wingLayers = computed(() => {
-  const effect = props.equippedEffect
-  if (effect === 'GOLD_WINGS') return 4
-  if (effect === 'SILVER_WINGS') return 3
-  return 1
-})
 
 // [드래그 스크롤 로직]
 const scrollContainer = ref(null)
@@ -582,9 +605,11 @@ let debounceTimer = null
 const updateEffect = (effectId, event) => {
   if (!isMe.value) return
   
-  // UI 즉시 업데이트
+  // UI 및 전역 스토어 즉시 업데이트
   if (authStore.user) {
     authStore.user.equippedEffect = effectId
+    // [시니어 조치] 로컬 스토리지 동기화 (새로고침 유지용)
+    localStorage.setItem('user', JSON.stringify(authStore.user))
   }
 
   // 클릭 애니메이션

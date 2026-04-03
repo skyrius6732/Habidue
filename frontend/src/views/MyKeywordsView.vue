@@ -354,11 +354,11 @@
 
 
 
-            <!-- 등급별 효과 미리보기 -->
+            <!-- 레벨별 닉네임 효과 미리보기 -->
             <div class="tier-preview-section">
               <div class="tier-preview-header">
-                <h3 class="sub-section-title">🏆 등급별 닉네임 효과</h3>
-                <p class="tier-preview-desc">레벨업을 통해 새로운 효과를 잠금 해제하세요</p>
+                <h3 class="sub-section-title">🏆 레벨별 닉네임 효과</h3>
+                <p class="tier-preview-desc">레벨업을 통해 새로운 닉네임 스타일을 잠금 해제하세요</p>
               </div>
               <div class="tier-preview-grid">
                 <div
@@ -378,7 +378,8 @@
                         :badges="activityData?.badges"
                         :show-effects="true"
                         :show-level-effects="true"
-                        :author-equipped-effect="lv >= 100 ? 'GOLD_WINGS' : (lv >= 70 ? 'SILVER_WINGS' : (lv >= 50 ? 'BRONZE_WINGS' : null))"
+                        :show-equipped-effect="false"
+                        :author-equipped-effect="null"
                         :show-avatar="true"
                         tooltip-direction="top"
                       />
@@ -401,7 +402,8 @@
                         :badges="activityData?.badges"
                         :show-effects="true"
                         :show-level-effects="true"
-                        :author-equipped-effect="lv >= 100 ? 'GOLD_WINGS' : (lv >= 70 ? 'SILVER_WINGS' : (lv >= 50 ? 'BRONZE_WINGS' : null))"
+                        :show-equipped-effect="false"
+                        :author-equipped-effect="null"
                         :show-avatar="true"
                         tooltip-direction="top"
                       />
