@@ -64,10 +64,10 @@
                     </div>
                     <div class="dash-user-details">
                       <div class="dash-nickname-group">
-                        <AnimatedNickname 
+                        <AnimatedNickname
                           :user-id="userProfile.id"
-                          :nickname="userProfile.nickname || userProfile.username" 
-                          :level="userProfile.level" 
+                          :nickname="userProfile.nickname || userProfile.username"
+                          :level="userProfile.level"
                           :exp="userProfile.totalExp"
                           :badges="activityData?.badges"
                           :show-effects="userProfile.showLevelEffects"
@@ -78,6 +78,9 @@
                           :equipped-badge-name="equippedBadgeDisplayName"
                           :karma-point="userProfile.karmaPoint"
                         />
+                      </div>
+                      <div class="dash-user-action-row">
+                        <div class="dash-username-sub">@{{ userProfile.username }}</div>
                         <div class="dash-toggle-group">
                           <button class="dash-effects-btn" :class="[{ active: userProfile.showLevelEffects }, `tier-${badgeStore.getAccountTierNumber(userProfile.level)}`]" @click="toggleLevelEffects" title="닉네임 효과 토글">
                             {{ userProfile.showLevelEffects ? '✨' : '👤' }}
@@ -87,7 +90,6 @@
                           </button>
                         </div>
                       </div>
-                      <div class="dash-username-sub">@{{ userProfile.username }}</div>
                     </div>
                   </div>
 
@@ -445,7 +447,7 @@
                 :class="{ active: activeSubTab === 'posts' }"
                 @click="activeSubTab = 'posts'"
               >
-                📝 내 게시글 
+                📝 게시글
                 <span v-if="activityData" class="sub-tab-count">{{ activityData.totalPostCount }}</span>
               </button>
               <button 
@@ -453,7 +455,7 @@
                 :class="{ active: activeSubTab === 'comments' }"
                 @click="activeSubTab = 'comments'"
               >
-                💬 내 댓글
+                💬 댓글
                 <span v-if="activityData" class="sub-tab-count">{{ activityData.totalCommentCount }}</span>
               </button>
             </div>
@@ -484,8 +486,13 @@
                     <div class="post-card-stats">
                       <span class="p-stat">❤️ {{ post.likeCount }}</span>
                       <span class="p-stat">💬 {{ post.commentCount }}</span>
-                      <span class="p-stat">👁️ {{ post.viewCount }}</span>
-                      <span class="i-icon white-eye-large">{{ post.viewCount }}</span>
+                      <span class="p-stat">
+                        <svg class="eye-icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
+                          <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                          <circle cx="12" cy="12" r="3"></circle>
+                        </svg>
+                        {{ post.viewCount }}
+                      </span>
                     </div>
                     <span class="btn-go-detail">자세히 보기 →</span>
                   </div>
@@ -567,7 +574,7 @@
                       :author-equipped-effect="userProfile?.equippedEffect"
                       :equipped-badge-name="equippedBadgeDisplayName"
                       :karma-point="userProfile?.karmaPoint"
-                      :owned-effect-codes="userProfile?.ownedEffectCodes"
+                      :owned-effect-codes="authStore.isAdmin ? getAllEffectCodes() : userProfile?.ownedEffectCodes"
                     />
                   </div>
                   <p class="preview-label">미리보기</p>
@@ -845,6 +852,13 @@ const specialEffectsList = [
   { id: 'LOVE_HEART', name: '💕 두근두근 하트 (Heart)', icon: '💕' },
   { id: 'SHOOTING_STAR', name: '🌠 별똥별 (Shooting Star)', icon: '🌠' }
 ]
+
+// 관리자용: 모든 이펙트 코드 반환
+const getAllEffectCodes = () => {
+  return specialEffectsList
+    .map(eff => eff.id)
+    .filter(id => id !== null)
+}
 
 // 레벨별 닉네임 장식 오픈
 const levelUnlocks = {
@@ -1428,13 +1442,13 @@ onMounted(async () => {
 
 .settings-container { width: 100%; min-height: 100vh; padding-bottom: 80px; }
 .settings-content-wrapper { padding: 0 20px; }
-.settings-box { margin-top: 1.5rem; background: var(--card-bg); border: 1px solid var(--border-color); display: flex; min-height: 650px; border-radius: 12px; color: var(--text-primary); overflow: hidden; }
+.settings-box { margin-top: 1.5rem; background: var(--card-bg); border: 1px solid var(--border-color); display: flex; min-height: 650px; border-radius: 12px; color: var(--text-primary); overflow: visible; }
 
 .settings-sidebar { flex: 0 0 200px; border-right: 1px solid var(--border-color); background-color: var(--hover-bg); }
 .sidebar-item { padding: 20px 25px; cursor: pointer; font-size: 0.95rem; color: var(--text-secondary); transition: all 0.2s; white-space: nowrap; text-align: left; font-weight: 600; }
 .sidebar-item.active { color: var(--text-primary); font-weight: 800; border-left: 4px solid var(--link-color); background-color: var(--card-bg); padding-left: 21px; }
 
-.settings-content { flex: 1; padding: 40px 60px; min-width: 0; }
+.settings-content { flex: 1; padding: 40px 60px; min-width: 0; position: relative; }
 .section-header-flex { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 32px; gap: 20px; }
 .section-title { font-size: 1.6rem; font-weight: 800; margin-bottom: 8px; color: var(--text-primary); }
 .section-desc { color: var(--text-secondary); font-size: 0.9rem; margin: 0; }
@@ -1448,13 +1462,13 @@ onMounted(async () => {
 /* [시니어 조치] 레벨 대시보드 v4 (8:2 비율 및 통합 디자인) */
 .level-dashboard-card-v4 {
   background: var(--card-bg); border: 1.5px solid var(--border-color); border-radius: 28px;
-  display: grid; grid-template-columns: 8fr 2fr; margin-bottom: 35px; box-shadow: 0 12px 40px rgba(0,0,0,0.04); overflow: visible;
+  display: grid; grid-template-columns: 6fr 4fr; margin-bottom: 35px; box-shadow: 0 12px 40px rgba(0,0,0,0.04); overflow: visible;
 }
 .dash-main-col { padding: 35px; border-right: 1.5px solid var(--border-color); background: linear-gradient(135deg, var(--hover-bg), var(--card-bg)); border-radius: 28px 0 0 28px; }
 .dash-side-col { padding: 25px; display: flex; flex-direction: column; gap: 12px; justify-content: center; background: var(--card-bg); border-radius: 0 28px 28px 0; }
 
-.dash-integrated-profile { display: flex; flex-direction: column; gap: 30px; }
-.profile-top-info { display: flex; align-items: center; gap: 25px; }
+.dash-integrated-profile { display: flex; flex-direction: column; gap: 90px; }
+.profile-top-info { display: flex; align-items: center; gap: 25px; transform: translateY(30px); }
 .dash-integrated-box { display: flex; flex-direction: column; gap: 30px; }
 .dash-profile-row { display: flex; align-items: center; gap: 25px; }
 
@@ -1463,9 +1477,9 @@ onMounted(async () => {
 .hex-num { font-size: 1.7rem; font-weight: 950; }
 
 .dash-nickname-group { display: flex; align-items: center; gap: 12px; flex-wrap: nowrap; }
-.dash-nickname-group :deep(.animated-nickname) { font-size: 1.5rem !important; font-weight: 900; }
+.dash-nickname-group :deep(.animated-nickname) { font-size: 1.1rem !important; font-weight: 900; }
 .dash-toggle-group { display: flex; gap: 6px; align-items: center; flex-shrink: 0; }
-.dash-username-sub { font-size: 0.95rem; color: var(--text-secondary); font-weight: 600; opacity: 0.7; }
+.dash-username-sub { font-size: 0.85rem; color: var(--text-secondary); font-weight: 600; opacity: 0.7; }
 .dash-effects-btn { background: var(--hover-bg); border: 1px solid var(--border-color); width: 34px; height: 34px; border-radius: 10px; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: all 0.2s; font-size: 1.1rem; }
 .dash-effects-btn.active { background: var(--link-color); color: white; border-color: transparent; }
 
@@ -1568,9 +1582,12 @@ onMounted(async () => {
 .hex-lv { font-size: 0.75rem; font-weight: 800; opacity: 0.9; text-transform: uppercase; margin-bottom: -2px; }
 .hex-num { font-size: 1.8rem; font-weight: 950; text-shadow: 0 2px 4px rgba(0,0,0,0.2); }
 
-.dash-user-details { display: flex; flex-direction: column; gap: 6px; }
+.dash-user-details { display: flex; flex-direction: column; gap: 0; justify-content: space-between; height: 80px; }
 .dash-nickname-group { display: flex; align-items: center; gap: 12px; flex-wrap: nowrap; }
-.dash-nickname-group :deep(.animated-nickname) { font-size: 1.6rem !important; font-weight: 900; }
+.dash-nickname-group :deep(.animated-nickname) { font-size: 1.2rem !important; font-weight: 900; }
+
+.dash-user-action-row { display: flex; align-items: center; gap: 12px; }
+.dash-toggle-group { display: flex; gap: 8px; align-items: center; flex-shrink: 0; }
 
 .dash-effects-btn {
   background: var(--hover-bg);
@@ -1588,7 +1605,7 @@ onMounted(async () => {
 .dash-effects-btn:hover { border-color: var(--t-color, var(--link-color)); transform: translateY(-2px); }
 .dash-effects-btn.active { background: var(--t-color, var(--link-color)); color: white; border-color: transparent; box-shadow: 0 4px 12px color-mix(in srgb, var(--t-color, var(--link-color)) 40%, transparent); }
 
-.dash-username-sub { font-size: 0.95rem; color: var(--text-secondary); font-weight: 600; opacity: 0.7; }
+.dash-username-sub { font-size: 0.8rem; color: var(--text-secondary); font-weight: 600; opacity: 0.7; }
 
 /* 2. 지표 그리드 섹션 */
 .dash-stats-grid {
@@ -1693,6 +1710,9 @@ onMounted(async () => {
     border-radius: 20px 20px 0 0;
     padding: 24px 20px;
   }
+  .level-dashboard-card-v4 .dash-integrated-profile {
+    gap: 30px;
+  }
   .level-dashboard-card-v4 .dash-side-col {
     flex-direction: row;
     border-radius: 0 0 20px 20px;
@@ -1704,10 +1724,48 @@ onMounted(async () => {
     min-width: 0;
   }
   .level-dashboard-card-v4 .profile-top-info {
-    gap: 15px;
+    gap: 12px;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    transform: none;
+  }
+  .level-dashboard-card-v4 .dash-level-hexagon {
+    width: 60px;
+    height: 60px;
+    flex-shrink: 0;
+  }
+  .level-dashboard-card-v4 .dash-level-hexagon .hex-num {
+    font-size: 1.2rem;
+  }
+  .level-dashboard-card-v4 .dash-user-details {
+    flex: 1;
+    min-width: 0;
+  }
+  .level-dashboard-card-v4 .dash-nickname-group {
+    min-width: 0;
+    width: 100%;
   }
   .level-dashboard-card-v4 .dash-nickname-group :deep(.animated-nickname) {
-    font-size: 1.2rem !important;
+    font-size: 0.95rem !important;
+    word-break: break-word;
+  }
+  .level-dashboard-card-v4 .dash-username-sub {
+    font-size: 0.7rem;
+  }
+  .level-dashboard-card-v4 .dash-user-details {
+    height: auto;
+    justify-content: flex-start;
+  }
+  .level-dashboard-card-v4 .dash-user-action-row {
+    width: 100%;
+    gap: 30px;
+    flex-direction: row;
+    align-items: center;
+    justify-content: flex-start;
+    margin-top: 15px;
+  }
+  .level-dashboard-card-v4 .dash-toggle-group {
+    gap: 4px;
   }
   .level-dashboard-card-v3 { 
     display: flex; /* 모바일은 수직 스택으로 */
@@ -1900,6 +1958,7 @@ onMounted(async () => {
   position: relative;
   transition: transform 0.2s, box-shadow 0.2s;
   min-height: 90px; justify-content: center;
+  overflow: visible; /* 툴팁 노출을 위해 기본 개방 */
 }
 .tier-preview-card.is-unlocked:hover { transform: translateY(-3px); box-shadow: 0 8px 20px rgba(0,0,0,0.1); z-index: 20; }
 .tier-preview-card.is-locked { border-color: var(--border-color); background: var(--hover-bg); overflow: hidden; }
@@ -1952,8 +2011,21 @@ onMounted(async () => {
 .tier-preview-lv { font-size: 0.68rem; font-weight: 900; color: var(--t-color, var(--text-secondary)); letter-spacing: 0.02em; }
 
 @media (max-width: 600px) {
-  .tier-preview-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; }
-  .tier-preview-card { padding: 14px 8px; }
+  /* 닉네임 효과: 무조건 2열 고정 */
+  .tier-preview-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+  }
+  .tier-preview-card { padding: 12px 8px; }
+
+  /* 닉네임 장식: 4열 고정 */
+  .effect-grid {
+    grid-template-columns: repeat(4, 1fr) !important;
+    gap: 8px;
+  }
+  .effect-card { padding: 10px 4px; min-height: 80px; }
+  .effect-icon { font-size: 1.4rem; margin-bottom: 4px; }
+  .effect-name { font-size: 0.65rem; }
 }
 
 /* ── 효과 관리 탭 ── */
@@ -2159,16 +2231,21 @@ onMounted(async () => {
   }
 
   .tier-preview-grid {
-    grid-template-columns: repeat(2, 1fr);
-    gap: 10px;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 8px;
+  }
+
+  .effects-grid-container {
+    grid-template-columns: repeat(4, 1fr);
+    gap: 6px;
   }
 
   .tier-preview-card {
-    padding: 14px 8px;
+    padding: 12px 8px;
   }
 
   .effect-grid {
-    grid-template-columns: repeat(4, 1fr);
+    grid-template-columns: 1fr;
     gap: 8px;
   }
 
@@ -2428,6 +2505,14 @@ onMounted(async () => {
   font-size: 0.8rem;
   font-weight: 700;
   color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.eye-icon {
+  stroke: #ffffff;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 .btn-go-detail {
   font-size: 0.8rem;

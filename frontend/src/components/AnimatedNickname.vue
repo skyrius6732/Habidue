@@ -254,7 +254,7 @@
     </div>
 
     <!-- 미니 프로필 툴팁 -->
-    <div v-if="showTooltip" ref="tooltipRef" :class="['nickname-tooltip', currentTierClass, tooltipDirection]" @click.stop>
+    <div v-if="showTooltip && !effectOnly" ref="tooltipRef" :class="['nickname-tooltip', currentTierClass, computedDirection]" @click.stop>
       <div v-if="(level >= 30)" class="glass-reflection-overlay"></div>
       
       <div class="tooltip-content-inner">
@@ -315,14 +315,14 @@
                 class="effect-toggle-btn"
                 :class="{
                   active: (displayEquippedEffect === eff.id) || (!displayEquippedEffect && !eff.id),
-                  locked: !isAdmin && eff.id && !ownedEffectCodes.includes(eff.id)
+                  locked: !isAdmin && eff.id && !effectCodes.includes(eff.id)
                 }"
-                @click.stop="isAdmin || !eff.id || ownedEffectCodes.includes(eff.id) ? updateEffect(eff.id, $event) : null"
+                @click.stop="isAdmin || !eff.id || effectCodes.includes(eff.id) ? updateEffect(eff.id, $event) : null"
                 :disabled="isUpdatingEffect"
                 :title="eff.name"
               >
                 <span class="eff-icon">{{ eff.icon }}</span>
-                <span v-if="!isAdmin && eff.id && !ownedEffectCodes.includes(eff.id)" class="lock-overlay">🔒</span>
+                <span v-if="!isAdmin && eff.id && !effectCodes.includes(eff.id)" class="lock-overlay">🔒</span>
                 <span v-if="(displayEquippedEffect === eff.id) || (!displayEquippedEffect && !eff.id)" class="active-check">✓</span>
               </button>
             </div>
@@ -451,6 +451,18 @@ const showTooltip = ref(false)
 // 다크/라이트 테마 감지
 const isDark = ref(document.documentElement.classList.contains('dark-mode'))
 let themeObserver = null
+const isMobileView = ref(window.innerWidth <= 768) // 모바일 여부 실시간 감지
+
+const handleResize = () => {
+  isMobileView.value = window.innerWidth <= 768
+}
+
+// [시니어 조치] 툴팁의 최종 표시 방향 결정 (모바일은 무조건 상단 우선)
+const computedDirection = computed(() => {
+  if (isMobileView.value) return 'top'
+  return props.tooltipDirection || 'right'
+})
+
 const instanceId = Math.random().toString(36).slice(2, 8)
 const isPinned = ref(false) 
 const tooltipRef = ref(null)
@@ -526,6 +538,45 @@ const isMe = computed(() => {
 })
 
 const isAdmin = computed(() => authStore.user?.role === 'ROLE_ADMIN')
+
+// [시니어 조치] 본인일 경우 authStore.user의 ownedEffectCodes 사용, 아니면 props 사용
+const effectCodes = computed(() => {
+  let codes = []
+  
+  // 1. 보유한 이펙트 코드 목록 (DB 기반)
+  if (isMe.value && authStore.user?.ownedEffectCodes) {
+    codes = [...authStore.user.ownedEffectCodes]
+  } else {
+    codes = [...(props.ownedEffectCodes || [])]
+  }
+
+  // 2. [안전장치] 레벨 기반 자동 해금 보완
+  // ownedEffectCodes가 로드되지 않은 경우나 누락된 경우를 위해 레벨로 한 번 더 체크
+  const userLv = isMe.value && authStore.user ? authStore.user.level : props.level
+  
+  const levelUnlocks = {
+    5: 'MAGIC_BUBBLES',
+    10: 'BRONZE_WINGS',
+    15: 'STARRY_NIGHT',
+    20: 'SILVER_WINGS',
+    25: 'BOMB',
+    30: 'GOLD_WINGS',
+    35: 'SHADOW_DEMON',
+    40: 'VOID_RIFT',
+    45: 'THUNDER_BLUE',
+    50: 'NEON_SIGN',
+    60: 'AURORA_FLAME',
+    70: 'RAINBOW_WAVE'
+  }
+
+  Object.entries(levelUnlocks).forEach(([lv, id]) => {
+    if (userLv >= parseInt(lv) && !codes.includes(id)) {
+      codes.push(id)
+    }
+  })
+
+  return codes
+})
 
 // [시니어 조치] 닉네임 효과 표시 여부 실시간 동기화 (필드명: showLevelEffects)
 const displayShowEffects = computed(() => {
@@ -684,6 +735,7 @@ const nicknameTextColor = computed(() => {
 })
 
 onMounted(() => {
+  window.addEventListener('resize', handleResize)
   if (!badgeStore.isLoaded) badgeStore.fetchRules()
   themeObserver = new MutationObserver(() => {
     isDark.value = document.documentElement.classList.contains('dark-mode')
@@ -691,7 +743,10 @@ onMounted(() => {
   themeObserver.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] })
 })
 
-onUnmounted(() => { if (themeObserver) themeObserver.disconnect() })
+onUnmounted(() => { 
+  window.removeEventListener('resize', handleResize)
+  if (themeObserver) themeObserver.disconnect() 
+})
 </script>
 
 <style scoped>
@@ -1188,7 +1243,7 @@ onUnmounted(() => { if (themeObserver) themeObserver.disconnect() })
 .tier-100 .an-av-p.p3 { animation-duration: 1.5s; }
 .tier-100 .an-av-p.p4 { animation-duration: 1.5s; }
 
-.nickname-tooltip { position: absolute; width: 190px; background: var(--card-bg) !important; background-image: linear-gradient(to bottom, var(--card-bg), var(--tier-bg)) !important; backdrop-filter: blur(20px); border: 1.5px solid var(--tier-color); border-radius: 16px; padding: 14px; box-shadow: 0 15px 40px rgba(0,0,0,0.3); z-index: 2000000; cursor: default; overflow: hidden; transition: opacity 0.3s, transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1); pointer-events: auto; }
+.nickname-tooltip { position: absolute; width: 220px; max-width: 90vw; background: var(--card-bg) !important; background-image: linear-gradient(to bottom, var(--card-bg), var(--tier-bg)) !important; backdrop-filter: blur(20px); border: 1.5px solid var(--tier-color); border-radius: 16px; padding: 14px; box-shadow: 0 15px 40px rgba(0,0,0,0.3); z-index: 9999999; cursor: default; overflow: hidden; transition: opacity 0.3s, transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1); pointer-events: auto; }
 .nickname-tooltip.right { left: calc(100% + 15px); top: 50%; transform: translateY(-50%); }
 .nickname-tooltip.top { bottom: calc(100% + 15px); left: 50%; transform: translateX(-50%); transform-origin: bottom center; }
 .nickname-tooltip.top::after { content: ""; position: absolute; top: 100%; left: 50%; transform: translateX(-50%); border-width: 8px; border-style: solid; border-color: var(--tier-color) transparent transparent transparent; }
@@ -1271,8 +1326,16 @@ onUnmounted(() => { if (themeObserver) themeObserver.disconnect() })
 }
 
 @media (max-width: 768px) {
-  .nickname-tooltip { width: 170px; padding: 10px; border-radius: 12px; }
-  .nickname-tooltip.top { bottom: calc(100% + 10px); transform: translateX(-50%) scale(0.85) !important; }
+  .animated-nickname { 
+    max-width: 85px; /* 6글자 내외에서 말줄임 발생하도록 제한 */
+    text-overflow: ellipsis;
+    overflow: hidden;
+    white-space: nowrap;
+    display: inline-block;
+    vertical-align: middle;
+  }
+  .nickname-tooltip { width: 200px; padding: 12px; border-radius: 12px; }
+  .nickname-tooltip.top { bottom: calc(100% + 10px); transform: translateX(-50%) scale(0.9) !important; }
   .user-avatar { width: 28px; height: 32px; font-size: 0.9rem; }
   .user-name-styled { font-size: 0.8rem; }
 }
