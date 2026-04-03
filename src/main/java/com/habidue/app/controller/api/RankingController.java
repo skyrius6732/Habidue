@@ -29,13 +29,19 @@ public class RankingController {
      * @param limit 가져올 랭커 수 (기본값 10, 최대 100 권장)
      */
     @GetMapping
-    public ResponseEntity<ApiResponse<List<RankerResponseDto>>> getRanking(
+    public ResponseEntity<ApiResponse<Map<String, Object>>> getRanking(
             @RequestParam(defaultValue = "WEEKLY") String period,
             @RequestParam(defaultValue = "TOTAL") String category,
             @RequestParam(defaultValue = "10") int limit) {
         
         List<RankerResponseDto> rankers = rankingService.getTopRankers(period, category, limit);
-        return ApiResponse.success(rankers);
+        String updatedAt = rankingService.getRankingUpdatedAt(period, category, limit);
+
+        Map<String, Object> response = new HashMap<>();
+        response.put("rankers", rankers);
+        response.put("updatedAt", updatedAt);
+
+        return ApiResponse.success(response);
     }
 
     /**

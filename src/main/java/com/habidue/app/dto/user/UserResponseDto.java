@@ -28,6 +28,8 @@ public class UserResponseDto {
     private long totalExp;
     private Long equippedBadgeId;
     private boolean showLevelEffects;
+    private boolean showEquippedEffect; // [시니어 조치] 이펙트 효과 표시 여부 추가
+    private Integer equippedTier; // [시니어 조치] 장착 중인 티어 스타일
     private String equippedEffect; // [시니어 조치] 장착 중인 특수 효과 코드 추가
     
     @JsonProperty("isOnline")
@@ -60,6 +62,8 @@ public class UserResponseDto {
         this.totalExp = user.getTotalExp();
         this.equippedBadgeId = user.getEquippedBadgeId();
         this.showLevelEffects = user.isShowLevelEffects();
+        this.showEquippedEffect = user.isShowEquippedEffect(); // [시니어 조치] 이펙트 표시 여부 매핑
+        this.equippedTier = user.getEquippedTier();
         this.equippedEffect = user.getEquippedEffect();
 
         // [시니어] 카르마 시스템 매핑

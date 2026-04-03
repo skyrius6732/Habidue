@@ -25,7 +25,7 @@
     <span v-if="(Number(karmaPoint) <= 800)" class="karma-warning-icon-outer" title="활동 신뢰 점수 주의">⚠️</span>
 
     <!-- 화려한 닉네임 표시부 (클릭 시 토글) -->
-    <div :class="['nickname-with-effects', { 'has-wings': isWingsEffect, 'has-bubbles': isBubblesEffect, 'has-stars': isStarsEffect, 'has-thunder': isThunderEffect, 'has-flame': isFlameEffect, 'has-ice': isIceFrostEffect, 'has-sakura': isSakuraEffect, 'has-shadow': isShadowEffect, 'has-neon': isNeonEffect, 'has-glitch': isGlitchEffect, 'has-void': isVoidEffect, 'has-heart': isHeartEffect, 'has-rainbow': isRainbowEffect, 'has-shooting': isShootingStarEffect, 'has-blackhole': isBlackholeEffect, 'has-whitehole': isWhiteholeEffect }]">
+    <div :class="['nickname-with-effects', { 'has-wings': isWingsEffect, 'has-bubbles': isBubblesEffect, 'has-stars': isStarsEffect, 'has-thunder': isThunderEffect, 'has-flame': isFlameEffect, 'has-ice': isIceFrostEffect, 'has-sakura': isSakuraEffect, 'has-shadow': isShadowEffect, 'has-neon': isNeonEffect, 'has-glitch': isGlitchEffect, 'has-void': isVoidEffect, 'has-heart': isHeartEffect, 'has-rainbow': isRainbowEffect, 'has-shooting': isShootingStarEffect, 'has-blackhole': isBlackholeEffect, 'has-whitehole': isWhiteholeEffect, 'has-bomb': isBombEffect }]">
       
       <!-- 1. 날개 이펙트 (멀티 티어 시스템) -->
       <template v-if="isWingsEffect">
@@ -156,17 +156,28 @@
         ></div>
       </div>
 
-      <!-- 14. RAINBOW_WAVE: 닉네임 너비 무지개 바 -->
-      <div v-if="isRainbowEffect" class="rainbow-bar-wrap">
-        <div class="rainbow-bar"></div>
-      </div>
+      <!-- 14. RAINBOW_WAVE: 무지개 아치형 -->
+      <svg v-if="isRainbowEffect" class="rainbow-arch-wrap" viewBox="0 0 200 170" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="none">
+        <defs>
+          <linearGradient id="rainbowGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+            <stop offset="0%" style="stop-color:#ff0000;stop-opacity:1" />
+            <stop offset="16.67%" style="stop-color:#ff7700;stop-opacity:1" />
+            <stop offset="33.33%" style="stop-color:#ffee00;stop-opacity:1" />
+            <stop offset="50%" style="stop-color:#00dd44;stop-opacity:1" />
+            <stop offset="66.67%" style="stop-color:#0088ff;stop-opacity:1" />
+            <stop offset="83.33%" style="stop-color:#6600dd;stop-opacity:1" />
+            <stop offset="100%" style="stop-color:#cc00ff;stop-opacity:1" />
+          </linearGradient>
+        </defs>
+        <path class="rainbow-arch" d="M 20,70 Q 100,15 180,70" stroke="url(#rainbowGrad)" stroke-width="15" fill="none" stroke-linecap="round" />
+      </svg>
 
       <!-- 15. SHOOTING_STAR: 별똥별 닉네임 앞 가로질러 -->
       <div v-if="isShootingStarEffect" class="shooting-star-container">
-        <div v-for="n in 3" :key="`sstar-${n}`" class="shooting-star"
+        <div class="shooting-star"
           :style="{
-            '--delay': `${(n - 1) * 1.6}s`,
-            '--y': `${12 + (n % 3) * 32}%`
+            '--delay': '0s',
+            '--y': '50%'
           }"
         ></div>
       </div>
@@ -180,6 +191,12 @@
       <div v-if="isWhiteholeEffect" class="whitehole-container">
         <div class="wh-ring"></div>
       </div>
+
+
+      <!-- 18. BOMB: 폭탄 심줄 테두리 타들어감 -->
+      <svg v-if="isBombEffect" class="bomb-fuse-container" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="none">
+        <rect class="bomb-border-rect" x="4" y="4" width="92" height="92" />
+      </svg>
 
       <!-- 13. LOVE_HEART: 하트 아래서 위로 -->
       <div v-if="isHeartEffect" class="heart-container">
@@ -212,7 +229,6 @@
       </div>
 
       <span :class="['animated-nickname', currentTierClass]" :data-text="nickname" :style="nicknameTextColor ? { color: nicknameTextColor } : {}" @click.stop="handleToggleClick">
-        <span v-if="(level >= 50)" class="inner-shine-effect"></span>
         {{ nickname }}
       </span>
 
@@ -339,35 +355,73 @@ import gsap from 'gsap'
 
 // [시니어 조치] 특수 효과 리스트
 const specialEffects = [
-  { id: null, name: 'OFF', icon: '❌' },
-  { id: 'PIONEER_WINGS', name: '화이트윙', icon: '🕊️' },
-  { id: 'BRONZE_WINGS', name: '브론즈', icon: '🥉' },
-  { id: 'SILVER_WINGS', name: '실버', icon: '🥈' },
-  { id: 'GOLD_WINGS', name: '골드', icon: '👑' },
-  { id: 'MAGIC_BUBBLES', name: '버블', icon: '🫧' },
-  { id: 'STARRY_NIGHT', name: '별빛', icon: '✨' },
-  { id: 'THUNDER_BLUE', name: '번개', icon: '⚡' },
-  { id: 'AURORA_FLAME', name: '화염', icon: '🔥' },
-  { id: 'ICE_FROST', name: '서리', icon: '❄️' },
-  { id: 'SAKURA_BLOOM', name: '벚꽃', icon: '🌸' },
-  { id: 'SHADOW_DEMON', name: '데몬', icon: '👹' },
-  { id: 'NEON_SIGN', name: '네온', icon: '🌟' },
-  { id: 'PIXEL_GLITCH', name: '글리치', icon: '💥' },
-  { id: 'VOID_RIFT', name: '보이드', icon: '🌀' },
-  { id: 'LOVE_HEART', name: '하트', icon: '💕' },
-  { id: 'RAINBOW_WAVE', name: '무지개', icon: '🌈' },
-  { id: 'SHOOTING_STAR', name: '별똥별', icon: '🌠' },
-  { id: 'BLACK_HOLE', name: '블랙홀', icon: '🕳️' },
-  { id: 'WHITE_HOLE', name: '화이트홀', icon: '🤍' }
+  { id: null, name: '효과 없음', icon: '🚫' },
+  { id: 'PIONEER_WINGS', name: '🕊️ 화이트 윙 (White)', icon: '🕊️' },
+  { id: 'BRONZE_WINGS', name: '🥉 브론즈 윙 (Bronze)', icon: '🥉' },
+  { id: 'SILVER_WINGS', name: '🥈 실버 윙 (Silver)', icon: '🥈' },
+  { id: 'GOLD_WINGS', name: '👑 골드 윙 (Gold)', icon: '👑' },
+  { id: 'MAGIC_BUBBLES', name: '🫧 신비로운 버블 (Bubble)', icon: '🫧' },
+  { id: 'STARRY_NIGHT', name: '✨ 반짝이는 별무리 (Starry)', icon: '✨' },
+  { id: 'THUNDER_BLUE', name: '⚡ 푸른 번개 (Thunder)', icon: '⚡' },
+  { id: 'AURORA_FLAME', name: '🔥 오로라 화염 (Flame)', icon: '🔥' },
+  { id: 'ICE_FROST', name: '❄️ 얼음 결정 (Frost)', icon: '❄️' },
+  { id: 'SAKURA_BLOOM', name: '🌸 벚꽃 (Sakura)', icon: '🌸' },
+  { id: 'SHADOW_DEMON', name: '👹 섀도우 데몬 (Shadow)', icon: '👹' },
+  { id: 'NEON_SIGN', name: '🌟 네온 사인 (Neon)', icon: '🌟' },
+  { id: 'PIXEL_GLITCH', name: '💥 픽셀 글리치 (Glitch)', icon: '💥' },
+  { id: 'VOID_RIFT', name: '🌀 보이드 리프트 (Void)', icon: '🌀' },
+  { id: 'LOVE_HEART', name: '💕 두근두근 하트 (Heart)', icon: '💕' },
+  { id: 'RAINBOW_WAVE', name: '🌈 무지개 (Rainbow)', icon: '🌈' },
+  { id: 'SHOOTING_STAR', name: '🌠 별똥별 (Shooting Star)', icon: '🌠' },
+  { id: 'BLACK_HOLE', name: '🕳️ 블랙홀 (Black Hole)', icon: '🕳️' },
+  { id: 'WHITE_HOLE', name: '🤍 화이트홀 (White Hole)', icon: '🤍' }
 ]
+
+// [시니어 조치] 실제 장착 중인 효과 코드 (UI 선택 상태 표시용)
+const actualEquippedEffect = computed(() => {
+  if (isMe.value && authStore.user) {
+    return authStore.user.equippedEffect
+  }
+  return props.authorEquippedEffect || props.equippedEffect
+})
+
+// [시니어 조치] 실시간 반응성을 위해 스토어와 props를 통합 참조 (화면 렌더링용)
+const displayEquippedEffect = computed(() => {
+  // 1. 표시 여부 확인
+  let isVisible = true
+  
+  // props가 명시적으로 전달된 경우 (true/false) 이를 최우선함
+  if (props.showEquippedEffect !== null && props.showEquippedEffect !== undefined) {
+    isVisible = props.showEquippedEffect
+  } 
+  // props가 없는데 본인일 경우 스토어 설정 참조
+  else if (isMe.value && authStore.user && authStore.user.showEquippedEffect !== undefined) {
+    isVisible = authStore.user.showEquippedEffect
+  }
+  
+  // 효과가 꺼져 있으면 null 반환하여 렌더링 중단
+  if (!isVisible) return null
+
+  return actualEquippedEffect.value
+})
 
 // 이펙트별 색상 정의
 const wingColors = computed(() => {
-  const effect = displayEquippedEffect.value
-  if (effect === 'GOLD_WINGS') return { s1: '#fef08a', s2: '#facc15', s3: '#a16207', glow: 'rgba(250, 204, 21, 0.6)' }
-  if (effect === 'SILVER_WINGS') return { s1: '#f8fafc', s2: '#94a3b8', s3: '#475569', glow: 'rgba(148, 163, 184, 0.6)' }
-  if (effect === 'BRONZE_WINGS') return { s1: '#fed7aa', s2: '#ea580c', s3: '#7c2d12', glow: 'rgba(234, 88, 12, 0.5)' }
+  const effect = actualEquippedEffect.value
+  if (effect === 'GOLD_WINGS') return { s1: '#fff9c4', s2: '#facc15', s3: '#a16207', glow: 'rgba(250, 204, 21, 0.8)' }
+  if (effect === 'SILVER_WINGS') return { s1: '#f8fafc', s2: '#94a3b8', s3: '#475569', glow: 'rgba(148, 163, 184, 0.7)' }
+  if (effect === 'BRONZE_WINGS') return { s1: '#fed7aa', s2: '#ea580c', s3: '#7c2d12', glow: 'rgba(234, 88, 12, 0.6)' }
+  if (effect === 'PIONEER_WINGS') return { s1: '#ffffff', s2: '#e2e8f0', s3: '#94a3b8', glow: 'rgba(255, 255, 255, 0.9)' }
   return { s1: '#ffffff', s2: '#e2e8f0', s3: '#94a3b8', glow: 'rgba(255, 255, 255, 0.8)' }
+})
+
+// [시니어 조치] 날개 레이어 개수 계산 (장착된 이펙트 코드 기준 고정)
+const wingLayers = computed(() => {
+  const effect = actualEquippedEffect.value
+  if (effect === 'GOLD_WINGS') return 4
+  if (effect === 'SILVER_WINGS') return 3
+  if (effect === 'BRONZE_WINGS' || effect === 'PIONEER_WINGS') return 2
+  return 1
 })
 
 const props = defineProps({
@@ -382,6 +436,9 @@ const props = defineProps({
   equippedBadgeName: { type: String, default: null },
   karmaPoint: { type: Number, default: 1000 },
   tooltipDirection: { type: String, default: 'right' },
+  showEquippedEffect: { type: Boolean, default: null }, // [시니어 조치] 이펙트 효과 표시 설정 직접 매핑
+  effectOnly: { type: Boolean, default: false }, // [시니어 조치] 닉네임 없이 이펙트만 렌더링하는 모드
+  equippedTier: { type: Number, default: null }, // [시니어 조치] 장착 중인 티어 스타일
   equippedEffect: { type: String, default: null }, // 장착 중인 특수 효과 코드
   authorEquippedEffect: { type: String, default: null } // [시니어 대응] 백엔드 DTO 필드명 호환용
 })
@@ -489,14 +546,6 @@ const displayShowEffects = computed(() => {
   return props.showEffects
 })
 
-// [시니어 조치] 실시간 반응성을 위해 스토어와 props를 통합 참조
-const displayEquippedEffect = computed(() => {
-  if (isMe.value && authStore.user) {
-    return authStore.user.equippedEffect
-  }
-  return props.authorEquippedEffect || props.equippedEffect
-})
-
 const isWingsEffect = computed(() => displayEquippedEffect.value?.endsWith('_WINGS'))
 const isBubblesEffect = computed(() => displayEquippedEffect.value === 'MAGIC_BUBBLES')
 const isStarsEffect = computed(() => displayEquippedEffect.value === 'STARRY_NIGHT')
@@ -513,13 +562,7 @@ const isRainbowEffect = computed(() => displayEquippedEffect.value === 'RAINBOW_
 const isShootingStarEffect = computed(() => displayEquippedEffect.value === 'SHOOTING_STAR')
 const isBlackholeEffect = computed(() => displayEquippedEffect.value === 'BLACK_HOLE')
 const isWhiteholeEffect = computed(() => displayEquippedEffect.value === 'WHITE_HOLE')
-
-const wingLayers = computed(() => {
-  const effect = props.equippedEffect
-  if (effect === 'GOLD_WINGS') return 4
-  if (effect === 'SILVER_WINGS') return 3
-  return 1
-})
+const isBombEffect = computed(() => displayEquippedEffect.value === 'BOMB')
 
 // [드래그 스크롤 로직]
 const scrollContainer = ref(null)
@@ -564,9 +607,11 @@ let debounceTimer = null
 const updateEffect = (effectId, event) => {
   if (!isMe.value) return
   
-  // UI 즉시 업데이트
+  // UI 및 전역 스토어 즉시 업데이트
   if (authStore.user) {
     authStore.user.equippedEffect = effectId
+    // [시니어 조치] 로컬 스토리지 동기화 (새로고침 유지용)
+    localStorage.setItem('user', JSON.stringify(authStore.user))
   }
 
   // 클릭 애니메이션
@@ -604,7 +649,21 @@ const particleOptions = computed(() => {
 
 const currentTierClass = computed(() => {
   if (!displayShowEffects.value) return 'tier-none'
-  return `tier-${badgeStore.getAccountTierNumber(props.level)}`
+  
+  // 1. 장착된 티어 스타일 확인
+  let tierValue = props.equippedTier
+  if (tierValue === null || tierValue === undefined) {
+    if (isMe.value && authStore.user && authStore.user.equippedTier !== undefined) {
+      tierValue = authStore.user.equippedTier
+    }
+  }
+
+  // 2. 장착된 티어가 없으면 현재 레벨 기준 자동 티어
+  if (tierValue === null || tierValue === undefined) {
+    tierValue = badgeStore.getAccountTierNumber(props.level)
+  }
+
+  return `tier-${tierValue}`
 })
 
 const nextLevelExp = computed(() => props.level * props.level * 50)
@@ -838,7 +897,7 @@ onUnmounted(() => { if (themeObserver) themeObserver.disconnect() })
 }
 
 /* 11. PIXEL_GLITCH — 디지털 글리치 */
-.has-glitch .animated-nickname { animation: glitch-base 3s ease-in-out infinite !important; position: relative; }
+.has-glitch .animated-nickname { animation: glitch-base 2s ease-in-out infinite !important; position: relative; }
 /* inner-shine이 닉네임 밖으로 나가지 않도록 클리핑 유지 */
 .has-glitch .animated-nickname .inner-shine-effect { clip-path: inset(0); }
 .has-glitch .animated-nickname::before,
@@ -851,13 +910,13 @@ onUnmounted(() => { if (themeObserver) themeObserver.disconnect() })
   font-size: inherit; font-weight: inherit; letter-spacing: inherit;
 }
 .has-glitch .animated-nickname::before {
-  animation: glitch-slice-r 3s ease-in-out infinite;
+  animation: glitch-slice-r 2s ease-in-out infinite;
   color: #ff00ea !important; -webkit-text-fill-color: #ff00ea !important;
   clip-path: polygon(0 15%, 100% 15%, 100% 38%, 0 38%);
   z-index: 3;
 }
 .has-glitch .animated-nickname::after {
-  animation: glitch-slice-b 3s ease-in-out infinite;
+  animation: glitch-slice-b 2s ease-in-out infinite;
   color: #00ffff !important; -webkit-text-fill-color: #00ffff !important;
   clip-path: polygon(0 58%, 100% 58%, 100% 76%, 0 76%);
   z-index: 3;
@@ -904,24 +963,23 @@ onUnmounted(() => { if (themeObserver) themeObserver.disconnect() })
   to   { box-shadow: 0 0 12px rgba(251,113,133,0.68), 0 0 22px rgba(244,63,94,0.3); }
 }
 
-/* 14. RAINBOW_WAVE — 닉네임 너비 무지개 바 */
-.rainbow-bar-wrap {
-  position: absolute; bottom: -5px; left: 0; right: 0;
-  pointer-events: none; z-index: 3; display: flex; justify-content: center;
+/* 14. RAINBOW_WAVE — 무지개 아치형 */
+.rainbow-arch-wrap {
+  position: absolute; bottom: -10px; left: 0; right: 0;
+  pointer-events: none; z-index: 3; width: 100%; height: 80px;
 }
-.rainbow-bar {
-  height: 3px; width: 100%; border-radius: 2px;
-  background: linear-gradient(90deg, #ff0000 0%, #ff7700 18%, #ffee00 34%, #00dd44 50%, #0088ff 68%, #6600dd 84%, #cc00ff 100%);
-  box-shadow: 0 0 5px rgba(120, 80, 255, 0.4);
-  animation: rainbow-breathe 2.8s ease-in-out infinite;
-  transform-origin: center;
+.rainbow-arch {
+  stroke-dasharray: 240;
+  stroke-dashoffset: 240;
+  filter: drop-shadow(0 0 8px rgba(255, 100, 150, 0.5)) drop-shadow(0 0 15px rgba(120, 80, 255, 0.3));
+  animation: rainbow-draw-erase 4s ease-in-out infinite;
 }
-@keyframes rainbow-breathe {
-  0%, 100% { transform: scaleX(0); opacity: 0; }
-  18%       { opacity: 1; }
-  50%       { transform: scaleX(1); opacity: 1; }
-  82%       { opacity: 0.85; transform: scaleX(1); }
-  98%       { transform: scaleX(0); opacity: 0; }
+@keyframes rainbow-draw-erase {
+  0%   { stroke-dashoffset: 240; opacity: 1; }
+  25%  { stroke-dashoffset: 0; opacity: 1; }
+  50%  { stroke-dashoffset: 0; opacity: 1; }
+  75%  { stroke-dashoffset: -240; opacity: 1; }
+  100% { stroke-dashoffset: -240; opacity: 1; }
 }
 
 /* 15. SHOOTING_STAR — 별똥별 가로지름 */
@@ -931,7 +989,7 @@ onUnmounted(() => { if (themeObserver) themeObserver.disconnect() })
   width: 54px; height: 1.5px;
   background: linear-gradient(90deg, transparent 0%, rgba(255,255,220,0.25) 35%, rgba(255,255,255,0.85) 80%, transparent 100%);
   border-radius: 1px;
-  animation: shoot-across 4.5s infinite var(--delay) ease-in;
+  animation: shoot-across 1.0s infinite var(--delay) ease-in;
   opacity: 0;
 }
 .shooting-star::after {
@@ -940,10 +998,10 @@ onUnmounted(() => { if (themeObserver) themeObserver.disconnect() })
   box-shadow: 0 0 5px 2px rgba(255,255,200,0.95), 0 0 12px rgba(200,225,255,0.7);
 }
 @keyframes shoot-across {
-  0%   { opacity: 0; transform: translateX(0) translateY(0); }
-  8%   { opacity: 1; }
-  88%  { opacity: 0.8; }
-  100% { opacity: 0; transform: translateX(145%) translateY(18px); }
+  0%   { opacity: 0; transform: translateX(-100%); }
+  1.5%   { opacity: 3; }
+  92%  { opacity: 1; }
+  100% { opacity: 0; transform: translateX(250%); }
 }
 
 /* 16. BLACK_HOLE — 블랙홀 빨려들어감 */
@@ -1006,6 +1064,40 @@ onUnmounted(() => { if (themeObserver) themeObserver.disconnect() })
   43%, 74% { opacity: 1; transform: scale(1) translateX(0); filter: none; }
   88%      { opacity: 0.3; filter: blur(1px); }
   100%     { opacity: 0; transform: scale(0.05) translateX(-40px); filter: blur(4px); }
+}
+
+/* 18. BOMB — 폭탄 심줄 테두리 따라 타들어감 */
+.bomb-fuse-container {
+  position: absolute; inset: 0px 0px 0px 0px; 
+  pointer-events: none; z-index: 7; overflow: visible;
+   width: 100%; height: 100%;
+}
+.bomb-border-rect {
+  fill: none;
+  stroke: rgb(255, 255, 255);
+  stroke-width: 5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-dasharray: 400;
+  stroke-dashoffset: 400;
+  filter: drop-shadow(0 0 2px rgb(255, 135, 135)) 
+  drop-shadow(0 0 20px rgba(255, 173, 173, 0.9)) 
+  drop-shadow(0 0 20px rgba(255, 201, 201, 0.6));
+  animation: bomb-burn-border 4s infinite ease-in;
+}
+@keyframes bomb-burn-border {
+  0% { stroke-dashoffset: 400; opacity: 1; }
+  90% { stroke-dashoffset: 0; opacity: 1; }
+  100% { stroke-dashoffset: 0; opacity: 0; }
+}
+
+.has-bomb .animated-nickname {
+  animation: bomb-nick-glow 3s infinite ease-in !important;
+}
+@keyframes bomb-nick-glow {
+  0% { box-shadow: 0 0 5px rgba(255, 0, 0, 0.2); }
+  50% { box-shadow: 0 0 12px rgba(255, 100, 100, 0.5); }
+  100% { box-shadow: 0 0 5px rgba(255, 0, 0, 0); }
 }
 
 /* 12. VOID_RIFT — 차원 균열 파티클 orbit */

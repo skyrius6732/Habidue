@@ -9,11 +9,11 @@
         이전 게시글로 이동 중...
       </div>
     </Transition>
-    <PageHeader 
-      icon="👤" 
-      title="마이 페이지" 
-      :stats-text="activeTab === 'activity' ? '획득 배지' : activeTab === 'keywords' ? '설정된 태그' : activeTab === 'messages' ? '받은 쪽지' : '알림 채널'" 
-      :stats-value="activeTab === 'activity' ? (activityData?.badges?.length || 0) : activeTab === 'keywords' ? userTags.length : activeTab === 'messages' ? (messageStore.receivedMessages.length) : (activeNotificationCount + '개 활성')"
+    <PageHeader
+      icon="👤"
+      title="마이 페이지"
+      :stats-text="activeTab === 'activity' ? '획득 배지' : activeTab === 'effects' ? '보유 효과' : activeTab === 'keywords' ? '설정된 태그' : activeTab === 'messages' ? '받은 쪽지' : '알림 채널'"
+      :stats-value="activeTab === 'activity' ? (activityData?.badges?.length || 0) : activeTab === 'effects' ? (tierPreviewLevels.length + '개') : activeTab === 'keywords' ? userTags.length : activeTab === 'messages' ? (messageStore.receivedMessages.length) : (activeNotificationCount + '개 활성')"
       :bio="currentBio"
     />
 
@@ -22,6 +22,7 @@
         <div class="settings-sidebar">
           <div class="sidebar-item" :class="{ active: activeTab === 'activity' }" @click="setActiveTab('activity')">활동 지표</div>
           <div class="sidebar-item" :class="{ active: activeTab === 'my-activity' }" @click="setActiveTab('my-activity')">내 활동</div>
+          <div class="sidebar-item" :class="{ active: activeTab === 'effects' }" @click="setActiveTab('effects')">효과 관리</div>
           <div class="sidebar-item" :class="{ active: activeTab === 'keywords' }" @click="setActiveTab('keywords')">알림 키워드</div>
           <div class="sidebar-item" :class="{ active: activeTab === 'messages' }" @click="setActiveTab('messages')">
             쪽지함
@@ -71,13 +72,20 @@
                           :badges="activityData?.badges"
                           :show-effects="userProfile.showLevelEffects"
                           :show-level-effects="userProfile.showLevelEffects"
+                          :show-equipped-effect="userProfile.showEquippedEffect"
+                          :equipped-tier="userProfile.equippedTier"
                           :author-equipped-effect="userProfile.equippedEffect"
                           :equipped-badge-name="equippedBadgeDisplayName"
                           :karma-point="userProfile.karmaPoint"
                         />
-                        <button class="dash-effects-btn" :class="[{ active: userProfile.showLevelEffects }, `tier-${badgeStore.getAccountTierNumber(userProfile.level)}`]" @click="toggleLevelEffects" title="닉네임 효과 토글">
-                          {{ userProfile.showLevelEffects ? '✨' : '👤' }}
-                        </button>
+                        <div class="dash-toggle-group">
+                          <button class="dash-effects-btn" :class="[{ active: userProfile.showLevelEffects }, `tier-${badgeStore.getAccountTierNumber(userProfile.level)}`]" @click="toggleLevelEffects" title="닉네임 효과 토글">
+                            {{ userProfile.showLevelEffects ? '✨' : '👤' }}
+                          </button>
+                          <button class="dash-effects-btn" :class="[{ active: userProfile.showEquippedEffect }, `tier-${badgeStore.getAccountTierNumber(userProfile.level)}`]" @click="toggleEquippedEffect" title="닉네임 장식 토글">
+                            {{ userProfile.showEquippedEffect ? '🕊️' : '🚫' }}
+                          </button>
+                        </div>
                       </div>
                       <div class="dash-username-sub">@{{ userProfile.username }}</div>
                     </div>
@@ -353,64 +361,6 @@
             </div>
 
 
-
-            <!-- 등급별 효과 미리보기 -->
-            <div class="tier-preview-section">
-              <div class="tier-preview-header">
-                <h3 class="sub-section-title">🏆 등급별 닉네임 효과</h3>
-                <p class="tier-preview-desc">레벨업을 통해 새로운 효과를 잠금 해제하세요</p>
-              </div>
-              <div class="tier-preview-grid">
-                <div
-                  v-for="lv in tierPreviewLevels"
-                  :key="lv"
-                  class="tier-preview-card"
-                  :class="[`tier-${lv}`, { 'is-locked': lv > userCurrentTier, 'is-unlocked': lv <= userCurrentTier }]"
-                >
-                  <!-- 잠긴 카드: 블러 미리보기 + 잠금 오버레이 -->
-                  <template v-if="lv > userCurrentTier">
-                    <div class="tier-card-content tier-card-blurred">
-                      <span class="tier-preview-lv">Lv.{{ lv }}</span>
-                      <AnimatedNickname
-                        :nickname="userProfile?.nickname || userProfile?.username || 'HabiDue'"
-                        :level="lv"
-                        :exp="lv * lv * 50 - 1"
-                        :badges="activityData?.badges"
-                        :show-effects="true"
-                        :show-level-effects="true"
-                        :author-equipped-effect="lv >= 100 ? 'GOLD_WINGS' : (lv >= 70 ? 'SILVER_WINGS' : (lv >= 50 ? 'BRONZE_WINGS' : null))"
-                        :show-avatar="true"
-                        tooltip-direction="top"
-                      />
-                    </div>
-                    <div class="lock-overlay">
-                      <span class="lock-icon">🔒</span>
-                      <span class="lock-label">Lv.{{ lv }} 달성 시 해금</span>
-                    </div>
-                  </template>
-
-                  <!-- 해금된 카드 -->
-                  <template v-else>
-                    <span class="tier-unlocked-badge">✓ 달성</span>
-                    <div class="tier-card-content">
-                      <span class="tier-preview-lv">Lv.{{ lv }}</span>
-                      <AnimatedNickname
-                        :nickname="userProfile?.nickname || userProfile?.username || 'HabiDue'"
-                        :level="lv"
-                        :exp="lv * lv * 50 - 1"
-                        :badges="activityData?.badges"
-                        :show-effects="true"
-                        :show-level-effects="true"
-                        :author-equipped-effect="lv >= 100 ? 'GOLD_WINGS' : (lv >= 70 ? 'SILVER_WINGS' : (lv >= 50 ? 'BRONZE_WINGS' : null))"
-                        :show-avatar="true"
-                        tooltip-direction="top"
-                      />
-                    </div>
-                  </template>
-                </div>
-              </div>
-            </div>
-
             <!-- 실제 내 배지함 (세트 효과 적용) -->
             <div class="badge-section">
               <h3 class="sub-section-title">내 배지함 <span class="badge-count">{{ activityData?.badges?.length || 0 }}</span></h3>
@@ -535,6 +485,7 @@
                       <span class="p-stat">❤️ {{ post.likeCount }}</span>
                       <span class="p-stat">💬 {{ post.commentCount }}</span>
                       <span class="p-stat">👁️ {{ post.viewCount }}</span>
+                      <span class="i-icon white-eye-large">{{ post.viewCount }}</span>
                     </div>
                     <span class="btn-go-detail">자세히 보기 →</span>
                   </div>
@@ -586,6 +537,137 @@
                 <div class="empty-visual">💬</div>
                 <p>아직 작성한 댓글이 없습니다.<br>이웃들의 글에 따뜻한 댓글을 남겨보세요!</p>
                 <button @click="$router.push('/board')" class="btn-go-action">커뮤니티 둘러보기</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- 신규 효과 관리 탭 -->
+          <div v-if="activeTab === 'effects'" class="effects-tab-content fade-in">
+            <div class="section-header-flex">
+              <div class="text-group">
+                <h2 class="section-title">✨ 효과 관리</h2>
+                <p class="section-desc">닉네임 효과와 이펙트 효과를 선택해서 조합하세요.</p>
+              </div>
+            </div>
+
+            <!-- 효과 선택 및 미리보기 영역 -->
+            <div class="effects-manage-container">
+              <!-- 상단: 실시간 미리보기 -->
+              <div class="effects-preview-panel-top">
+                <div class="preview-box">
+                  <div class="preview-content">
+                    <AnimatedNickname
+                      :user-id="userProfile?.id"
+                      :nickname="userProfile?.nickname || userProfile?.username || 'HabiDue'"
+                      :level="userProfile?.level"
+                      :exp="userProfile?.totalExp"
+                      :badges="activityData?.badges"
+                      :show-effects="userProfile?.showLevelEffects"
+                      :show-level-effects="userProfile?.showLevelEffects"
+                      :author-equipped-effect="userProfile?.equippedEffect"
+                      :equipped-badge-name="equippedBadgeDisplayName"
+                      :karma-point="userProfile?.karmaPoint"
+                    />
+                  </div>
+                  <p class="preview-label">미리보기</p>
+                </div>
+                <div class="preview-info">
+                  <p v-if="userProfile?.equippedTier" class="info-text">
+                    <strong>장착된 닉네임 효과:</strong> Lv.{{ userProfile.equippedTier }}
+                  </p>
+                  <p v-if="userProfile?.equippedEffect" class="info-text">
+                    <strong>장착된 닉네임 장식:</strong> {{ getEquippedEffectName(userProfile.equippedEffect) }}
+                  </p>
+                </div>
+              </div>
+
+              <!-- 닉네임 효과 -->
+              <div class="effect-category-full">
+                <h3 class="category-title">🎨 닉네임 효과</h3>
+                <div class="tier-preview-grid">
+                  <div
+                    v-for="lv in tierPreviewLevels"
+                    :key="`tier-${lv}`"
+                    class="tier-preview-card"
+                    :class="[`tier-${lv}`, {
+                      'is-locked': lv > userCurrentTier,
+                      'is-unlocked': lv <= userCurrentTier,
+                      'is-equipped': userProfile?.equippedTier === lv || (!userProfile?.equippedTier && badgeStore.getAccountTierNumber(userProfile?.level) === lv)
+                    }]"
+                    @click="lv <= userCurrentTier || authStore.isAdmin ? updateEquippedTier(lv) : null"
+                  >
+                    <!-- 잠긴 카드: 블러 미리보기 + 잠금 오버레이 -->
+                    <template v-if="lv > userCurrentTier">
+                      <div class="tier-card-content tier-card-blurred">
+                        <span class="tier-preview-lv">Lv.{{ lv }}</span>
+                        <AnimatedNickname
+                          :nickname="userProfile?.nickname || userProfile?.username || 'HabiDue'"
+                          :level="lv"
+                          :exp="lv * lv * 50 - 1"
+                          :badges="activityData?.badges"
+                          :show-effects="true"
+                          :show-level-effects="true"
+                          :show-equipped-effect="false"
+                          :author-equipped-effect="null"
+                          :show-avatar="true"
+                          tooltip-direction="top"
+                        />
+                      </div>
+                      <div class="lock-overlay">
+                        <span class="lock-icon">🔒</span>
+                        <span class="lock-label">Lv.{{ lv }} 달성 시 해금</span>
+                      </div>
+                    </template>
+
+                    <!-- 해금된 카드 -->
+                    <template v-else>
+                      <span v-if="userProfile?.equippedTier === lv || (!userProfile?.equippedTier && badgeStore.getAccountTierNumber(userProfile?.level) === lv)" class="tier-equipped-badge">장착중</span>
+                      <span v-else class="tier-unlocked-badge">✓ 해금됨</span>
+                      <div class="tier-card-content">
+                        <span class="tier-preview-lv">Lv.{{ lv }}</span>
+                        <AnimatedNickname
+                          :nickname="userProfile?.nickname || userProfile?.username || 'HabiDue'"
+                          :level="lv"
+                          :exp="lv * lv * 50 - 1"
+                          :badges="activityData?.badges"
+                          :show-effects="true"
+                          :show-level-effects="true"
+                          :show-equipped-effect="false"
+                          :author-equipped-effect="null"
+                          :show-avatar="true"
+                          tooltip-direction="top"
+                        />
+                      </div>
+                    </template>
+                  </div>
+                </div>
+              </div>
+
+              <!-- 이펙트 효과 -->
+              <div class="effect-category-full">
+                <h3 class="category-title">⚡ 닉네임 장식</h3>
+                <div class="effect-grid">
+                  <div
+                    v-for="effect in specialEffectsList"
+                    :key="effect.id"
+                    class="effect-card"
+                    :class="[
+                      { 'is-equipped': userProfile?.equippedEffect === effect.id },
+                      { 'is-locked': isEffectLocked(effect.id) }
+                    ]"
+                    @click="effect.id ? updateEquippedEffect(effect.id) : updateEquippedEffect(null)"
+                  >
+                    <div class="effect-icon">{{ effect.icon }}</div>
+                    <div class="effect-name">{{ effect.name.split(' ')[1] || effect.name }}</div>
+                    <span v-if="userProfile?.equippedEffect === effect.id" class="effect-equipped-badge">✓</span>
+                    <template v-if="isEffectLocked(effect.id)">
+                      <div class="effect-lock-overlay">
+                        <span class="lock-icon-sm">🔒</span>
+                        <span v-if="getUnlockLevel(effect.id)" class="lock-label-sm">Lv.{{ getUnlockLevel(effect.id) }}</span>
+                      </div>
+                    </template>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
@@ -739,6 +821,122 @@ const router = useRouter()
 const activeTab = ref(route.query.tab || 'activity')
 const activeSubTab = ref('posts')
 const isRestoring = ref(false)
+
+// [시니어 조치] 특수 효과 리스트
+const specialEffectsList = [
+  { id: null, name: '효과 없음', icon: '🚫' },
+  { id: 'PIONEER_WINGS', name: '🕊️ 화이트 윙 (White)', icon: '🕊️', betaOnly: true },
+  { id: 'MAGIC_BUBBLES', name: '🫧 방울방울 (Bubble)', icon: '🫧' },
+  { id: 'BRONZE_WINGS', name: '🥉 브론즈 윙 (Bronze)', icon: '🥉' },
+  { id: 'STARRY_NIGHT', name: '✨ 반짝이는 별무리 (Starry)', icon: '✨' },
+  { id: 'SILVER_WINGS', name: '🥈 실버 윙 (Silver)', icon: '🥈' },
+  { id: 'BOMB', name: '🔫 레이저 (laser)', icon: '🔫' },
+  { id: 'GOLD_WINGS', name: '🎖️ 골드 윙 (Gold)', icon: '🎖️' },
+  { id: 'SHADOW_DEMON', name: '🧪 포이즌 (Poison)', icon: '🧪' },
+  { id: 'VOID_RIFT', name: '🌀 보이드 리프트 (Void)', icon: '🌀' },
+  { id: 'THUNDER_BLUE', name: '⚡ 번개찌리릿 (Thunder)', icon: '⚡' },
+  { id: 'NEON_SIGN', name: '💡 네온 사인 (Neon)', icon: '💡' },
+  { id: 'AURORA_FLAME', name: '🔥 화염 (Flame)', icon: '🔥' },
+  { id: 'RAINBOW_WAVE', name: '🌈 무지개 (Rainbow)', icon: '🌈' },
+  { id: 'ICE_FROST', name: '❄️ 얼음 결정 (Frost)', icon: '❄️' },
+  { id: 'SAKURA_BLOOM', name: '🌸 벚꽃 (Sakura)', icon: '🌸' },
+  { id: 'PIXEL_GLITCH', name: '🎮 픽셀 글리치 (Glitch)', icon: '🎮' },
+  { id: 'LOVE_HEART', name: '💕 두근두근 하트 (Heart)', icon: '💕' },
+  { id: 'SHOOTING_STAR', name: '🌠 별똥별 (Shooting Star)', icon: '🌠' }
+]
+
+// 레벨별 닉네임 장식 오픈
+const levelUnlocks = {
+  5: 'MAGIC_BUBBLES',
+  10: 'BRONZE_WINGS',
+  15: 'STARRY_NIGHT',
+  20: 'SILVER_WINGS',
+  25: 'BOMB',
+  30: 'GOLD_WINGS',
+  35: 'SHADOW_DEMON',
+  40: 'VOID_RIFT',
+  45: 'THUNDER_BLUE',
+  50: 'NEON_SIGN',
+  60: 'AURORA_FLAME',
+  70: 'RAINBOW_WAVE'
+}
+
+const isUpdatingEffect = ref(false)
+const isUpdatingTier = ref(false)
+
+// 이펙트 ID로 해금 레벨 조회
+const getUnlockLevel = (effectId) => {
+  for (const [level, id] of Object.entries(levelUnlocks)) {
+    if (id === effectId) return parseInt(level)
+  }
+  return null
+}
+
+// 이펙트 ID로 장식 이름 조회
+const getEquippedEffectName = (effectId) => {
+  const effect = specialEffectsList.find(e => e.id === effectId)
+  if (!effect) return effectId
+  // 이름에서 이모지 뒤의 한글 부분만 추출 (괄호 앞까지)
+  return effect.name.split('(')[0].trim()
+}
+
+// 이펙트 잠금 여부 판단
+const isEffectLocked = (effectId) => {
+  if (!effectId || !userProfile.value || authStore.isAdmin) return false
+
+  // 베타 전용 이펙트 확인
+  const effect = specialEffectsList.find(e => e.id === effectId)
+  if (effect?.betaOnly && !userProfile.value.betaTester) return true
+
+  const unlockLevel = getUnlockLevel(effectId)
+  // levelUnlocks에 없는 이펙트는 모두 잠금 (이벤트/상점 이펙트)
+  if (unlockLevel === null) return true
+  return userProfile.value.level < unlockLevel
+}
+
+// [시니어 조치] 특수 효과 장착 업데이트
+const updateEquippedEffect = async (effectId) => {
+  if (!userProfile.value) return
+  if (effectId && isEffectLocked(effectId)) {
+    return
+  }
+
+  isUpdatingEffect.value = true
+  try {
+    await axios.patch(`/api/users/${userProfile.value.id}/effect`, null, { params: { effectCode: effectId } })
+    userProfile.value.equippedEffect = effectId
+    if (authStore.user) {
+      authStore.user.equippedEffect = effectId
+      localStorage.setItem('user', JSON.stringify(authStore.user))
+    }
+  } catch (e) {
+    // 실패 시에도 조용히 처리
+  } finally {
+    isUpdatingEffect.value = false
+  }
+}
+
+// [시니어 조치] 닉네임 스타일 티어 장착 업데이트
+const updateEquippedTier = async (tier) => {
+  if (!userProfile.value) return
+  if (tier > userProfile.value.level && !authStore.isAdmin) {
+    return
+  }
+
+  isUpdatingTier.value = true
+  try {
+    await axios.patch('/api/users/me/nickname-tier', null, { params: { tier } })
+    userProfile.value.equippedTier = tier
+    if (authStore.user) {
+      authStore.user.equippedTier = tier
+      localStorage.setItem('user', JSON.stringify(authStore.user))
+    }
+  } catch (e) {
+    uiStore.showAlert('스타일 변경에 실패했습니다.', '오류')
+  } finally {
+    isUpdatingTier.value = false
+  }
+}
 
 // [신규] 내 활동 데이터 상태
 const myPosts = ref([])
@@ -895,7 +1093,7 @@ const toggleLevelEffects = async () => {
   try {
     await axios.patch('/api/users/me/level-effects', null, { params: { enabled: newValue } })
     userProfile.value.showLevelEffects = newValue
-    
+
     // [시니어] 전역 스토어 및 로컬 스토리지 동기화 (새로고침 대비)
     if (authStore.user) {
       authStore.user.showLevelEffects = newValue
@@ -906,6 +1104,23 @@ const toggleLevelEffects = async () => {
   }
 }
 
+// [시니어 조치] 닉네임 장식(이펙트) 토글 처리
+const toggleEquippedEffect = async () => {
+  if (!userProfile.value) return
+  const newValue = !userProfile.value.showEquippedEffect
+  try {
+    await axios.patch('/api/users/me/show-equipped-effect', null, { params: { enabled: newValue } })
+    userProfile.value.showEquippedEffect = newValue
+
+    // 전역 스토어 및 로컬 스토리지 동기화 (실시간 반영)
+    if (authStore.user) {
+      authStore.user.showEquippedEffect = newValue
+      localStorage.setItem('user', JSON.stringify(authStore.user))
+    }
+  } catch (e) {
+    await uiStore.showAlert('설정 변경에 실패했습니다.', '오류')
+  }
+}
 const toggleStatTooltip = (type) => {
   if (activeStatTooltip.value === type) {
     activeStatTooltip.value = null
@@ -1044,6 +1259,7 @@ const activeNotificationCount = computed(() => { let c = 0; if (pushEnabled.valu
 const currentBio = computed(() => {
   if (activeTab.value === 'activity') return '커뮤니티 활동을 통해 획득한 나의 배지와 활동 지표를 확인하세요.'
   if (activeTab.value === 'my-activity') return '내가 작성한 소중한 게시글과 댓글 기록들을 한눈에 확인하세요.'
+  if (activeTab.value === 'effects') return '닉네임 효과와 이펙트 효과를 선택해서 나만의 개성을 표현하세요.'
   if (activeTab.value === 'keywords') return '관심 태그를 설정하여 나에게 꼭 맞는 공고을 가장 먼저 확인하세요.'
   if (activeTab.value === 'messages') return '개인 소통 및 시스템 알림을 확인하는 나만의 우체통입니다.'
   if (activeTab.value === 'notifications') return '나에게 편한 방법으로 공고 알림 소식을 받아보세요.'
@@ -1233,8 +1449,9 @@ onMounted(async () => {
 .hex-lv { font-size: 0.75rem; font-weight: 800; }
 .hex-num { font-size: 1.7rem; font-weight: 950; }
 
-.dash-nickname-group { display: flex; align-items: center; gap: 12px; }
+.dash-nickname-group { display: flex; align-items: center; gap: 12px; flex-wrap: nowrap; }
 .dash-nickname-group :deep(.animated-nickname) { font-size: 1.5rem !important; font-weight: 900; }
+.dash-toggle-group { display: flex; gap: 6px; align-items: center; flex-shrink: 0; }
 .dash-username-sub { font-size: 0.95rem; color: var(--text-secondary); font-weight: 600; opacity: 0.7; }
 .dash-effects-btn { background: var(--hover-bg); border: 1px solid var(--border-color); width: 34px; height: 34px; border-radius: 10px; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: all 0.2s; font-size: 1.1rem; }
 .dash-effects-btn.active { background: var(--link-color); color: white; border-color: transparent; }
@@ -1339,7 +1556,7 @@ onMounted(async () => {
 .hex-num { font-size: 1.8rem; font-weight: 950; text-shadow: 0 2px 4px rgba(0,0,0,0.2); }
 
 .dash-user-details { display: flex; flex-direction: column; gap: 6px; }
-.dash-nickname-group { display: flex; align-items: center; gap: 12px; }
+.dash-nickname-group { display: flex; align-items: center; gap: 12px; flex-wrap: nowrap; }
 .dash-nickname-group :deep(.animated-nickname) { font-size: 1.6rem !important; font-weight: 900; }
 
 .dash-effects-btn {
@@ -1707,11 +1924,255 @@ onMounted(async () => {
   background: var(--t-color, var(--link-color)); color: white;
   padding: 2px 6px; border-radius: 20px; z-index: 5;
 }
+.tier-equipped-badge {
+  position: absolute; top: 8px; right: 8px;
+  font-size: 0.58rem; font-weight: 900;
+  background: #22c55e; color: white;
+  padding: 2px 6px; border-radius: 20px; z-index: 10;
+  box-shadow: 0 2px 8px rgba(34, 197, 94, 0.4);
+}
+.tier-preview-card.is-equipped {
+  border-color: #22c55e !important;
+  background: rgba(34, 197, 94, 0.03);
+}
 .tier-preview-lv { font-size: 0.68rem; font-weight: 900; color: var(--t-color, var(--text-secondary)); letter-spacing: 0.02em; }
 
 @media (max-width: 600px) {
   .tier-preview-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; }
   .tier-preview-card { padding: 14px 8px; }
+}
+
+/* ── 효과 관리 탭 ── */
+.effects-tab-content { }
+
+.effects-manage-container {
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+  margin-top: 32px;
+}
+
+.effect-category-full {
+  padding: 0;
+}
+
+.category-title {
+  font-size: 1.1rem;
+  font-weight: 800;
+  margin-bottom: 20px;
+  color: var(--text-primary);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.effects-preview-panel-top {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  padding: 32px;
+  background: var(--card-bg);
+  border: 1px solid var(--border-color);
+  border-radius: 20px;
+}
+
+.effect-grid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 10px;
+}
+
+.effect-card {
+  background: rgba(139, 139, 139, 0.06);
+  border: 1.5px solid var(--border-color);
+  border-radius: 12px;
+  padding: 12px 8px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  position: relative;
+  transition: all 0.2s;
+  cursor: pointer;
+  min-height: 85px;
+}
+
+.effect-card:hover:not(.is-locked) {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.1);
+  border-color: var(--link-color);
+}
+
+.effect-card.is-equipped {
+  border-color: #22c55e !important;
+  background: rgba(34, 197, 94, 0.08);
+  box-shadow: 0 0 0 2px rgba(34, 197, 94, 0.2);
+}
+
+.effect-card.is-locked {
+  opacity: 0.7;
+  cursor: not-allowed;
+  border-color: var(--border-color);
+  background: rgba(139, 139, 139, 0.06);
+}
+
+.effect-card.is-locked .effect-icon {
+  filter: blur(3px);
+}
+
+.effect-lock-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  background: rgba(0, 0, 0, 0.15);
+  border-radius: 10px;
+  pointer-events: none;
+}
+
+.lock-icon-sm {
+  font-size: 1.1rem;
+  line-height: 1;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.3));
+}
+
+.lock-label-sm {
+  font-size: 0.65rem;
+  font-weight: 900;
+  color: #fff;
+  background: rgba(0, 0, 0, 0.3);
+  padding: 4px 8px;
+  border-radius: 6px;
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.6);
+  box-shadow: 0 0 6px rgba(0, 0, 0, 0.3);
+  letter-spacing: 0.02em;
+}
+
+.effect-icon {
+  font-size: 2rem;
+  line-height: 1;
+}
+
+.effect-name {
+  font-size: 0.65rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  text-align: center;
+  line-height: 1.2;
+  max-width: 100%;
+  word-break: break-word;
+}
+
+.effect-equipped-badge {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  font-size: 0.7rem;
+  font-weight: 900;
+  color: #22c55e;
+  background: rgba(34, 197, 94, 0.2);
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.preview-box {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 28px;
+  background: var(--hover-bg);
+  border: 1.5px dashed var(--border-color);
+  border-radius: 16px;
+  min-height: 180px;
+  justify-content: center;
+}
+
+.preview-content {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 80px;
+}
+
+.preview-label {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin: 0;
+}
+
+.preview-info {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.info-text {
+  font-size: 0.85rem;
+  color: var(--text-primary);
+  margin: 0;
+  line-height: 1.4;
+}
+
+.info-text strong {
+  color: var(--link-color);
+  font-weight: 800;
+}
+
+/* 태블릿 반응형 */
+@media (max-width: 1024px) {
+  .effect-grid {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
+/* 모바일 반응형 */
+@media (max-width: 600px) {
+  .effects-preview-panel-top {
+    padding: 20px;
+  }
+
+  .tier-preview-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+  }
+
+  .tier-preview-card {
+    padding: 14px 8px;
+  }
+
+  .effect-grid {
+    grid-template-columns: repeat(4, 1fr);
+    gap: 8px;
+  }
+
+  .effect-card {
+    padding: 10px 6px;
+    min-height: 70px;
+  }
+
+  .effect-icon {
+    font-size: 1.5rem;
+  }
+
+  .effect-name {
+    font-size: 0.6rem;
+  }
+
+  .lock-label-sm {
+    font-size: 0.5rem;
+  }
 }
 
 /* --- 배지 섹션 및 기존 공통 유지 --- */
