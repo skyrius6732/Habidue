@@ -181,13 +181,11 @@
         <div class="wh-ring"></div>
       </div>
 
-      <!-- 18. BOMB: 폭탄 심줄 사각형 경로 따라 타들어감 -->
-      <div v-if="isBombEffect" class="bomb-fuse-container">
-        <svg class="bomb-fuse-line" viewBox="-65 -35 130 70" xmlns="http://www.w3.org/2000/svg">
-          <!-- 사각형 경로: 닉네임 테두리 -->
-          <path class="fuse-path" d="M -55,-15 L 55,-15 L 55,15 L -55,15 Z" />
-        </svg>
-      </div>
+
+      <!-- 18. BOMB: 폭탄 심줄 테두리 타들어감 -->
+      <svg v-if="isBombEffect" class="bomb-fuse-container" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="none">
+        <rect class="bomb-border-rect" x="4" y="4" width="92" height="92" />
+      </svg>
 
       <!-- 13. LOVE_HEART: 하트 아래서 위로 -->
       <div v-if="isHeartEffect" class="heart-container">
@@ -1017,34 +1015,37 @@ onUnmounted(() => { if (themeObserver) themeObserver.disconnect() })
   100%     { opacity: 0; transform: scale(0.05) translateX(-40px); filter: blur(4px); }
 }
 
-/* 18. BOMB — 폭탄 심줄 사각형 경로 타들어감 */
+/* 18. BOMB — 폭탄 심줄 테두리 따라 타들어감 */
 .bomb-fuse-container {
-  position: absolute; inset: -35px -25px; pointer-events: none; z-index: 7; overflow: hidden;
+  position: absolute; inset: 0px 0px 0px 0px; 
+  pointer-events: none; z-index: 7; overflow: visible;
+   width: 100%; height: 100%;
 }
-.bomb-fuse-line { width: 100%; height: 100%; }
-.fuse-path {
+.bomb-border-rect {
   fill: none;
-  stroke: white;
-  stroke-width: 1.8;
+  stroke: rgb(255, 255, 255);
+  stroke-width: 5;
   stroke-linecap: round;
   stroke-linejoin: round;
-  stroke-dasharray: 280;
-  stroke-dashoffset: 280;
-  filter: drop-shadow(0 0 3px rgba(255, 255, 255, 0.9)) drop-shadow(0 0 8px rgba(255, 100, 100, 0.6));
-  animation: fuse-burn-path 3s infinite ease-in;
+  stroke-dasharray: 400;
+  stroke-dashoffset: 400;
+  filter: drop-shadow(0 0 2px rgb(255, 135, 135)) 
+  drop-shadow(0 0 20px rgba(255, 173, 173, 0.9)) 
+  drop-shadow(0 0 20px rgba(255, 201, 201, 0.6));
+  animation: bomb-burn-border 4s infinite ease-in;
 }
-@keyframes fuse-burn-path {
-  0% { stroke-dashoffset: 280; opacity: 1; }
+@keyframes bomb-burn-border {
+  0% { stroke-dashoffset: 400; opacity: 1; }
   90% { stroke-dashoffset: 0; opacity: 1; }
   100% { stroke-dashoffset: 0; opacity: 0; }
 }
+
 .has-bomb .animated-nickname {
   animation: bomb-nick-glow 3s infinite ease-in !important;
 }
 @keyframes bomb-nick-glow {
-  0% { box-shadow: 0 0 5px rgba(255, 0, 0, 0.3); }
-  40% { box-shadow: 0 0 12px rgba(255, 100, 100, 0.6); }
-  80% { box-shadow: 0 0 8px rgba(255, 0, 0, 0.4); }
+  0% { box-shadow: 0 0 5px rgba(255, 0, 0, 0.2); }
+  50% { box-shadow: 0 0 12px rgba(255, 100, 100, 0.5); }
   100% { box-shadow: 0 0 5px rgba(255, 0, 0, 0); }
 }
 
