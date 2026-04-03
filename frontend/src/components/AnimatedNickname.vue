@@ -296,10 +296,9 @@
         </div>
 
         <!-- [시니어 조치] 본인일 경우 이펙트 설정 노출 -->
-        <div class="tooltip-effect-settings stagger-item" v-if="(isMe && (level >= 50 || isAdmin))">
+        <div class="tooltip-effect-settings stagger-item" v-if="isMe">
           <div class="effect-header-mini">
-            <span class="effect-label-mini">MY EFFECT</span>
-            <span v-if="!isAdmin" class="effect-lock-guide">Lv.50 이상 해제</span>
+            <span class="effect-label-mini">닉네임 장식</span>
           </div>
           
           <div 
@@ -311,19 +310,19 @@
             @mouseup="handleDragEnd"
           >
             <div class="effect-toggle-group">
-              <button 
+              <button
                 v-for="eff in specialEffects" :key="eff.id"
-                class="effect-toggle-btn" 
-                :class="{ 
+                class="effect-toggle-btn"
+                :class="{
                   active: (displayEquippedEffect === eff.id) || (!displayEquippedEffect && !eff.id),
-                  locked: !isAdmin && eff.id && level < 50
+                  locked: !isAdmin && eff.id && !ownedEffectCodes.includes(eff.id)
                 }"
-                @click.stop="isAdmin || !eff.id || level >= 50 ? updateEffect(eff.id, $event) : null"
+                @click.stop="isAdmin || !eff.id || ownedEffectCodes.includes(eff.id) ? updateEffect(eff.id, $event) : null"
                 :disabled="isUpdatingEffect"
-                :title="!isAdmin && eff.id && level < 50 ? '레벨 50 달성 시 해제됩니다' : eff.name"
+                :title="eff.name"
               >
                 <span class="eff-icon">{{ eff.icon }}</span>
-                <span v-if="!isAdmin && eff.id && level < 50" class="lock-overlay">🔒</span>
+                <span v-if="!isAdmin && eff.id && !ownedEffectCodes.includes(eff.id)" class="lock-overlay">🔒</span>
                 <span v-if="(displayEquippedEffect === eff.id) || (!displayEquippedEffect && !eff.id)" class="active-check">✓</span>
               </button>
             </div>
@@ -440,7 +439,8 @@ const props = defineProps({
   effectOnly: { type: Boolean, default: false }, // [시니어 조치] 닉네임 없이 이펙트만 렌더링하는 모드
   equippedTier: { type: Number, default: null }, // [시니어 조치] 장착 중인 티어 스타일
   equippedEffect: { type: String, default: null }, // 장착 중인 특수 효과 코드
-  authorEquippedEffect: { type: String, default: null } // [시니어 대응] 백엔드 DTO 필드명 호환용
+  authorEquippedEffect: { type: String, default: null }, // [시니어 대응] 백엔드 DTO 필드명 호환용
+  ownedEffectCodes: { type: Array, default: () => [] } // 사용자가 소유한 이펙트 목록 (user_effects 테이블)
 })
 
 const badgeStore = useBadgeStore()

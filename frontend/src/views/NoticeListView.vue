@@ -505,7 +505,28 @@ const toggleAlertKeyword = async (tag) => {
 
 const formatDateDot = (s) => s ? s.split('T')[0].replace(/-/g, '.') : '-';
 
-const handleToggleFavorite = async (notice) => { try { if (!notice.isFavorite) { await axios.post('/api/user-notices', { noticeId: notice.id, memo: '' }); notice.isFavorite = true; notice.interestCount++ } else { await axios.delete(`/api/user-notices/notice/${notice.id}`); notice.isFavorite = false; notice.interestCount-- } } catch (e) { console.error('관심 등록 실패:', e); } }
+const handleToggleFavorite = async (notice) => {
+  try {
+    if (!notice.isFavorite) {
+      await axios.post('/api/user-notices', { noticeId: notice.id, memo: '' });
+      notice.isFavorite = true;
+      notice.interestCount++;
+    } else {
+      await axios.delete(`/api/user-notices/notice/${notice.id}`);
+      notice.isFavorite = false;
+      notice.interestCount--;
+    }
+
+    // 리스트의 같은 항목도 업데이트 (모달에서 수정된 내용이 리스트에 반영)
+    const idx = notices.value.findIndex(n => n.id === notice.id);
+    if (idx !== -1) {
+      notices.value[idx].isFavorite = notice.isFavorite;
+      notices.value[idx].interestCount = notice.interestCount;
+    }
+  } catch (e) {
+    console.error('관심 등록 실패:', e);
+  }
+};
 
 const updateMobileStatus = (e) => { isMobile.value = e.matches; handleSearch(); }
 const initInfiniteScroll = () => { if (observer) observer.disconnect(); observer = new IntersectionObserver((entries) => { if (entries[0].isIntersecting && !loading.value && !isLastPage.value && isMobile.value) { fetchNotices(currentPage.value + 1); } }, { threshold: 0.1, rootMargin: '100px' }); nextTick(() => { if (infiniteScrollTrigger.value) observer.observe(infiniteScrollTrigger.value); }); }

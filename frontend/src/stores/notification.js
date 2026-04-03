@@ -149,17 +149,25 @@ export const useNotificationStore = defineStore('notification', {
       this.isConnecting = true
 
       try {
-        // [중요] 연결 전 토큰 체크 실패 시에도 SSE 재연결 주기에 맡기도록 예외 처리
+        // [중요] 연결 전 토큰 체크
         try {
           await axios.get('/api/notifications/unread-count?_t=' + Date.now())
+          // axios 인터셉터에 의해 토큰이 갱신되었을 수 있으므로 다시 가져옴
           authStore.syncTokenFromStorage()
         } catch (tokenErr) {
-          console.warn('[SSE-DEBUG] 토큰 체크 일시적 실패, 기존 토큰으로 연결 시도...')
+          console.warn('[SSE-DEBUG] 토큰 체크 실패, 2초 후 재시도 (갱신 대기)')
+          this.isConnecting = false
+          setTimeout(() => this.connectSse(callback), 2000)
+          return
         }
         
         this.disconnectSse()
 
         const token = authStore.accessToken
+        if (!token) {
+          this.isConnecting = false
+          return
+        }
         const url = `/api/notifications/subscribe?token=${encodeURIComponent(token)}&_t=${Date.now()}`
         
         this.eventSource = new EventSource(url)

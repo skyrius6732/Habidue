@@ -457,14 +457,19 @@ const fetchUserTags = async () => {
   } catch (e) {} 
 };
 
-const fetchNoticeInfo = async () => { 
-  if (post.value.noticeId) { 
-    try { 
-      const res = await axios.get(`/api/notices/${post.value.noticeId}`); 
-      noticeInfo.value = res.data.data; 
-    } catch (e) {} 
-  } 
+const fetchNoticeInfo = async () => {
+  if (post.value.noticeId) {
+    try {
+      const res = await axios.get(`/api/notices/${post.value.noticeId}`);
+      noticeInfo.value = res.data.data;
+    } catch (e) {}
+  }
 };
+
+const handleListBack = () => {
+  router.back();
+};
+
 const isFormValid = computed(() => post.value.title?.trim() && post.value.content?.trim() && post.value.category)
 const isMobile = ref(window.innerWidth <= 992)
 const handleResize = () => { isMobile.value = window.innerWidth <= 992 }
