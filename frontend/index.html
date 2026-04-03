@@ -11,6 +11,14 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="하비듀">
     <title>HabiDue - 내 집 마련의 첫걸음</title>
+    <script>
+      (function() {
+        const theme = localStorage.getItem('theme');
+        if (theme !== 'light') {
+          document.documentElement.classList.add('dark-mode');
+        }
+      })();
+    </script>
   </head>
   <body>
     <div id="app"></div>
