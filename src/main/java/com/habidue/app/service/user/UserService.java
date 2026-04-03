@@ -4,6 +4,7 @@ import com.habidue.app.domain.user.Role;
 import com.habidue.app.domain.user.User;
 import com.habidue.app.domain.user.UserActivityStats;
 import com.habidue.app.domain.user.UserStatus;
+import com.habidue.app.domain.user.UserEffect;
 import com.habidue.app.dto.SignupRequest;
 import com.habidue.app.dto.user.UserActivityResponseDto;
 import com.habidue.app.repository.user.UserRepository;
@@ -46,6 +47,7 @@ public class UserService {
     private final com.habidue.app.repository.message.MessageRepository messageRepository;
     private final com.habidue.app.repository.notification.NotificationRepository notificationRepository;
     private final com.habidue.app.repository.user.AttendanceRepository attendanceRepository;
+    private final UserEffectService userEffectService;
 
     private static final String BADGE_RULES_CACHE_KEY = "badge:rules:all";
 
@@ -155,12 +157,65 @@ public class UserService {
 
     /**
      * [시니어 조치] 유저의 특수 효과(날개 등) 장착 상태 업데이트
+     * - effectCode가 null/빈 문자열: 장착 해제 (OK)
+     * - 관리자: 모든 이펙트 장착 가능 (검증 생략)
+     * - PIONEER_WINGS (베타 전용): 베타테스터만 가능
+     * - 그 외: 소유 여부 확인 필요 (향후 상점 기능 연동 시)
      */
     @Transactional
     public User updateEquippedEffect(Long userId, String effectCode) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new java.util.NoSuchElementException("사용자를 찾을 수 없습니다."));
-        
+
+        // 장착 해제
+        if (effectCode == null || effectCode.trim().isEmpty()) {
+            user.setEquippedEffect(null);
+            log.info("유저 [{}]님의 특수 효과가 해제되었습니다.", user.getNickname());
+            return userRepository.save(user);
+        }
+
+        // [시니어 조치] 관리자는 모든 검증 생략
+        if (user.getRole() == Role.ADMIN) {
+            user.setEquippedEffect(effectCode);
+            log.info("관리자 [{}]님이 사용자 [{}]의 특수 효과를 [{}]로 변경했습니다.",
+                user.getNickname(), user.getId(), effectCode);
+            return userRepository.save(user);
+        }
+
+        // 베타 전용 이펙트 검증 (user_effects 테이블에서 확인)
+        if ("PIONEER_WINGS".equals(effectCode)) {
+            if (!userEffectService.hasEffect(userId, effectCode)) {
+                throw new IllegalArgumentException("아직 해금되지 않은 이펙트입니다.");
+            }
+            user.setEquippedEffect(effectCode);
+            log.info("유저 [{}]님의 특수 효과가 [{}]로 변경되었습니다.", user.getNickname(), effectCode);
+            return userRepository.save(user);
+        }
+
+        // 레벨별 자동 오픈 이펙트 검증
+        java.util.Map<Integer, String> levelUnlocks = java.util.Map.ofEntries(
+            java.util.Map.entry(5, "MAGIC_BUBBLES"),
+            java.util.Map.entry(10, "BRONZE_WINGS"),
+            java.util.Map.entry(15, "STARRY_NIGHT"),
+            java.util.Map.entry(20, "SILVER_WINGS"),
+            java.util.Map.entry(25, "BOMB"),
+            java.util.Map.entry(30, "GOLD_WINGS"),
+            java.util.Map.entry(35, "SHADOW_DEMON"),
+            java.util.Map.entry(40, "VOID_RIFT"),
+            java.util.Map.entry(45, "THUNDER_BLUE"),
+            java.util.Map.entry(50, "NEON_SIGN"),
+            java.util.Map.entry(60, "AURORA_FLAME"),
+            java.util.Map.entry(70, "RAINBOW_WAVE")
+        );
+
+        // 요청한 이펙트가 현재 레벨에서 오픈됐는지 확인
+        boolean canEquip = levelUnlocks.entrySet().stream()
+            .anyMatch(entry -> entry.getValue().equals(effectCode) && user.getLevel() >= entry.getKey());
+
+        if (!canEquip && !userEffectService.hasEffect(userId, effectCode)) {
+            throw new IllegalArgumentException("아직 해금되지 않은 이펙트입니다.");
+        }
+
         user.setEquippedEffect(effectCode);
         log.info("유저 [{}]님의 특수 효과가 [{}]로 변경되었습니다.", user.getNickname(), effectCode);
         return userRepository.save(user);

@@ -19,6 +19,7 @@ public class ExpService {
     private final UserRepository userRepository;
     private final ExpHistoryRepository expHistoryRepository;
     private final com.habidue.app.service.ranking.RankingService rankingService;
+    private final UserEffectService userEffectService;
 
     /**
      * 레벨 테이블 (간단한 산술식 또는 고정 구간)
@@ -54,10 +55,50 @@ public class ExpService {
         if (newLevel > oldLevel) {
             userRepository.updateLevel(userId, newLevel);
             log.info("사용자 레벨업! ID: {}, {} -> {}", userId, oldLevel, newLevel);
+
+            // [시니어 조치] 레벨업 시 해금되는 이펙트 자동 지급
+            grantEffectsForLevel(userId, oldLevel, newLevel);
         }
 
         // [시니어 조치] 경험치 변동 시 랭킹 캐시 즉시 무효화 (실시간 반영)
         rankingService.clearRankingCache();
+    }
+
+    /**
+     * [시니어 조치] 레벨업 시 해금되는 이펙트를 자동으로 지급
+     */
+    private void grantEffectsForLevel(Long userId, int oldLevel, int newLevel) {
+        // 레벨별 이펙트 맵
+        java.util.Map<Integer, String> levelUnlocks = java.util.Map.ofEntries(
+            java.util.Map.entry(5, "MAGIC_BUBBLES"),
+            java.util.Map.entry(10, "BRONZE_WINGS"),
+            java.util.Map.entry(15, "STARRY_NIGHT"),
+            java.util.Map.entry(20, "SILVER_WINGS"),
+            java.util.Map.entry(25, "BOMB"),
+            java.util.Map.entry(30, "GOLD_WINGS"),
+            java.util.Map.entry(35, "SHADOW_DEMON"),
+            java.util.Map.entry(40, "VOID_RIFT"),
+            java.util.Map.entry(45, "THUNDER_BLUE"),
+            java.util.Map.entry(50, "NEON_SIGN"),
+            java.util.Map.entry(60, "AURORA_FLAME"),
+            java.util.Map.entry(70, "RAINBOW_WAVE")
+        );
+
+        // oldLevel과 newLevel 사이에 해금되는 이펙트들을 지급
+        for (java.util.Map.Entry<Integer, String> entry : levelUnlocks.entrySet()) {
+            int unlockLevel = entry.getKey();
+            String effectCode = entry.getValue();
+
+            // 이전 레벨에서는 해금되지 않았는데, 새 레벨에서 해금되는 경우
+            if (oldLevel < unlockLevel && newLevel >= unlockLevel) {
+                try {
+                    userEffectService.grantEffect(userId, effectCode, com.habidue.app.domain.user.UserEffect.EffectSource.LEVEL);
+                    log.info("레벨업 이펙트 지급: userId={}, effectCode={}, level={}", userId, effectCode, unlockLevel);
+                } catch (Exception e) {
+                    log.warn("레벨업 이펙트 지급 실패: userId={}, effectCode={}, error={}", userId, effectCode, e.getMessage());
+                }
+            }
+        }
     }
 
     /**

@@ -8,6 +8,7 @@ const masters = ref([])
 const loading = ref(true)
 const isSyncing = ref(false)
 const selectedType = ref('ALL')
+const activeTab = ref('badges') // 'badges' 또는 'effects'
 
 // 사용자 데이터 (미리보기용)
 const userProfile = ref(null)
@@ -22,6 +23,15 @@ const editingId = ref(null)
 // 폼 데이터
 const masterForm = ref({ code: '', name: '', description: '', type: 'COMMUNITY', badgeTip: '' })
 const ruleForm = ref({ badgeType: '', level: 1, requiredValue: 0, rankEmoji: '', rankTitle: '', categoryName: '' })
+
+// [시니어 조치] 이펙트 관리 상태
+const searchUserInput = ref('')
+const searchedUsers = ref([])
+const selectedUserIds = ref([])
+const selectedEffectCode = ref('')
+const effectSource = ref('EVENT')
+const isGranting = ref(false)
+const grantMessage = ref('')
 
 // [시니어 조치] 특수 효과 리스트
 const specialEffects = [
@@ -216,6 +226,81 @@ const handleWheelScroll = (e) => {
   }
 }
 
+// [시니어 조치] 사용자 검색
+const searchUsers = async () => {
+  if (!searchUserInput.value.trim()) {
+    searchedUsers.value = []
+    return
+  }
+  try {
+    const res = await axios.get('/api/users', {
+      params: { search: searchUserInput.value, limit: 10 }
+    })
+    searchedUsers.value = res.data.data || []
+  } catch (e) {
+    console.error('사용자 검색 실패', e)
+    searchedUsers.value = []
+  }
+}
+
+// [시니어 조치] 사용자 선택 토글
+const toggleUserSelect = (userId) => {
+  const idx = selectedUserIds.value.indexOf(userId)
+  if (idx > -1) {
+    selectedUserIds.value.splice(idx, 1)
+  } else {
+    selectedUserIds.value.push(userId)
+  }
+}
+
+// [시니어 조치] 이펙트 지급 (단일 또는 일괄)
+const grantEffectBatch = async () => {
+  if (selectedUserIds.value.length === 0 || !selectedEffectCode.value) {
+    alert('사용자와 이펙트를 선택해주세요.')
+    return
+  }
+
+  if (!confirm(`${selectedUserIds.value.length}명에게 이펙트를 지급하시겠습니까?`)) return
+
+  isGranting.value = true
+  grantMessage.value = ''
+  try {
+    // 1명 선택: 단일 지급 엔드포인트 사용
+    if (selectedUserIds.value.length === 1) {
+      const userId = selectedUserIds.value[0]
+      const res = await axios.post(`/api/users/admin/${userId}/grant-effect`, null, {
+        params: {
+          effectCode: selectedEffectCode.value,
+          source: effectSource.value
+        }
+      })
+      const data = res.data.data
+      grantMessage.value = `✅ ${data.message}`
+    } else {
+      // 여러 명 선택: 일괄 지급 엔드포인트 사용
+      const params = new URLSearchParams()
+      selectedUserIds.value.forEach(id => params.append('userIds', id))
+      params.append('effectCode', selectedEffectCode.value)
+      params.append('source', effectSource.value)
+
+      const res = await axios.post('/api/users/admin/batch/grant-effect', null, {
+        params: params
+      })
+      const data = res.data.data
+      grantMessage.value = `✅ ${data.message} (총 요청: ${data.totalRequested}명)`
+    }
+
+    selectedUserIds.value = []
+    selectedEffectCode.value = ''
+    searchedUsers.value = []
+    searchUserInput.value = ''
+  } catch (e) {
+    grantMessage.value = `❌ 지급 실패: ${e.response?.data?.message || e.message}`
+  } finally {
+    isGranting.value = false
+  }
+}
+
 onMounted(fetchInitialData)
 </script>
 
@@ -227,33 +312,32 @@ onMounted(fetchInitialData)
           <h2>🎖️ 배지 마스터리 관리</h2>
         </div>
         <div class="header-btn-group">
-          <button class="btn-compact btn-sync" @click="handleSyncAll" :disabled="isSyncing">
-            {{ isSyncing ? '동기화 중...' : '🔄 전체 동기화' }}
-          </button>
-          <button class="btn-compact btn-master-add" @click="showMasterModal = !showMasterModal; showEditModal = false">
-            {{ showMasterModal ? '닫기' : '➕ 배지 추가' }}
-          </button>
-          <button v-if="selectedType !== 'ALL'" class="btn-compact btn-danger" @click="handleDeleteMaster">🗑️ 배지 삭제</button>
-          <button v-if="selectedType !== 'ALL'" class="btn-compact btn-rule-add" @click="handleRuleToggle">
-            {{ showEditModal ? '닫기' : '➕ 규칙 추가' }}
-          </button>
         </div>
+      </div>
+
+      <!-- [시니어 조치] 탭 네비게이션 -->
+      <div class="admin-tabs">
+        <button
+          class="tab-btn"
+          :class="{ active: activeTab === 'badges' }"
+          @click="activeTab = 'badges'"
+        >
+          🎖️ 배지 관리
+        </button>
+        <button
+          class="tab-btn"
+          :class="{ active: activeTab === 'effects' }"
+          @click="activeTab = 'effects'"
+        >
+          ✨ 효과 관리
+        </button>
       </div>
 
       <div class="search-filter-bar">
-        <div class="type-filter-chips scrollable-x" @wheel="handleWheelScroll">
-          <button 
-            v-for="tab in badgeTypes" :key="tab.id"
-            class="chip-btn" :class="{ active: selectedType === tab.id }"
-            @click="selectedType = tab.id"
-          >
-            {{ tab.name }}
-          </button>
-        </div>
       </div>
 
-      <!-- 인라인 입력 패널 -->
-      <Transition name="slide-fade">
+      <!-- [시니어 조치] 인라인 입력 패널 (탭 내부로 이동) -->
+      <Transition name="slide-fade" v-if="activeTab === 'badges'">
         <div v-if="showMasterModal || showEditModal" class="admin-form-panel">
           <!-- 1. 배지 추가 폼 -->
           <div v-if="showMasterModal" class="panel-content">
@@ -331,7 +415,34 @@ onMounted(fetchInitialData)
       </Transition>
     </div>
 
-    <div class="main-content-scrollable scrollable">
+    <!-- [시니어 조치] 배지 관리 탭 -->
+    <div v-if="activeTab === 'badges'" class="main-content-scrollable scrollable">
+      <!-- 배지 관리 탭 헤더 (버튼 + 필터) -->
+      <div class="tab-header">
+        <div class="tab-controls">
+          <button class="btn-compact btn-sync" @click="handleSyncAll" :disabled="isSyncing">
+            {{ isSyncing ? '동기화 중...' : '🔄 전체 동기화' }}
+          </button>
+          <button class="btn-compact btn-master-add" @click="showMasterModal = !showMasterModal; showEditModal = false">
+            {{ showMasterModal ? '닫기' : '➕ 배지 추가' }}
+          </button>
+          <button v-if="selectedType !== 'ALL'" class="btn-compact btn-danger" @click="handleDeleteMaster">🗑️ 배지 삭제</button>
+          <button v-if="selectedType !== 'ALL'" class="btn-compact btn-rule-add" @click="handleRuleToggle">
+            {{ showEditModal ? '닫기' : '➕ 규칙 추가' }}
+          </button>
+        </div>
+
+        <div class="type-filter-chips scrollable-x" @wheel="handleWheelScroll">
+          <button
+            v-for="tab in badgeTypes" :key="tab.id"
+            class="chip-btn" :class="{ active: selectedType === tab.id }"
+            @click="selectedType = tab.id"
+          >
+            {{ tab.name }}
+          </button>
+        </div>
+      </div>
+
       <!-- PC: 테이블 리스트 -->
       <div class="table-wrapper pc-only">
         <div v-if="loading" class="loading-state">데이터를 불러오는 중...</div>
@@ -468,6 +579,114 @@ onMounted(fetchInitialData)
           <div v-if="tierPreviewBadges.length === 0" class="empty-preview-state">
             <span class="empty-icon">📂</span>
             <p>표시할 배지 규칙이 없습니다.<br>상단에서 <b>규칙 추가</b>를 통해 카드를 등록해 보세요!</p>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <!-- [시니어 조치] 효과 관리 탭 -->
+    <div v-if="activeTab === 'effects'" class="main-content-scrollable scrollable">
+      <section class="admin-section effects-section">
+        <div class="section-header">
+          <h3>✨ 사용자 이펙트 지급</h3>
+          <p class="section-desc">사용자에게 이펙트를 지급합니다 (이벤트, 베타테스터, 구매 등)</p>
+        </div>
+
+        <div class="effect-grant-container">
+          <!-- 사용자 검색 -->
+          <div class="grant-section">
+            <div class="section-title">1️⃣ 사용자 선택</div>
+            <div class="search-input-wrapper">
+              <input
+                v-model="searchUserInput"
+                @input="searchUsers"
+                placeholder="사용자 이름, 이메일, ID로 검색"
+                class="search-input"
+              />
+            </div>
+
+            <!-- 검색 결과 -->
+            <div v-if="searchedUsers.length > 0" class="search-results">
+              <div
+                v-for="user in searchedUsers"
+                :key="user.id"
+                class="user-item"
+                :class="{ selected: selectedUserIds.includes(user.id) }"
+                @click="toggleUserSelect(user.id)"
+              >
+                <input
+                  type="checkbox"
+                  :checked="selectedUserIds.includes(user.id)"
+                  readonly
+                  class="user-checkbox"
+                />
+                <div class="user-info">
+                  <div class="user-name">{{ user.nickname || user.username }}</div>
+                  <div class="user-meta">{{ user.email }} (Lv.{{ user.level }})</div>
+                </div>
+              </div>
+            </div>
+
+            <div v-if="searchUserInput && searchedUsers.length === 0" class="empty-search">
+              검색 결과가 없습니다.
+            </div>
+
+            <!-- 선택된 사용자 목록 -->
+            <div v-if="selectedUserIds.length > 0" class="selected-users">
+              <div class="selected-header">선택된 사용자 ({{ selectedUserIds.length }}명)</div>
+              <div class="selected-chips">
+                <div
+                  v-for="userId in selectedUserIds"
+                  :key="userId"
+                  class="selected-chip"
+                >
+                  {{ searchedUsers.find(u => u.id === userId)?.nickname || `User ${userId}` }}
+                  <button @click="toggleUserSelect(userId)" class="chip-close">✕</button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 이펙트 선택 -->
+          <div class="grant-section">
+            <div class="section-title">2️⃣ 이펙트 선택</div>
+            <div class="form-row">
+              <div class="form-group">
+                <label>지급할 이펙트</label>
+                <select v-model="selectedEffectCode" class="form-select">
+                  <option value="">-- 선택해주세요 --</option>
+                  <option v-for="eff in specialEffects" :key="eff.id" :value="eff.id">
+                    {{ eff.name }}
+                  </option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label>지급 사유</label>
+                <select v-model="effectSource" class="form-select">
+                  <option value="EVENT">이벤트</option>
+                  <option value="BETA">베타테스터</option>
+                  <option value="SHOP">상점 구매</option>
+                  <option value="WELCOME">신규 가입 보너스</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          <!-- 지급 버튼 -->
+          <div class="grant-section">
+            <div class="section-title">3️⃣ 일괄 지급 실행</div>
+            <button
+              @click="grantEffectBatch"
+              :disabled="selectedUserIds.length === 0 || !selectedEffectCode || isGranting"
+              class="btn-grant"
+            >
+              {{ isGranting ? '지급 중...' : `${selectedUserIds.length}명에게 지급하기` }}
+            </button>
+
+            <!-- 지급 결과 메시지 -->
+            <div v-if="grantMessage" class="grant-message" :class="{ success: grantMessage.includes('✅'), error: grantMessage.includes('❌') }">
+              {{ grantMessage }}
+            </div>
           </div>
         </div>
       </section>
@@ -638,4 +857,74 @@ code { background: var(--hover-bg); padding: 2px 6px; border-radius: 4px; font-f
 .scrollable { scrollbar-width: thin; }
 .scrollable::-webkit-scrollbar { width: 4px; }
 .scrollable::-webkit-scrollbar-thumb { background: var(--border-color); border-radius: 10px; }
+
+/* --- [시니어 조치] 탭 네비게이션 --- */
+.admin-tabs { display: flex; gap: 8px; padding: 0 5px 12px; border-bottom: 1px solid var(--border-color); }
+.tab-btn { background: none; border: none; padding: 8px 16px; border-bottom: 2px solid transparent; font-weight: 800; font-size: 0.95rem; color: var(--text-secondary); cursor: pointer; transition: all 0.2s; }
+.tab-btn.active { color: var(--link-color); border-bottom-color: var(--link-color); }
+.tab-btn:hover:not(.active) { color: var(--text-primary); }
+
+/* --- [시니어 조치] 탭 내부 헤더 --- */
+.tab-header { padding: 15px 5px 20px; display: flex; flex-direction: column; gap: 12px; background: var(--card-bg); border-bottom: 1px solid var(--border-color); margin: 0 -5px 20px; padding-left: 5px; padding-right: 5px; }
+.tab-controls { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; justify-content: flex-end; }
+.tab-controls .btn-compact { min-width: fit-content; }
+.type-filter-chips { display: flex; gap: 6px; overflow-x: auto; padding: 5px 0; scrollbar-width: thin; }
+.type-filter-chips::-webkit-scrollbar { height: 4px; }
+.type-filter-chips::-webkit-scrollbar-thumb { background: var(--border-color); border-radius: 10px; }
+.chip-btn { background: var(--hover-bg); border: 1px solid var(--border-color); color: var(--text-secondary); padding: 6px 12px; border-radius: 6px; font-size: 0.8rem; font-weight: 700; cursor: pointer; transition: all 0.2s; white-space: nowrap; }
+.chip-btn:hover { border-color: var(--link-color); color: var(--link-color); }
+.chip-btn.active { background: var(--link-color); color: white; border-color: var(--link-color); }
+
+/* --- [시니어 조치] 효과 관리 섹션 --- */
+.effects-section { background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 16px; padding: 25px; }
+.effect-grant-container { display: flex; flex-direction: column; gap: 30px; }
+.grant-section { background: var(--hover-bg); padding: 20px; border-radius: 12px; border: 1px solid var(--border-color); }
+.section-title { font-size: 0.95rem; font-weight: 900; color: var(--text-primary); margin-bottom: 15px; }
+
+.search-input-wrapper { margin-bottom: 15px; }
+.search-input { width: 100%; padding: 12px 15px; border: 1px solid var(--border-color); border-radius: 10px; background: var(--bg-color); color: var(--text-primary); font-size: 0.9rem; outline: none; transition: border 0.2s; }
+.search-input:focus { border-color: var(--link-color); }
+
+.search-results { max-height: 300px; overflow-y: auto; border: 1px solid var(--border-color); border-radius: 10px; background: var(--bg-color); margin-bottom: 15px; }
+.user-item { padding: 12px 15px; display: flex; align-items: center; gap: 12px; cursor: pointer; transition: background 0.2s; border-bottom: 1px solid var(--border-color); }
+.user-item:hover { background: var(--hover-bg); }
+.user-item.selected { background: rgba(56, 161, 105, 0.08); }
+.user-checkbox { width: 18px; height: 18px; cursor: pointer; }
+.user-info { flex: 1; min-width: 0; }
+.user-name { font-weight: 800; font-size: 0.9rem; color: var(--text-primary); }
+.user-meta { font-size: 0.8rem; color: var(--text-secondary); }
+
+.empty-search { padding: 20px; text-align: center; color: var(--text-secondary); }
+
+.selected-users { margin-top: 15px; padding: 12px; background: var(--bg-color); border-radius: 10px; border: 1px solid var(--border-color); }
+.selected-header { font-size: 0.85rem; font-weight: 800; color: var(--text-secondary); margin-bottom: 10px; }
+.selected-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.selected-chip { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; background: var(--link-color); color: white; border-radius: 6px; font-size: 0.85rem; font-weight: 700; }
+.chip-close { background: none; border: none; color: white; font-size: 1rem; cursor: pointer; padding: 0; }
+
+.form-row { display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px; }
+.form-group { display: flex; flex-direction: column; gap: 8px; }
+.form-group label { font-size: 0.8rem; font-weight: 900; color: var(--text-secondary); text-transform: uppercase; }
+.form-select { width: 100%; padding: 10px 12px; border: 1px solid var(--border-color); border-radius: 10px; background: var(--bg-color); color: var(--text-primary); font-size: 0.9rem; font-weight: 600; outline: none; transition: border 0.2s; appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%234a5568' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 10px center; background-size: 14px; padding-right: 30px; }
+.form-select:focus { border-color: var(--link-color); }
+
+.btn-grant { width: 100%; padding: 12px 20px; background: var(--link-color); color: white; border: none; border-radius: 10px; font-weight: 900; font-size: 0.95rem; cursor: pointer; transition: all 0.2s; }
+.btn-grant:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(56, 161, 105, 0.3); }
+.btn-grant:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.grant-message { margin-top: 15px; padding: 12px 15px; border-radius: 10px; font-weight: 800; text-align: center; }
+.grant-message.success { background: rgba(56, 161, 105, 0.1); color: #38a169; border: 1px solid rgba(56, 161, 105, 0.3); }
+.grant-message.error { background: rgba(255, 77, 79, 0.1); color: #ff4d4f; border: 1px solid rgba(255, 77, 79, 0.3); }
+
+@media (max-width: 768px) {
+  .form-row { grid-template-columns: 1fr; }
+  .admin-tabs { flex-wrap: wrap; }
+  .effect-grant-container { gap: 20px; }
+
+  .tab-header { padding: 12px 5px 15px; gap: 10px; }
+  .tab-controls { display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px; }
+  .tab-controls .btn-compact { padding: 8px 10px; font-size: 0.75rem; }
+  .type-filter-chips { gap: 4px; }
+  .chip-btn { padding: 5px 10px; font-size: 0.75rem; }
+}
 </style>

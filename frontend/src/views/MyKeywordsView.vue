@@ -615,14 +615,14 @@
                       </div>
                       <div class="lock-overlay">
                         <span class="lock-icon">🔒</span>
-                        <span class="lock-label">Lv.{{ lv }} 달성 시 해금</span>
+                        <span class="lock-label">Lv.{{ lv }} 달성 시 오픈</span>
                       </div>
                     </template>
 
                     <!-- 해금된 카드 -->
                     <template v-else>
                       <span v-if="userProfile?.equippedTier === lv || (!userProfile?.equippedTier && badgeStore.getAccountTierNumber(userProfile?.level) === lv)" class="tier-equipped-badge">장착중</span>
-                      <span v-else class="tier-unlocked-badge">✓ 해금됨</span>
+                      <span v-else class="tier-unlocked-badge">✓ 오픈됨</span>
                       <div class="tier-card-content">
                         <span class="tier-preview-lv">Lv.{{ lv }}</span>
                         <AnimatedNickname
@@ -864,7 +864,7 @@ const levelUnlocks = {
 const isUpdatingEffect = ref(false)
 const isUpdatingTier = ref(false)
 
-// 이펙트 ID로 해금 레벨 조회
+// 이펙트 ID로 오픈 레벨 조회
 const getUnlockLevel = (effectId) => {
   for (const [level, id] of Object.entries(levelUnlocks)) {
     if (id === effectId) return parseInt(level)
@@ -884,14 +884,16 @@ const getEquippedEffectName = (effectId) => {
 const isEffectLocked = (effectId) => {
   if (!effectId || !userProfile.value || authStore.isAdmin) return false
 
-  // 베타 전용 이펙트 확인
-  const effect = specialEffectsList.find(e => e.id === effectId)
-  if (effect?.betaOnly && !userProfile.value.betaTester) return true
-
   const unlockLevel = getUnlockLevel(effectId)
-  // levelUnlocks에 없는 이펙트는 모두 잠금 (이벤트/상점 이펙트)
-  if (unlockLevel === null) return true
-  return userProfile.value.level < unlockLevel
+
+  // 레벨별 오픈 이펙트: 해당 레벨 도달했는지 확인
+  if (unlockLevel !== null) {
+    return userProfile.value.level < unlockLevel
+  }
+
+  // levelUnlocks에 없는 이펙트 (베타/이벤트/상점): user_effects에서 소유 확인
+  const ownedEffects = userProfile.value.ownedEffectCodes || []
+  return !ownedEffects.includes(effectId)
 }
 
 // [시니어 조치] 특수 효과 장착 업데이트
