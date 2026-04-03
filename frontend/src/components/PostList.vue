@@ -65,6 +65,7 @@
                 :equipped-badge-name="post.authorEquippedBadgeName"
                 :show-effects="post.showLevelEffects"
                 :show-level-effects="post.showLevelEffects"
+                :show-equipped-effect="post.showEquippedEffect"
                 :author-equipped-effect="post.authorEquippedEffect"
                 :show-avatar="true"
                 :karma-point="post.authorKarmaPoint"

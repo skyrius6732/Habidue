@@ -315,11 +315,11 @@ watch(() => route.query.q, () => fetchSearchResults())
                       :equipped-badge-name="item.post.authorEquippedBadgeName"
                       :show-effects="item.post.showLevelEffects"
                       :show-level-effects="item.post.showLevelEffects"
+                      :show-equipped-effect="item.post.showEquippedEffect"
                       :author-equipped-effect="item.post.authorEquippedEffect"
                       :show-avatar="true"
                       :karma-point="item.post.authorKarmaPoint"
-                    />
-                  </div>
+                    />                  </div>
                   <span class="post-date-v2">{{ formatDate(item.post.createdAt) }}</span>
                 </div>
               </div>

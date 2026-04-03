@@ -111,6 +111,10 @@ public class User {
     @Column(nullable = false)
     private boolean showLevelEffects = true; // 닉네임 특수 효과 표시 여부 (B 방법 적용)
 
+    @Builder.Default
+    @Column(nullable = false)
+    private boolean showEquippedEffect = true; // [시니어 조치] 장착 중인 이펙트 효과(날개 등) 표시 여부
+
     private String equippedEffect; // [시니어 조치] 장착 중인 특수 효과 코드 (날개, 오라 등)
 
     @CreationTimestamp

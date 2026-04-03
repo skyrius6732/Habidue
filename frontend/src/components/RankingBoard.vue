@@ -7,6 +7,7 @@ const loading = ref(false)
 const activePeriod = ref('DAILY')
 const activeCategory = ref('TOTAL')
 const allRankers = ref([])
+const lastUpdatedAt = ref('')
 const isMobile = ref(window.innerWidth <= 992)
 
 const handleResize = () => { isMobile.value = window.innerWidth <= 992 }
@@ -34,7 +35,9 @@ const fetchRanking = async () => {
     const res = await axios.get('/api/ranking', {
       params: { period: activePeriod.value, category: activeCategory.value, limit: 100 }
     });
-    allRankers.value = (res.data.data || []).filter(r => r.exp > 0);
+    const data = res.data.data;
+    allRankers.value = (data.rankers || []).filter(r => r.exp > 0);
+    lastUpdatedAt.value = data.updatedAt || '';
   } catch (e) {
     console.error('랭킹 로드 실패:', e);
   } finally {
@@ -74,7 +77,14 @@ onUnmounted(() => {
     <div class="ranking-header">
       <div class="title-area">
         <h2 class="title">🎖️ 활동 랭킹</h2>
-        <p class="desc">habiDue 커뮤니티의 명예로운 주인공들을 소개합니다.</p>
+        <div class="ranking-update-info">
+          <p class="desc">habiDue 커뮤니티의 명예로운 주인공들을 소개합니다.</p>
+          <div v-if="lastUpdatedAt" class="update-time-tag">
+            <span class="refresh-icon">🔄</span>
+            <span class="update-label">10분마다 자동 갱신</span>
+            <span class="update-val">({{ lastUpdatedAt }} 기준)</span>
+          </div>
+        </div>
       </div>
       <div class="filter-controls">
         <div class="period-tabs">
@@ -127,8 +137,8 @@ onUnmounted(() => {
                     :karma-point="topRankers[1].karmaPoint" 
                     :equipped-badge-name="topRankers[1].equippedBadgeName" 
                     :equipped-effect="topRankers[1].equippedEffect"
-                    :show-level-effects="topRankers[1].showLevelEffects"
-                    tooltip-direction="top" 
+                    :show-equipped-effect="topRankers[1].showEquippedEffect"
+                    :show-level-effects="topRankers[1].showLevelEffects"                    tooltip-direction="top" 
                   />
                 </div>
                 <div class="unified-exp-badge rank-2">
@@ -152,8 +162,8 @@ onUnmounted(() => {
                     :karma-point="topRankers[0].karmaPoint" 
                     :equipped-badge-name="topRankers[0].equippedBadgeName" 
                     :equipped-effect="topRankers[0].equippedEffect"
-                    :show-level-effects="topRankers[0].showLevelEffects"
-                    tooltip-direction="top" 
+                    :show-equipped-effect="topRankers[0].showEquippedEffect"
+                    :show-level-effects="topRankers[0].showLevelEffects"                    tooltip-direction="top" 
                   />
                 </div>
                 <div class="unified-exp-badge rank-1">
@@ -177,8 +187,8 @@ onUnmounted(() => {
                     :karma-point="topRankers[2].karmaPoint" 
                     :equipped-badge-name="topRankers[2].equippedBadgeName" 
                     :equipped-effect="topRankers[2].equippedEffect"
-                    :show-level-effects="topRankers[2].showLevelEffects"
-                    tooltip-direction="top" 
+                    :show-equipped-effect="topRankers[2].showEquippedEffect"
+                    :show-level-effects="topRankers[2].showLevelEffects"                    tooltip-direction="top" 
                   />
                 </div>
                 <div class="unified-exp-badge rank-3">
@@ -209,8 +219,8 @@ onUnmounted(() => {
               :karma-point="ranker.karmaPoint" 
               :equipped-badge-name="ranker.equippedBadgeName" 
               :equipped-effect="ranker.equippedEffect"
-              :show-level-effects="ranker.showLevelEffects"
-              tooltip-direction="top" 
+              :show-equipped-effect="ranker.showEquippedEffect"
+              :show-level-effects="ranker.showLevelEffects"              tooltip-direction="top" 
             />
           </div>
           <div class="unified-exp-badge" :class="`rank-${idx+1}`">
@@ -238,8 +248,8 @@ onUnmounted(() => {
               :equipped-badge-name="ranker.equippedBadgeName" 
               :show-effects="idx + 4 <= 30" 
               :equipped-effect="ranker.equippedEffect"
-              :show-level-effects="ranker.showLevelEffects"
-              :tooltip-direction="isMobile ? 'top' : 'right'" 
+              :show-equipped-effect="ranker.showEquippedEffect"
+              :show-level-effects="ranker.showLevelEffects"              :tooltip-direction="isMobile ? 'top' : 'right'" 
             />
           </div>
           <div class="exp-cell">
@@ -265,7 +275,18 @@ onUnmounted(() => {
 .ranking-board-container { display: flex; flex-direction: column; gap: 20px; width: 100%; min-height: 600px; }
 .ranking-header { display: flex; justify-content: space-between; align-items: flex-end; padding: 0 5px 15px; border-bottom: 2px solid var(--border-color); flex-wrap: wrap; gap: 15px; }
 .title-area .title { font-size: 1.6rem; font-weight: 950; color: var(--text-primary); margin: 0; }
+.ranking-update-info { display: flex; flex-direction: column; gap: 4px; }
 .title-area .desc { font-size: 0.95rem; color: var(--text-secondary); margin: 6px 0 0; font-weight: 500; }
+
+.update-time-tag { 
+  display: inline-flex; align-items: center; gap: 6px; 
+  background: var(--hover-bg); padding: 4px 10px; border-radius: 8px; 
+  font-size: 0.72rem; color: var(--link-color); font-weight: 800;
+  width: fit-content;
+}
+.refresh-icon { font-size: 0.8rem; animation: rotate-spin 10s linear infinite; }
+@keyframes rotate-spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+.update-val { opacity: 0.7; font-weight: 600; margin-left: 2px; }
 
 .pc-only { display: block !important; }
 .mobile-only { display: none !important; }

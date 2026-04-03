@@ -27,12 +27,13 @@ public interface ExpHistoryRepository extends JpaRepository<ExpHistory, Long> {
         Long getEquippedBadgeId();
         String getEquippedEffect(); // [시니어] 특수 효과
         boolean isShowLevelEffects(); // [시니어] 표시 여부
+        boolean isShowEquippedEffect(); // [시니어 조치] 이펙트 표시 여부
     }
 
-    @Query("SELECT e.user.id AS userId, e.user.nickname AS nickname, e.user.level AS level, SUM(e.acquiredExp) AS totalExp, e.user.karmaPoint AS karmaPoint, u.equippedBadgeId AS equippedBadgeId, u.equippedEffect AS equippedEffect, u.showLevelEffects AS showLevelEffects " +
+    @Query("SELECT e.user.id AS userId, e.user.nickname AS nickname, e.user.level AS level, SUM(e.acquiredExp) AS totalExp, e.user.karmaPoint AS karmaPoint, u.equippedBadgeId AS equippedBadgeId, u.equippedEffect AS equippedEffect, u.showLevelEffects AS showLevelEffects, u.showEquippedEffect AS showEquippedEffect " +
            "FROM ExpHistory e JOIN e.user u " +
            "WHERE e.createdAt >= :startDate AND e.reason IN :reasons " +
-           "GROUP BY e.user.id, e.user.nickname, e.user.level, e.user.karmaPoint, u.equippedBadgeId, u.equippedEffect, u.showLevelEffects " +
+           "GROUP BY e.user.id, e.user.nickname, e.user.level, e.user.karmaPoint, u.equippedBadgeId, u.equippedEffect, u.showLevelEffects, u.showEquippedEffect " +
            "ORDER BY SUM(e.acquiredExp) DESC")
     org.springframework.data.domain.Page<RankerProjection> findTopRankersByPeriodAndReasons(@Param("startDate") LocalDateTime startDate, @Param("reasons") List<ExpReason> reasons, org.springframework.data.domain.Pageable pageable);
 

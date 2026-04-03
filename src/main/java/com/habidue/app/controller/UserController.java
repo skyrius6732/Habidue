@@ -40,6 +40,7 @@ public class UserController {
     private final com.habidue.app.service.user.KarmaService karmaService;
     private final com.habidue.app.service.board.PostService postService;
     private final com.habidue.app.service.board.CommentService commentService;
+    private final com.habidue.app.service.ranking.RankingService rankingService;
 
     @GetMapping("/me")
     @Secured("ROLE_USER")
@@ -202,6 +203,20 @@ public class UserController {
         User user = userRepository.findByUsername(auth.getName()).orElseThrow();
         
         user.setShowLevelEffects(enabled);
+        userRepository.save(user);
+        return ApiResponse.success(new UserResponseDto(user));
+    }
+
+    /**
+     * [시니어 조치] 이펙트 시각 효과 활성화 여부 토글
+     */
+    @PatchMapping("/me/show-equipped-effect")
+    @Secured("ROLE_USER")
+    public ResponseEntity<ApiResponse<UserResponseDto>> toggleEquippedEffect(@RequestParam boolean enabled) {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        User user = userRepository.findByUsername(auth.getName()).orElseThrow();
+        
+        user.setShowEquippedEffect(enabled);
         userRepository.save(user);
         return ApiResponse.success(new UserResponseDto(user));
     }
