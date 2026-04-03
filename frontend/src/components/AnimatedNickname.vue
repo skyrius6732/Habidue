@@ -156,10 +156,21 @@
         ></div>
       </div>
 
-      <!-- 14. RAINBOW_WAVE: 닉네임 너비 무지개 바 -->
-      <div v-if="isRainbowEffect" class="rainbow-bar-wrap">
-        <div class="rainbow-bar"></div>
-      </div>
+      <!-- 14. RAINBOW_WAVE: 무지개 아치형 -->
+      <svg v-if="isRainbowEffect" class="rainbow-arch-wrap" viewBox="0 0 200 170" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="none">
+        <defs>
+          <linearGradient id="rainbowGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+            <stop offset="0%" style="stop-color:#ff0000;stop-opacity:1" />
+            <stop offset="16.67%" style="stop-color:#ff7700;stop-opacity:1" />
+            <stop offset="33.33%" style="stop-color:#ffee00;stop-opacity:1" />
+            <stop offset="50%" style="stop-color:#00dd44;stop-opacity:1" />
+            <stop offset="66.67%" style="stop-color:#0088ff;stop-opacity:1" />
+            <stop offset="83.33%" style="stop-color:#6600dd;stop-opacity:1" />
+            <stop offset="100%" style="stop-color:#cc00ff;stop-opacity:1" />
+          </linearGradient>
+        </defs>
+        <path class="rainbow-arch" d="M 20,70 Q 100,15 180,70" stroke="url(#rainbowGrad)" stroke-width="15" fill="none" stroke-linecap="round" />
+      </svg>
 
       <!-- 15. SHOOTING_STAR: 별똥별 닉네임 앞 가로질러 -->
       <div v-if="isShootingStarEffect" class="shooting-star-container">
@@ -911,24 +922,21 @@ onUnmounted(() => { if (themeObserver) themeObserver.disconnect() })
   to   { box-shadow: 0 0 12px rgba(251,113,133,0.68), 0 0 22px rgba(244,63,94,0.3); }
 }
 
-/* 14. RAINBOW_WAVE — 닉네임 너비 무지개 바 */
-.rainbow-bar-wrap {
-  position: absolute; bottom: -5px; left: 0; right: 0;
-  pointer-events: none; z-index: 3; display: flex; justify-content: center;
+/* 14. RAINBOW_WAVE — 무지개 아치형 */
+.rainbow-arch-wrap {
+  position: absolute; bottom: -10px; left: 0; right: 0;
+  pointer-events: none; z-index: 3; width: 100%; height: 80px;
 }
-.rainbow-bar {
-  height: 3px; width: 100%; border-radius: 2px;
-  background: linear-gradient(90deg, #ff0000 0%, #ff7700 18%, #ffee00 34%, #00dd44 50%, #0088ff 68%, #6600dd 84%, #cc00ff 100%);
-  box-shadow: 0 0 5px rgba(120, 80, 255, 0.4);
-  animation: rainbow-breathe 2.8s ease-in-out infinite;
-  transform-origin: center;
+.rainbow-arch {
+  filter: drop-shadow(0 0 8px rgba(255, 100, 150, 0.5)) drop-shadow(0 0 15px rgba(120, 80, 255, 0.3));
+  animation: rainbow-fade 5s ease-in-out infinite;
 }
-@keyframes rainbow-breathe {
-  0%, 100% { transform: scaleX(0); opacity: 0; }
-  18%       { opacity: 1; }
-  50%       { transform: scaleX(1); opacity: 1; }
-  82%       { opacity: 0.85; transform: scaleX(1); }
-  98%       { transform: scaleX(0); opacity: 0; }
+@keyframes rainbow-fade {
+  0%   { opacity: 0; transform: translateY(10px); }
+  15%  { opacity: 1; transform: translateY(0); }
+  50%  { opacity: 1; transform: translateY(0); }
+  85%  { opacity: 1; transform: translateY(0); }
+  100% { opacity: 0; transform: translateY(10px); }
 }
 
 /* 15. SHOOTING_STAR — 별똥별 가로지름 */
