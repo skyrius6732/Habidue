@@ -25,7 +25,7 @@
     <span v-if="(Number(karmaPoint) <= 800)" class="karma-warning-icon-outer" title="활동 신뢰 점수 주의">⚠️</span>
 
     <!-- 화려한 닉네임 표시부 (클릭 시 토글) -->
-    <div :class="['nickname-with-effects', { 'has-wings': isWingsEffect, 'has-bubbles': isBubblesEffect, 'has-stars': isStarsEffect, 'has-thunder': isThunderEffect, 'has-flame': isFlameEffect, 'has-ice': isIceFrostEffect, 'has-sakura': isSakuraEffect, 'has-shadow': isShadowEffect, 'has-neon': isNeonEffect, 'has-glitch': isGlitchEffect, 'has-void': isVoidEffect, 'has-heart': isHeartEffect, 'has-rainbow': isRainbowEffect, 'has-shooting': isShootingStarEffect, 'has-blackhole': isBlackholeEffect, 'has-whitehole': isWhiteholeEffect }]">
+    <div :class="['nickname-with-effects', { 'has-wings': isWingsEffect, 'has-bubbles': isBubblesEffect, 'has-stars': isStarsEffect, 'has-thunder': isThunderEffect, 'has-flame': isFlameEffect, 'has-ice': isIceFrostEffect, 'has-sakura': isSakuraEffect, 'has-shadow': isShadowEffect, 'has-neon': isNeonEffect, 'has-glitch': isGlitchEffect, 'has-void': isVoidEffect, 'has-heart': isHeartEffect, 'has-rainbow': isRainbowEffect, 'has-shooting': isShootingStarEffect, 'has-blackhole': isBlackholeEffect, 'has-whitehole': isWhiteholeEffect, 'has-bomb': isBombEffect }]">
       
       <!-- 1. 날개 이펙트 (멀티 티어 시스템) -->
       <template v-if="isWingsEffect">
@@ -179,6 +179,14 @@
       <!-- 17. WHITE_HOLE: 화이트홀 뱉어냄 -->
       <div v-if="isWhiteholeEffect" class="whitehole-container">
         <div class="wh-ring"></div>
+      </div>
+
+      <!-- 18. BOMB: 폭탄 심줄 사각형 경로 따라 타들어감 -->
+      <div v-if="isBombEffect" class="bomb-fuse-container">
+        <svg class="bomb-fuse-line" viewBox="-65 -35 130 70" xmlns="http://www.w3.org/2000/svg">
+          <!-- 사각형 경로: 닉네임 테두리 -->
+          <path class="fuse-path" d="M -55,-15 L 55,-15 L 55,15 L -55,15 Z" />
+        </svg>
       </div>
 
       <!-- 13. LOVE_HEART: 하트 아래서 위로 -->
@@ -513,6 +521,7 @@ const isRainbowEffect = computed(() => displayEquippedEffect.value === 'RAINBOW_
 const isShootingStarEffect = computed(() => displayEquippedEffect.value === 'SHOOTING_STAR')
 const isBlackholeEffect = computed(() => displayEquippedEffect.value === 'BLACK_HOLE')
 const isWhiteholeEffect = computed(() => displayEquippedEffect.value === 'WHITE_HOLE')
+const isBombEffect = computed(() => displayEquippedEffect.value === 'BOMB')
 
 const wingLayers = computed(() => {
   const effect = props.equippedEffect
@@ -1006,6 +1015,37 @@ onUnmounted(() => { if (themeObserver) themeObserver.disconnect() })
   43%, 74% { opacity: 1; transform: scale(1) translateX(0); filter: none; }
   88%      { opacity: 0.3; filter: blur(1px); }
   100%     { opacity: 0; transform: scale(0.05) translateX(-40px); filter: blur(4px); }
+}
+
+/* 18. BOMB — 폭탄 심줄 사각형 경로 타들어감 */
+.bomb-fuse-container {
+  position: absolute; inset: -35px -25px; pointer-events: none; z-index: 7; overflow: hidden;
+}
+.bomb-fuse-line { width: 100%; height: 100%; }
+.fuse-path {
+  fill: none;
+  stroke: white;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-dasharray: 280;
+  stroke-dashoffset: 280;
+  filter: drop-shadow(0 0 3px rgba(255, 255, 255, 0.9)) drop-shadow(0 0 8px rgba(255, 100, 100, 0.6));
+  animation: fuse-burn-path 3s infinite ease-in;
+}
+@keyframes fuse-burn-path {
+  0% { stroke-dashoffset: 280; opacity: 1; }
+  90% { stroke-dashoffset: 0; opacity: 1; }
+  100% { stroke-dashoffset: 0; opacity: 0; }
+}
+.has-bomb .animated-nickname {
+  animation: bomb-nick-glow 3s infinite ease-in !important;
+}
+@keyframes bomb-nick-glow {
+  0% { box-shadow: 0 0 5px rgba(255, 0, 0, 0.3); }
+  40% { box-shadow: 0 0 12px rgba(255, 100, 100, 0.6); }
+  80% { box-shadow: 0 0 8px rgba(255, 0, 0, 0.4); }
+  100% { box-shadow: 0 0 5px rgba(255, 0, 0, 0); }
 }
 
 /* 12. VOID_RIFT — 차원 균열 파티클 orbit */
