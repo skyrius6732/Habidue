@@ -18,7 +18,7 @@ const uiStore = useUiStore()
 const router = useRouter()
 const route = useRoute()
 
-const isDarkMode = ref(localStorage.getItem('theme') === 'dark')
+const isDarkMode = ref(localStorage.getItem('theme') !== 'light') // 기본값: 다크 모드 (light가 아닐 때 모두 다크)
 const isMenuOpen = ref(false)
 const showTopBtn = ref(false)
 const searchKeyword = ref('')
