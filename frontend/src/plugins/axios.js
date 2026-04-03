@@ -13,82 +13,96 @@ instance.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem('accessToken')
     if (token) {
-      config.headers['Authorization'] = `Bearer ${token}`
+      // [시니어 조치] 비표준 문자(한글 등)가 포함된 경우 헤더 주입 시 브라우저 에러 발생 방지
+      // 이 경우 헤더를 주입하지 않고 내보내어 서버에서 401을 받고 재발급 로직을 타게 함
+      const isAsciiOnly = /^[\x00-\x7F]*$/.test(token)
+      if (isAsciiOnly) {
+        config.headers['Authorization'] = `Bearer ${token}`
+      }
     }
     return config
   },
   (error) => Promise.reject(error)
 )
 
+// [시니어 조치] 토큰 재발급 중 발생하는 요청들을 대기시키기 위한 변수들
+let isRefreshing = false
+let refreshSubscribers = []
+
+const subscribeTokenRefresh = (cb) => {
+  refreshSubscribers.push(cb)
+}
+
+const onRefreshed = (token) => {
+  refreshSubscribers.map((cb) => cb(token))
+  refreshSubscribers = []
+}
+
 // 응답 인터셉터: 401 에러(만료) 발생 시 자동 갱신 로직 및 차단 유저 처리
 instance.interceptors.response.use(
   (response) => response,
   async (error) => {
     const originalRequest = error.config
-    
-    // 요청 설정이 없거나 이미 타임아웃된 경우 즉시 종료
     if (!originalRequest) return Promise.reject(error)
 
     const errorMsg = error.response?.data?.message || ''
 
-    // 1. 차단된 유저인 경우 (즉시 로그아웃 및 차단 페이지 이동)
+    // 1. 차단된 유저 처리 (기존 로직 유지)
     if (errorMsg.startsWith('USER_BLOCKED:')) {
       const displayMsg = errorMsg.replace('USER_BLOCKED:', '')
-      localStorage.removeItem('accessToken')
-      localStorage.removeItem('refreshToken')
-      localStorage.removeItem('userRole')
+      localStorage.clear()
       router.push({ name: 'blocked', query: { reason: displayMsg } })
       return Promise.reject(error)
     }
 
-    // 2. 401 에러(토큰 만료) 처리 - 무한 루프 방지를 위해 _retry 플래그 체크
+    // 2. 401 에러(토큰 만료) 처리
     if (error.response?.status === 401 && !originalRequest._retry) {
-      originalRequest._retry = true
       const refreshToken = localStorage.getItem('refreshToken')
+      if (!refreshToken) {
+        localStorage.clear()
+        if (router.currentRoute.value.name !== 'home') router.push({ name: 'home' })
+        return Promise.reject(error)
+      }
 
-      if (refreshToken) {
-        try {
-          // [중요] 재발급 시에는 인터셉터가 걸리지 않은 기본 axios 인스턴스 사용
-          // 주소는 프록시(/api)를 거치도록 설정
-          const res = await axios.post('/api/auth/reissue', null, {
-            headers: { 'Authorization-Refresh': refreshToken }
+      if (isRefreshing) {
+        // 이미 재발급 중이라면 큐에 담고 대기
+        return new Promise((resolve) => {
+          subscribeTokenRefresh((token) => {
+            originalRequest.headers['Authorization'] = `Bearer ${token}`
+            resolve(instance(originalRequest))
           })
+        })
+      }
 
-          const newAccessToken = res.headers['authorization']
-          if (newAccessToken) {
-            const tokenValue = newAccessToken.replace('Bearer ', '')
-            localStorage.setItem('accessToken', tokenValue)
-            
-            // [시니어 조치] Pinia 스토어 상태도 즉시 동기화 (SSE 등에서 활용)
-            try {
-              const { useAuthStore } = await import('@/stores/auth')
-              const authStore = useAuthStore()
-              authStore.syncTokenFromStorage()
-            } catch (e) {}
+      originalRequest._retry = true
+      isRefreshing = true
 
-            originalRequest.headers['Authorization'] = `Bearer ${tokenValue}`
-            
-            // 원래 요청 재시도
-            return instance(originalRequest)
-          }
-        } catch (reissueError) {
-          // 재발급 실패 시 (리프레시 토큰 만료 등) 깨끗하게 비우고 로그인으로 이동
-          localStorage.removeItem('accessToken')
-          localStorage.removeItem('refreshToken')
-          localStorage.removeItem('userRole')
+      try {
+        const res = await axios.post('/api/auth/reissue', null, {
+          headers: { 'Authorization-Refresh': refreshToken }
+        })
+
+        const newAccessToken = res.headers['authorization']?.replace('Bearer ', '')
+        if (newAccessToken) {
+          localStorage.setItem('accessToken', newAccessToken)
           
-          // 현재 페이지가 홈이 아닐 때만 리다이렉트 (무한 루프 방지)
-          if (router.currentRoute.value.name !== 'home') {
-            router.push({ name: 'home' })
-          }
-          return Promise.reject(reissueError)
+          // Pinia 스토어 동기화
+          try {
+            const { useAuthStore } = await import('@/stores/auth')
+            useAuthStore().syncTokenFromStorage()
+          } catch (e) {}
+
+          isRefreshing = false
+          onRefreshed(newAccessToken) // 대기 중인 요청들 해소
+
+          originalRequest.headers['Authorization'] = `Bearer ${newAccessToken}`
+          return instance(originalRequest)
         }
-      } else {
-        // 리프레시 토큰조차 없으면 로그아웃
-        localStorage.removeItem('accessToken')
-        if (router.currentRoute.value.name !== 'home') {
-          router.push({ name: 'home' })
-        }
+      } catch (reissueError) {
+        isRefreshing = false
+        localStorage.clear()
+        if (router.currentRoute.value.name !== 'home') router.push({ name: 'home' })
+        return Promise.reject(reissueError)
       }
     }
     
