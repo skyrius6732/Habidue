@@ -229,7 +229,6 @@
       </div>
 
       <span :class="['animated-nickname', currentTierClass]" :data-text="nickname" :style="nicknameTextColor ? { color: nicknameTextColor } : {}" @click.stop="handleToggleClick">
-        <span v-if="(level >= 50)" class="inner-shine-effect"></span>
         {{ nickname }}
       </span>
 

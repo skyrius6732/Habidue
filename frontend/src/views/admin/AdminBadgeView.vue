@@ -45,7 +45,7 @@ const specialEffects = [
   { id: 'SHOOTING_STAR', name: '🌠 별똥별 (Shooting Star)' },
   { id: 'BLACK_HOLE', name: '🕳️ 블랙홀 (Black Hole)' },
   { id: 'WHITE_HOLE', name: '🤍 화이트홀 (White Hole)' },
-  { id: 'BOMB', name: '💣 폭탄 (Bomb)' }
+  { id: 'BOMB', name: '🔫 레이저 (laser)' }
 ]
 
 const updateEffect = async (effectId) => {
