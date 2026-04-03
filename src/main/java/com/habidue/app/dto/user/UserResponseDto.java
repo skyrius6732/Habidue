@@ -4,8 +4,10 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.habidue.app.domain.user.User;
 import lombok.*;
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Getter
+@Setter
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
@@ -31,7 +33,9 @@ public class UserResponseDto {
     private boolean showEquippedEffect; // [시니어 조치] 이펙트 효과 표시 여부 추가
     private Integer equippedTier; // [시니어 조치] 장착 중인 티어 스타일
     private String equippedEffect; // [시니어 조치] 장착 중인 특수 효과 코드 추가
-    
+    private boolean betaTester; // [시니어 조치] 베타테스터 여부 추가
+    private List<String> ownedEffectCodes; // [시니어 조치] 사용자가 소유한 이펙트 목록
+
     @JsonProperty("isOnline")
     private boolean isOnline; // 실시간 접속 여부 추가
 
@@ -65,6 +69,8 @@ public class UserResponseDto {
         this.showEquippedEffect = user.isShowEquippedEffect(); // [시니어 조치] 이펙트 표시 여부 매핑
         this.equippedTier = user.getEquippedTier();
         this.equippedEffect = user.getEquippedEffect();
+        this.betaTester = user.isBetaTester(); // [시니어 조치] 베타테스터 여부 매핑
+        this.ownedEffectCodes = new java.util.ArrayList<>(); // [시니어 조치] 사용자가 소유한 이펙트 목록 (초기값: 빈 리스트)
 
         // [시니어] 카르마 시스템 매핑
         this.karmaPoint = user.getKarmaPoint();

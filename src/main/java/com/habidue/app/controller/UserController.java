@@ -9,8 +9,10 @@ import com.habidue.app.repository.notice.UserNoticeRepository;
 import com.habidue.app.service.mail.ReportEmailService;
 import com.habidue.app.service.mail.ReportService;
 import com.habidue.app.service.user.UserService;
+import com.habidue.app.service.user.UserEffectService;
 import com.habidue.app.service.excel.ExcelService;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -26,6 +28,7 @@ import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 
+@Slf4j
 @RestController
 @RequestMapping("/api/users")
 @RequiredArgsConstructor
@@ -36,18 +39,50 @@ public class UserController {
     private final ReportEmailService reportEmailService;
     private final ReportService reportService;
     private final UserService userService;
+    private final UserEffectService userEffectService;
     private final ExcelService excelService;
     private final com.habidue.app.service.user.KarmaService karmaService;
     private final com.habidue.app.service.board.PostService postService;
     private final com.habidue.app.service.board.CommentService commentService;
     private final com.habidue.app.service.ranking.RankingService rankingService;
 
+    /**
+     * [시니어 조치] 사용자 검색 (관리자용)
+     */
+    @GetMapping
+    @Secured("ROLE_ADMIN")
+    public ResponseEntity<ApiResponse<List<UserResponseDto>>> searchUsers(
+            @RequestParam String search,
+            @RequestParam(defaultValue = "10") int limit) {
+
+        if (search == null || search.trim().isEmpty()) {
+            return ApiResponse.success(new java.util.ArrayList<>());
+        }
+
+        String searchTerm = search.toLowerCase();
+        List<User> users = userRepository.findAll().stream()
+            .filter(u -> u.getUsername().toLowerCase().contains(searchTerm) ||
+                        (u.getNickname() != null && u.getNickname().toLowerCase().contains(searchTerm)) ||
+                        u.getEmail().toLowerCase().contains(searchTerm))
+            .limit(limit)
+            .toList();
+
+        List<UserResponseDto> result = users.stream()
+            .map(UserResponseDto::new)
+            .toList();
+
+        return ApiResponse.success(result);
+    }
+
     @GetMapping("/me")
     @Secured("ROLE_USER")
     public ResponseEntity<ApiResponse<UserResponseDto>> getMyProfile() {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
         User user = userRepository.findByUsername(auth.getName()).orElseThrow();
-        return ApiResponse.success(new UserResponseDto(user));
+        UserResponseDto dto = new UserResponseDto(user);
+        // [시니어 조치] 사용자가 소유한 이펙트 목록 추가
+        dto.setOwnedEffectCodes(userEffectService.getUserEffectCodes(user.getId()));
+        return ApiResponse.success(dto);
     }
 
     @PatchMapping("/me/nickname")
@@ -125,6 +160,133 @@ public class UserController {
         
         User updatedUser = userService.updateEquippedEffect(id, effectCode);
         return ApiResponse.success(new UserResponseDto(updatedUser));
+    }
+
+    /**
+     * [시니어 조치] 단일 사용자를 베타테스터로 설정 (관리자만)
+     */
+    @PatchMapping("/admin/{id}/beta-tester")
+    @Secured("ROLE_ADMIN")
+    public ResponseEntity<ApiResponse<UserResponseDto>> setBetaTester(
+            @PathVariable Long id,
+            @RequestParam boolean enabled) {
+        userEffectService.setBetaTester(id, enabled);
+        User user = userRepository.findById(id)
+            .orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다."));
+        return ApiResponse.success(new UserResponseDto(user));
+    }
+
+    /**
+     * [시니어 조치] 여러 사용자를 일괄 베타테스터로 설정 (관리자만)
+     */
+    @PatchMapping("/admin/batch/beta-tester")
+    @Secured("ROLE_ADMIN")
+    public ResponseEntity<ApiResponse<java.util.Map<String, Object>>> setBetaTesterBatch(
+            @RequestParam List<Long> userIds,
+            @RequestParam boolean enabled) {
+
+        if (userIds == null || userIds.isEmpty()) {
+            return ApiResponse.error(HttpStatus.BAD_REQUEST, "사용자 ID 리스트가 필요합니다.", "Empty List");
+        }
+
+        int successCount = 0;
+        for (Long userId : userIds) {
+            try {
+                userEffectService.setBetaTester(userId, enabled);
+                successCount++;
+            } catch (Exception e) {
+                log.warn("베타테스터 설정 실패. userId={}, error={}", userId, e.getMessage());
+            }
+        }
+
+        java.util.Map<String, Object> result = new java.util.HashMap<>();
+        result.put("totalRequested", userIds.size());
+        result.put("successCount", successCount);
+        result.put("status", enabled ? "베타테스터 추가" : "베타테스터 제거");
+
+        return ApiResponse.success(result);
+    }
+
+    /**
+     * [시니어 조치] 단일 사용자에게 이펙트 지급 (관리자만)
+     */
+    @PostMapping("/admin/{userId}/grant-effect")
+    @Secured("ROLE_ADMIN")
+    @Transactional
+    public ResponseEntity<ApiResponse<java.util.Map<String, Object>>> grantEffect(
+            @PathVariable Long userId,
+            @RequestParam String effectCode,
+            @RequestParam(defaultValue = "EVENT") String source) {
+
+        try {
+            com.habidue.app.domain.user.UserEffect.EffectSource effectSource =
+                com.habidue.app.domain.user.UserEffect.EffectSource.valueOf(source.toUpperCase());
+
+            userEffectService.grantEffect(userId, effectCode, effectSource);
+
+            java.util.Map<String, Object> result = new java.util.HashMap<>();
+            result.put("userId", userId);
+            result.put("effectCode", effectCode);
+            result.put("source", source);
+            result.put("message", "이펙트 지급 완료");
+
+            return ApiResponse.success(result);
+        } catch (IllegalArgumentException e) {
+            return ApiResponse.error(HttpStatus.BAD_REQUEST, e.getMessage(), "Invalid Source");
+        } catch (Exception e) {
+            return ApiResponse.error(HttpStatus.INTERNAL_SERVER_ERROR, "이펙트 지급 실패: " + e.getMessage(), "Grant Failed");
+        }
+    }
+
+    /**
+     * [시니어 조치] 여러 사용자에게 이펙트 일괄 지급 (관리자만)
+     */
+    @PostMapping("/admin/batch/grant-effect")
+    @Secured("ROLE_ADMIN")
+    @Transactional
+    public ResponseEntity<ApiResponse<java.util.Map<String, Object>>> grantEffectBatch(
+            @RequestParam List<Long> userIds,
+            @RequestParam String effectCode,
+            @RequestParam(defaultValue = "EVENT") String source) {
+
+        if (userIds == null || userIds.isEmpty()) {
+            return ApiResponse.error(HttpStatus.BAD_REQUEST, "사용자 ID 리스트가 필요합니다.", "Empty List");
+        }
+
+        try {
+            com.habidue.app.domain.user.UserEffect.EffectSource effectSource =
+                com.habidue.app.domain.user.UserEffect.EffectSource.valueOf(source.toUpperCase());
+
+            int successCount = 0;
+            int alreadyOwned = 0;
+
+            for (Long userId : userIds) {
+                try {
+                    if (userEffectService.hasEffect(userId, effectCode)) {
+                        alreadyOwned++;
+                    } else {
+                        userEffectService.grantEffect(userId, effectCode, effectSource);
+                        successCount++;
+                    }
+                } catch (Exception e) {
+                    log.warn("이펙트 지급 실패. userId={}, effectCode={}, error={}", userId, effectCode, e.getMessage());
+                }
+            }
+
+            java.util.Map<String, Object> result = new java.util.HashMap<>();
+            result.put("totalRequested", userIds.size());
+            result.put("successCount", successCount);
+            result.put("alreadyOwned", alreadyOwned);
+            result.put("effectCode", effectCode);
+            result.put("source", source);
+            result.put("message", String.format("신규 지급: %d명, 이미 소유: %d명", successCount, alreadyOwned));
+
+            return ApiResponse.success(result);
+        } catch (IllegalArgumentException e) {
+            return ApiResponse.error(HttpStatus.BAD_REQUEST, "유효하지 않은 source: " + e.getMessage(), "Invalid Source");
+        } catch (Exception e) {
+            return ApiResponse.error(HttpStatus.INTERNAL_SERVER_ERROR, "일괄 지급 실패: " + e.getMessage(), "Batch Grant Failed");
+        }
     }
 
     @DeleteMapping("/me")

@@ -119,6 +119,14 @@ public class User {
 
     private String equippedEffect; // [시니어 조치] 장착 중인 특수 효과 코드 (날개, 오라 등)
 
+    @Builder.Default
+    @Column(nullable = false)
+    private boolean betaTester = false; // [시니어 조치] 베타테스터 여부
+
+    @Builder.Default
+    @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<UserEffect> userEffects = new ArrayList<>();
+
     @CreationTimestamp
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;
