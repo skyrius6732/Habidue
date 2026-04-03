@@ -72,13 +72,20 @@
                           :badges="activityData?.badges"
                           :show-effects="userProfile.showLevelEffects"
                           :show-level-effects="userProfile.showLevelEffects"
+                          :show-equipped-effect="userProfile.showEquippedEffect"
+                          :equipped-tier="userProfile.equippedTier"
                           :author-equipped-effect="userProfile.equippedEffect"
                           :equipped-badge-name="equippedBadgeDisplayName"
                           :karma-point="userProfile.karmaPoint"
                         />
-                        <button class="dash-effects-btn" :class="[{ active: userProfile.showLevelEffects }, `tier-${badgeStore.getAccountTierNumber(userProfile.level)}`]" @click="toggleLevelEffects" title="닉네임 효과 토글">
-                          {{ userProfile.showLevelEffects ? '✨' : '👤' }}
-                        </button>
+                        <div class="dash-toggle-group">
+                          <button class="dash-effects-btn" :class="[{ active: userProfile.showLevelEffects }, `tier-${badgeStore.getAccountTierNumber(userProfile.level)}`]" @click="toggleLevelEffects" title="닉네임 효과 토글">
+                            {{ userProfile.showLevelEffects ? '✨' : '👤' }}
+                          </button>
+                          <button class="dash-effects-btn" :class="[{ active: userProfile.showEquippedEffect }, `tier-${badgeStore.getAccountTierNumber(userProfile.level)}`]" @click="toggleEquippedEffect" title="닉네임 장식 토글">
+                            {{ userProfile.showEquippedEffect ? '🕊️' : '🚫' }}
+                          </button>
+                        </div>
                       </div>
                       <div class="dash-username-sub">@{{ userProfile.username }}</div>
                     </div>
@@ -478,6 +485,7 @@
                       <span class="p-stat">❤️ {{ post.likeCount }}</span>
                       <span class="p-stat">💬 {{ post.commentCount }}</span>
                       <span class="p-stat">👁️ {{ post.viewCount }}</span>
+                      <span class="i-icon white-eye-large">{{ post.viewCount }}</span>
                     </div>
                     <span class="btn-go-detail">자세히 보기 →</span>
                   </div>
@@ -1085,7 +1093,7 @@ const toggleLevelEffects = async () => {
   try {
     await axios.patch('/api/users/me/level-effects', null, { params: { enabled: newValue } })
     userProfile.value.showLevelEffects = newValue
-    
+
     // [시니어] 전역 스토어 및 로컬 스토리지 동기화 (새로고침 대비)
     if (authStore.user) {
       authStore.user.showLevelEffects = newValue
@@ -1096,6 +1104,23 @@ const toggleLevelEffects = async () => {
   }
 }
 
+// [시니어 조치] 닉네임 장식(이펙트) 토글 처리
+const toggleEquippedEffect = async () => {
+  if (!userProfile.value) return
+  const newValue = !userProfile.value.showEquippedEffect
+  try {
+    await axios.patch('/api/users/me/show-equipped-effect', null, { params: { enabled: newValue } })
+    userProfile.value.showEquippedEffect = newValue
+
+    // 전역 스토어 및 로컬 스토리지 동기화 (실시간 반영)
+    if (authStore.user) {
+      authStore.user.showEquippedEffect = newValue
+      localStorage.setItem('user', JSON.stringify(authStore.user))
+    }
+  } catch (e) {
+    await uiStore.showAlert('설정 변경에 실패했습니다.', '오류')
+  }
+}
 const toggleStatTooltip = (type) => {
   if (activeStatTooltip.value === type) {
     activeStatTooltip.value = null
@@ -1424,8 +1449,9 @@ onMounted(async () => {
 .hex-lv { font-size: 0.75rem; font-weight: 800; }
 .hex-num { font-size: 1.7rem; font-weight: 950; }
 
-.dash-nickname-group { display: flex; align-items: center; gap: 12px; }
+.dash-nickname-group { display: flex; align-items: center; gap: 12px; flex-wrap: nowrap; }
 .dash-nickname-group :deep(.animated-nickname) { font-size: 1.5rem !important; font-weight: 900; }
+.dash-toggle-group { display: flex; gap: 6px; align-items: center; flex-shrink: 0; }
 .dash-username-sub { font-size: 0.95rem; color: var(--text-secondary); font-weight: 600; opacity: 0.7; }
 .dash-effects-btn { background: var(--hover-bg); border: 1px solid var(--border-color); width: 34px; height: 34px; border-radius: 10px; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: all 0.2s; font-size: 1.1rem; }
 .dash-effects-btn.active { background: var(--link-color); color: white; border-color: transparent; }
@@ -1530,7 +1556,7 @@ onMounted(async () => {
 .hex-num { font-size: 1.8rem; font-weight: 950; text-shadow: 0 2px 4px rgba(0,0,0,0.2); }
 
 .dash-user-details { display: flex; flex-direction: column; gap: 6px; }
-.dash-nickname-group { display: flex; align-items: center; gap: 12px; }
+.dash-nickname-group { display: flex; align-items: center; gap: 12px; flex-wrap: nowrap; }
 .dash-nickname-group :deep(.animated-nickname) { font-size: 1.6rem !important; font-weight: 900; }
 
 .dash-effects-btn {
