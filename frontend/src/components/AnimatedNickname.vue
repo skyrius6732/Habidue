@@ -163,10 +163,10 @@
 
       <!-- 15. SHOOTING_STAR: 별똥별 닉네임 앞 가로질러 -->
       <div v-if="isShootingStarEffect" class="shooting-star-container">
-        <div v-for="n in 3" :key="`sstar-${n}`" class="shooting-star"
+        <div class="shooting-star"
           :style="{
-            '--delay': `${(n - 1) * 1.6}s`,
-            '--y': `${12 + (n % 3) * 32}%`
+            '--delay': '0s',
+            '--y': '50%'
           }"
         ></div>
       </div>
@@ -931,7 +931,7 @@ onUnmounted(() => { if (themeObserver) themeObserver.disconnect() })
   width: 54px; height: 1.5px;
   background: linear-gradient(90deg, transparent 0%, rgba(255,255,220,0.25) 35%, rgba(255,255,255,0.85) 80%, transparent 100%);
   border-radius: 1px;
-  animation: shoot-across 4.5s infinite var(--delay) ease-in;
+  animation: shoot-across 1.0s infinite var(--delay) ease-in;
   opacity: 0;
 }
 .shooting-star::after {
@@ -940,10 +940,10 @@ onUnmounted(() => { if (themeObserver) themeObserver.disconnect() })
   box-shadow: 0 0 5px 2px rgba(255,255,200,0.95), 0 0 12px rgba(200,225,255,0.7);
 }
 @keyframes shoot-across {
-  0%   { opacity: 0; transform: translateX(0) translateY(0); }
-  8%   { opacity: 1; }
-  88%  { opacity: 0.8; }
-  100% { opacity: 0; transform: translateX(145%) translateY(18px); }
+  0%   { opacity: 0; transform: translateX(-100%); }
+  1.5%   { opacity: 3; }
+  92%  { opacity: 1; }
+  100% { opacity: 0; transform: translateX(250%); }
 }
 
 /* 16. BLACK_HOLE — 블랙홀 빨려들어감 */
