@@ -458,9 +458,13 @@ const handleResize = () => {
   isMobileView.value = window.innerWidth <= 768
 }
 
-// [시니어 조치] 툴팁의 최종 표시 방향 결정 (모바일은 무조건 상단 우선)
+// [시니어 조치] 툴팁의 최종 표시 방향 결정
 const computedDirection = computed(() => {
-  if (isMobileView.value) return 'top'
+  if (isMobileView.value) {
+    // 모바일: 닉네임이 길면(6자 이상) 툴팁이 우측으로 짤릴 확률이 높으므로 'top', 짧으면 'right' 유지
+    return props.nickname.length >= 6 ? 'top' : 'right'
+  }
+  // PC: 부모가 준 방향이 있으면 따르고, 없으면 기본 'right'
   return props.tooltipDirection || 'right'
 })
 
@@ -1337,6 +1341,7 @@ onUnmounted(() => {
   }
   .nickname-tooltip { width: 200px; padding: 12px; border-radius: 12px; }
   .nickname-tooltip.top { bottom: calc(100% + 10px); transform: translateX(-50%) scale(0.9) !important; }
+  .nickname-tooltip.right { transform: translateY(-50%) scale(0.9) !important; margin-left: -5px; }
   .user-avatar { width: 28px; height: 32px; font-size: 0.9rem; }
   .user-name-styled { font-size: 0.8rem; }
 }
