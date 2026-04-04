@@ -93,7 +93,7 @@ onUnmounted(() => window.removeEventListener('keydown', handleEsc))
 }
 
 .modal-title {
-  font-size: 1.1rem;
+  font-size: 1rem;
   font-weight: 800;
   margin: 0 0 12px;
   color: var(--text-primary);
@@ -101,7 +101,7 @@ onUnmounted(() => window.removeEventListener('keydown', handleEsc))
 }
 
 .modal-message {
-  font-size: 0.95rem;
+  font-size: 0.85rem;
   line-height: 1.5;
   color: var(--text-secondary);
   margin: 0;
@@ -122,7 +122,7 @@ onUnmounted(() => window.removeEventListener('keydown', handleEsc))
   border: none;
   background: none;
   padding: 18px 15px;
-  font-size: 0.95rem;
+  font-size: 0.9rem;
   font-weight: 700;
   cursor: pointer;
   transition: background 0.2s;

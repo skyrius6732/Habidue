@@ -9,6 +9,7 @@ const loading = ref(true)
 const isSyncing = ref(false)
 const selectedType = ref('ALL')
 const activeTab = ref('badges') // 'badges' 또는 'effects'
+const isEffectAccordionOpen = ref(false) // [시니어 조치] 이펙트 아코디언 상태
 
 // 사용자 데이터 (미리보기용)
 const userProfile = ref(null)
@@ -516,33 +517,45 @@ onMounted(fetchInitialData)
           <p class="section-desc">현재 계정(@{{ userProfile.username }}) 기준 출력</p>
         </div>
 
-        <!-- 특수 효과 샌드박스 (실시간 적용 테스트) -->
-        <div class="effect-sandbox">
-          <label>🪄 본인에게 효과 즉시 적용 테스트</label>
-          <div class="effect-chips">
-            <button 
-              v-for="eff in specialEffects" :key="eff.id"
-              class="chip-btn-v3" :class="{ active: userProfile.equippedEffect === eff.id }"
-              @click="updateEffect(eff.id)"
-            >
-              {{ eff.name }}
-            </button>
+        <!-- 특수 효과 샌드박스 (아코디언 형식) -->
+        <div class="effect-sandbox-accordion">
+          <div class="accordion-header" @click="isEffectAccordionOpen = !isEffectAccordionOpen">
+            <span class="a-icon">🪄</span>
+            <div class="a-text-group">
+              <span class="a-title">본인에게 효과 즉시 적용 테스트</span>
+              <span class="a-subtitle">다양한 효과를 선택해 실시간으로 확인해보세요.</span>
+            </div>
+            <span class="a-arrow">{{ isEffectAccordionOpen ? '▼' : '▲' }}</span>
           </div>
+
+          <Transition name="fade-slide">
+            <div v-if="isEffectAccordionOpen" class="accordion-body">
+              <div class="effect-chips">
+                <button 
+                  v-for="eff in specialEffects" :key="eff.id"
+                  class="chip-btn-v3" :class="{ active: userProfile.equippedEffect === eff.id }"
+                  @click="updateEffect(eff.id)"
+                >
+                  {{ eff.name }}
+                </button>
+              </div>
+            </div>
+          </Transition>
         </div>
 
         <div class="tier-preview-grid">
           <div v-for="lv in previewLevels" :key="lv" class="preview-item">
             <span class="preview-label">Lv.{{ lv }}</span>
-            <AnimatedNickname 
-              :nickname="userProfile.nickname || userProfile.username" 
-              :level="lv" 
+            <AnimatedNickname
+              :nickname="userProfile.nickname || userProfile.username"
+              :level="lv"
               :exp="lv * lv * 50 - 1"
               :badges="activityData?.badges"
               :show-effects="true"
               :equipped-effect="userProfile.equippedEffect"
               tooltip-direction="top"
-            />
-          </div>
+              :is-ellipsis="(userProfile?.nickname || userProfile?.username || '').length >= 6"
+            />          </div>
         </div>
       </section>
 
@@ -746,10 +759,12 @@ onMounted(fetchInitialData)
 /* --- 메인 컨텐츠 --- */
 .main-content-scrollable { flex: 1; min-height: 0; overflow-y: auto; padding: 10px 5px 40px; }
 .table-wrapper { border: 1px solid var(--divider-color); border-radius: 12px; overflow: hidden; background: var(--card-bg); }
-.admin-section { background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 16px; padding: 25px; margin-bottom: 30px; }
-.mt-40 { margin-top: 40px; }
+.admin-section { background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 16px; padding: 25px; margin-bottom: 35px; }
+.mt-40 { margin-top: 50px; }
 
-.admin-table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+.section-header { margin-bottom: 25px; } /* 헤더와 아래 내용 사이 간격 확대 */
+.section-header h3 { font-size: 1.15rem; font-weight: 850; margin: 0 0 6px; color: var(--text-primary); }
+.section-desc { font-size: 0.85rem; color: var(--text-secondary); margin: 0; }
 .admin-table th { background: var(--hover-bg); padding: 12px 15px; text-align: center; font-size: 0.8rem; font-weight: 800; color: var(--text-secondary); border-bottom: 1px solid var(--border-color); white-space: nowrap; }
 .admin-table td { padding: 12px 15px; border-bottom: 1px solid var(--border-color); font-size: 0.85rem; color: var(--text-primary); vertical-align: middle; text-align: center; }
 
@@ -768,13 +783,58 @@ code { background: var(--hover-bg); padding: 2px 6px; border-radius: 4px; font-f
 .preview-item { background: var(--bg-color); padding: 15px; border-radius: 12px; border: 1px solid var(--border-color); display: flex; flex-direction: column; align-items: center; gap: 10px; }
 .preview-label { font-size: 0.7rem; font-weight: 800; color: var(--text-secondary); text-transform: uppercase; }
 
-/* --- 특수 효과 샌드박스 --- */
-.effect-sandbox { margin-bottom: 20px; padding: 15px; background: var(--hover-bg); border-radius: 12px; border: 1px solid var(--divider-color); display: flex; flex-direction: column; gap: 10px; }
-.effect-sandbox label { font-size: 0.75rem; font-weight: 850; color: var(--text-secondary); }
-.effect-chips { display: flex; gap: 8px; flex-wrap: wrap; }
-.chip-btn-v3 { padding: 6px 12px; border-radius: 8px; border: 1px solid var(--border-color); background: var(--card-bg); font-size: 0.72rem; font-weight: 800; color: var(--text-primary); cursor: pointer; transition: all 0.2s; }
+/* --- 특수 효과 샌드박스 아코디언 --- */
+.effect-sandbox-accordion { 
+  margin-bottom: 25px; 
+  background: var(--hover-bg); 
+  border-radius: 12px; 
+  border: 1px solid var(--border-color); 
+  overflow: hidden; 
+}
+.accordion-header { 
+  padding: 12px 20px; 
+  display: flex; 
+  align-items: center; 
+  gap: 15px; 
+  cursor: pointer; 
+  transition: background 0.2s; 
+  user-select: none;
+}
+.accordion-header:hover { background: var(--border-color); }
+.a-icon { font-size: 1.2rem; }
+.a-text-group { flex: 1; display: flex; flex-direction: column; }
+.a-title { font-size: 0.85rem; font-weight: 850; color: var(--text-primary); }
+.a-subtitle { font-size: 0.72rem; color: var(--text-secondary); margin-top: 1px; }
+.a-arrow { font-size: 0.7rem; color: var(--text-muted); opacity: 0.6; }
+
+.accordion-body { padding: 12px 15px; border-top: 1px solid var(--border-color); background: var(--card-bg); }
+.effect-chips { 
+  display: grid; 
+  grid-template-columns: repeat(2, 1fr); 
+  gap: 6px; 
+}
+.chip-btn-v3 { 
+  padding: 6px 10px; 
+  border-radius: 6px; 
+  border: 1px solid var(--border-color); 
+  background: var(--card-bg); 
+  font-size: 0.68rem; /* 글씨 작게 */
+  font-weight: 700; 
+  color: var(--text-primary); 
+  cursor: pointer; 
+  transition: all 0.2s;
+  text-align: left;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis; /* 긴 글자 말줄임 */
+  width: 100%; /* 열 맞춤을 위해 꽉 채움 */
+}
 .chip-btn-v3.active { background: #facc15; color: #000; border-color: #facc15; box-shadow: 0 4px 10px rgba(250, 204, 21, 0.3); }
 .chip-btn-v3:hover:not(.active) { background: var(--divider-color); }
+
+/* 애니메이션 */
+.fade-slide-enter-active, .fade-slide-leave-active { transition: all 0.3s ease; }
+.fade-slide-enter-from, .fade-slide-leave-to { opacity: 0; transform: translateY(-10px); }
 
 .badge-preview-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 20px; }
 .empty-preview-state { 
@@ -844,10 +904,31 @@ code { background: var(--hover-bg); padding: 2px 6px; border-radius: 4px; font-f
   .btn-edit-m { flex: 1; height: 24px; border-radius: 5px; font-weight: 800; font-size: 0.62rem; background: var(--hover-bg); color: var(--link-color); border: 1px solid var(--border-color); cursor: pointer; }
   .btn-delete-m { flex: 1; height: 24px; border-radius: 5px; font-weight: 800; font-size: 0.62rem; background: #fff5f5; color: #e53e3e; border: 1px solid #feb2b2; cursor: pointer; }
 
-  .badge-preview-grid { grid-template-columns: repeat(2, 1fr); gap: 12px; }
-  .badge-card-set { padding: 14px 12px; gap: 12px; }
-  .badge-visual-set { width: 48px; height: 48px; font-size: 1.6rem; flex-shrink: 0; }
-  .tier-preview-grid { grid-template-columns: repeat(2, 1fr) !important; gap: 10px; }
+  .badge-preview-grid { 
+    grid-template-columns: 1fr; /* 모바일에서 1열로 변경하여 카드 짤림 및 늘어짐 방지 */
+    gap: 15px; 
+  }
+  .badge-card-set { 
+    padding: 16px; 
+    gap: 15px; 
+    min-height: auto; 
+    border-radius: 16px; 
+    flex-direction: row; /* 가로 레이어 유지 */
+    align-items: center;
+  }
+  .badge-visual-set { width: 54px; height: 54px; font-size: 1.8rem; border-radius: 12px; }
+  .badge-name-set { font-size: 1rem; margin: 4px 0; }
+  .badge-desc-set { font-size: 0.75rem; margin-bottom: 8px; line-height: 1.4; }
+  .badge-tip-set { padding: 6px 10px; border-radius: 8px; margin-bottom: 8px; font-size: 0.7rem; }
+  .badge-footer-set { font-size: 0.65rem; }
+
+  .tier-preview-grid { 
+    grid-template-columns: repeat(2, 1fr) !important; 
+    gap: 10px; 
+    display: grid !important;
+  }
+  .preview-item { padding: 10px; border-radius: 10px; min-width: 0; }
+  .preview-label { font-size: 0.65rem; }
 }
 
 .slide-fade-enter-active { transition: all 0.3s ease-out; }

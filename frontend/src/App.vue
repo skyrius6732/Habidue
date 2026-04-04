@@ -678,7 +678,7 @@ body { margin: 0; padding: 0; display: block !important; background-color: var(-
 }
 .profile-nickname {
   font-size: 0.9rem; font-weight: 850; display: inline-block; position: relative;
-  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0;
+  min-width: 0;
   color: #ffffff;
 }
 .dark-mode .profile-nickname {

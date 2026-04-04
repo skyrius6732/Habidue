@@ -3,8 +3,10 @@ package com.habidue.app.service.user;
 import com.habidue.app.domain.user.ExpHistory;
 import com.habidue.app.domain.user.ExpReason;
 import com.habidue.app.domain.user.User;
+import com.habidue.app.domain.notification.NotificationType;
 import com.habidue.app.repository.user.ExpHistoryRepository;
 import com.habidue.app.repository.user.UserRepository;
+import com.habidue.app.service.notification.NotificationService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Async;
@@ -20,6 +22,7 @@ public class ExpService {
     private final ExpHistoryRepository expHistoryRepository;
     private final com.habidue.app.service.ranking.RankingService rankingService;
     private final UserEffectService userEffectService;
+    private final NotificationService notificationService;
 
     /**
      * 레벨 테이블 (간단한 산술식 또는 고정 구간)
@@ -56,6 +59,10 @@ public class ExpService {
             userRepository.updateLevel(userId, newLevel);
             log.info("사용자 레벨업! ID: {}, {} -> {}", userId, oldLevel, newLevel);
 
+            // 레벨업 알림 전송
+            notificationService.send(user, NotificationType.LEVEL_UP,
+                String.format("축하합니다! 레벨 %d에 도달했습니다.", newLevel), null, null);
+
             // [시니어 조치] 레벨업 시 해금되는 이펙트 자동 지급
             grantEffectsForLevel(userId, oldLevel, newLevel);
         }
@@ -84,6 +91,8 @@ public class ExpService {
             java.util.Map.entry(70, "RAINBOW_WAVE")
         );
 
+        User user = userRepository.findById(userId).orElse(null);
+
         // oldLevel과 newLevel 사이에 해금되는 이펙트들을 지급
         for (java.util.Map.Entry<Integer, String> entry : levelUnlocks.entrySet()) {
             int unlockLevel = entry.getKey();
@@ -94,6 +103,12 @@ public class ExpService {
                 try {
                     userEffectService.grantEffect(userId, effectCode, com.habidue.app.domain.user.UserEffect.EffectSource.LEVEL);
                     log.info("레벨업 이펙트 지급: userId={}, effectCode={}, level={}", userId, effectCode, unlockLevel);
+
+                    // 이펙트 획득 알림 전송
+                    if (user != null) {
+                        notificationService.send(user, NotificationType.EFFECT_ACQUIRED,
+                            String.format("✨ 새로운 이펙트를 획득했습니다!"), null, null);
+                    }
                 } catch (Exception e) {
                     log.warn("레벨업 이펙트 지급 실패: userId={}, effectCode={}, error={}", userId, effectCode, e.getMessage());
                 }
