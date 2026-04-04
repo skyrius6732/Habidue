@@ -13,7 +13,7 @@
       icon="👤"
       title="마이 페이지"
       :stats-text="activeTab === 'activity' ? '획득 배지' : activeTab === 'effects' ? '보유 효과' : activeTab === 'keywords' ? '설정된 태그' : activeTab === 'messages' ? '받은 쪽지' : '알림 채널'"
-      :stats-value="activeTab === 'activity' ? (activityData?.badges?.length || 0) : activeTab === 'effects' ? (tierPreviewLevels.length + '개') : activeTab === 'keywords' ? userTags.length : activeTab === 'messages' ? (messageStore.receivedMessages.length) : (activeNotificationCount + '개 활성')"
+      :stats-value="activeTab === 'activity' ? (activityData?.badges?.length || 0) : activeTab === 'effects' ? effectsStatsText : activeTab === 'keywords' ? userTags.length : activeTab === 'messages' ? (messageStore.receivedMessages.length) : (activeNotificationCount + '개 활성')"
       :bio="currentBio"
     />
 
@@ -298,7 +298,7 @@
               <div class="stat-card-v2" :class="{ 'is-active': activeStatTooltip === 'POST_LIKE' }" @click="toggleStatTooltip('POST_LIKE')">
                 <span class="s-icon">❤️</span>
                 <div class="s-info">
-                  <span class="s-label">게시글 좋아요</span>
+                  <span class="s-label">받은 게시글</span>
                   <span class="s-value">{{ activityData.postLikeReceivedCount }}</span>
                 </div>
                 <div class="stat-tooltip-v2">{{ getStatTooltip('KNOWLEDGE', activityData.postLikeReceivedCount) }}</div>
@@ -306,7 +306,7 @@
               <div class="stat-card-v2" :class="{ 'is-active': activeStatTooltip === 'COMMENT_LIKE' }" @click="toggleStatTooltip('COMMENT_LIKE')">
                 <span class="s-icon">❤️</span>
                 <div class="s-info">
-                  <span class="s-label">댓글 좋아요</span>
+                  <span class="s-label">받은 댓글</span>
                   <span class="s-value">{{ activityData.commentLikeReceivedCount }}</span>
                 </div>
                 <div class="stat-tooltip-v2">{{ getStatTooltip('KNOWLEDGE', activityData.commentLikeReceivedCount) }}</div>
@@ -1161,6 +1161,13 @@ const toggleStatTooltip = (type) => {
 // [시니어 조치] 장착된 배지 명칭 계산
 const tierPreviewLevels = [1, 5, 10, 30, 50, 70, 90, 100]
 const userCurrentTier = computed(() => badgeStore.getAccountTierNumber(userProfile.value?.level || 1))
+
+// [시니어 조치] 보유 효과 통계 텍스트
+const effectsStatsText = computed(() => {
+  const ownedTiers = tierPreviewLevels.filter(lv => lv <= userCurrentTier.value)
+  const decorationCount = authStore.isAdmin ? getAllEffectCodes().length : (userProfile.value?.ownedEffectCodes?.length || 0)
+  return `닉네임 효과 ${ownedTiers.length}개 | 닉네임 장식 ${decorationCount}개`
+})
 
 const equippedBadgeDisplayName = computed(() => {
   if (!userProfile.value?.equippedBadgeId || !activityData.value?.badges) return null
