@@ -225,7 +225,8 @@ public class NotificationService { // [시니어 조치] 클래스 레벨 @Trans
     @Transactional
     public void sendToAllUsers(NotificationType type, String content, Long relatedTargetId, Long postId) {
         log.info("[SSE-DEBUG] >>> Broadcasting Notification: Type: {}", type);
-        List<User> allUsers = userRepository.findAll();
+        // [시니어 조치] 탈퇴하거나 차단된 유저를 제외하고 활성 유저에게만 발송
+        List<User> activeUsers = userRepository.findAllByStatus(com.habidue.app.domain.user.UserStatus.ACTIVE);
         
         // 공통 클릭 경로 생성
         String clickAction = "/keywords?tab=notifications";
@@ -233,7 +234,7 @@ public class NotificationService { // [시니어 조치] 클래스 레벨 @Trans
             clickAction = "/board/post/" + postId;
         }
 
-        for (User receiver : allUsers) {
+        for (User receiver : activeUsers) {
             Notification notification = Notification.builder()
                     .user(receiver)
                     .type(type)
@@ -250,6 +251,6 @@ public class NotificationService { // [시니어 조치] 클래스 레벨 @Trans
             // SSE 실시간 전송 시도
             sendSseNotification(receiver.getId(), notification);
         }
-        log.info("[SSE-DEBUG] Broadcasting completed for {} users.", allUsers.size());
+        log.info("[SSE-DEBUG] Broadcasting completed for {} users.", activeUsers.size());
     }
 }

@@ -30,6 +30,7 @@ public class CustomOAuth2UserService extends DefaultOAuth2UserService {
 
     private final UserRepository userRepository;
     private final UserActivityStatsRepository userActivityStatsRepository;
+    private final UserService userService;
 
     @Override
     @Transactional
@@ -61,37 +62,49 @@ public class CustomOAuth2UserService extends DefaultOAuth2UserService {
 
         log.info("[OAuth2 Login] Provider: {}, ProviderId: {}, Email: {}", provider, providerId, email);
 
-        // 1. Provider 정보로만 조회 (이메일 기반 자동 병합 제거)
+        // 1. Provider 정보로 조회
         Optional<User> userOptional = userRepository.findByProviderAndProviderId(provider, providerId);
+
+        if (userOptional.isPresent()) {
+            User existingUser = userOptional.get();
+            
+            // [추가] 차단된 사용자인지 확인
+            if (existingUser.getStatus() == UserStatus.BLOCKED) {
+                String reason = existingUser.getBlockedReason() != null ? existingUser.getBlockedReason() : "관리자에 의해 계정이 차단되었습니다.";
+                throw new OAuth2AuthenticationException(new org.springframework.security.oauth2.core.OAuth2Error("user_blocked", reason, null));
+            }
+
+            // [시니어 조치] 탈퇴 유저 처리
+            if (existingUser.getStatus() == UserStatus.WITHDRAWN) {
+                java.time.LocalDateTime withdrawalAt = existingUser.getWithdrawalAt();
+                if (withdrawalAt != null && java.time.LocalDateTime.now().isBefore(withdrawalAt.plusDays(7))) {
+                    // 7일 이내: 차단
+                    java.time.LocalDateTime canReregisterAt = withdrawalAt.plusDays(7);
+                    String reason = "7일 이내 탈퇴한 계정입니다. " + 
+                        canReregisterAt.format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")) + "부터 재가입이 가능합니다.";
+                    throw new OAuth2AuthenticationException(new org.springframework.security.oauth2.core.OAuth2Error("user_withdrawn", reason, null));
+                } else {
+                    // 7일 경과: 기존 유저 완전 익명화(Unique 해제) 후 신규 가입 프로세스로 전환
+                    userService.forceAnonymizeUser(existingUser);
+                    userOptional = Optional.empty(); 
+                }
+            }
+        }
 
         User user;
         if (userOptional.isPresent()) {
             user = userOptional.get();
-
-            // [추가] 차단된 사용자인지 확인
-            if (user.getStatus() == UserStatus.BLOCKED) {
-                String reason = user.getBlockedReason();
-                if (reason == null || reason.trim().isEmpty()) {
-                    reason = "관리자의 판단에 의해 계정이 차단되었습니다.";
-                }
-                // OAuth2Error를 사용하여 사유(Description)를 명확히 전달
-                org.springframework.security.oauth2.core.OAuth2Error oauth2Error = 
-                    new org.springframework.security.oauth2.core.OAuth2Error("user_blocked", reason, null);
-                throw new OAuth2AuthenticationException(oauth2Error);
-            }
-
-            // 기존 계정에 소셜 정보가 일치하는지 확인 (이미 위에서 조회했으므로 업데이트 로직 간소화)
+            // 기존 계정 정보 업데이트
             if (user.getProvider() == null || !user.getProvider().equals(provider)) {
                 user.setProvider(provider);
                 user.setProviderId(providerId);
                 user = userRepository.save(user);
             }
         } else {
-            // 신규 유저 생성
+            // [핵심] 신규 유저 생성 (새로운 user_id 부여)
             String suffix = (providerId != null && providerId.length() >= 5) ? providerId.substring(0, 5) : java.util.UUID.randomUUID().toString().substring(0, 5);
             String generatedUsername = name + "_" + suffix;
             
-            // 닉네임 중복 방지 로직 도입
             String finalNickname = name != null ? name : generatedUsername;
             if (userRepository.existsByNickname(finalNickname)) {
                 finalNickname = finalNickname + "_" + suffix;
@@ -104,11 +117,12 @@ public class CustomOAuth2UserService extends DefaultOAuth2UserService {
             user.setProvider(provider);
             user.setProviderId(providerId);
             user.setRole(Role.USER);
+            user.setStatus(UserStatus.ACTIVE);
             user.setPassword(java.util.UUID.randomUUID().toString());
             
-            // [시니어 조치] 양방향 관계 설정 (User 저장 시 Stats도 Cascade로 함께 생성됨)
             user.setActivityStats(UserActivityStats.createEmpty(user));
             user = userRepository.save(user);
+            log.info("[OAuth2] 신규 사용자 가입 완료 - ID: {}, Username: {}", user.getId(), user.getUsername());
         }
 
         return UserPrincipal.create(user, attributes);

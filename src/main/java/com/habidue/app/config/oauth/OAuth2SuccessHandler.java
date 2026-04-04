@@ -46,10 +46,24 @@ public class OAuth2SuccessHandler extends SimpleUrlAuthenticationSuccessHandler 
                 TimeUnit.SECONDS
         );
 
-        String targetUrl = UriComponentsBuilder.fromUriString(frontendUrl + "/oauth2/redirect")
+        UriComponentsBuilder urlBuilder = UriComponentsBuilder.fromUriString(frontendUrl + "/oauth2/redirect")
                 .queryParam("accessToken", accessToken)
-                .queryParam("refreshToken", refreshToken)
-                .build()
+                .queryParam("refreshToken", refreshToken);
+
+        // [시니어 조치] 7일 이내 탈퇴한 사용자 로그인 시 안내 메시지 표시
+        com.habidue.app.domain.user.User user = userPrincipal.getUser();
+        if (user.getStatus() == com.habidue.app.domain.user.UserStatus.WITHDRAWN &&
+            user.getWithdrawalAt() != null) {
+            java.time.LocalDateTime canReregisterAt = user.getWithdrawalAt().plusDays(7);
+            if (java.time.LocalDateTime.now().isBefore(canReregisterAt)) {
+                String message = "7일 이내 탈퇴한 계정입니다. " +
+                    canReregisterAt.format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")) +
+                    "부터 재가입이 가능합니다.";
+                urlBuilder.queryParam("withdrawalWarning", message);
+            }
+        }
+
+        String targetUrl = urlBuilder.build()
                 .encode(StandardCharsets.UTF_8)
                 .toUriString();
 

@@ -59,6 +59,24 @@ public class UserService {
 
     @Transactional
     public User registerUser(SignupRequest signupRequest) {
+        // [시니어 조치] 7일 이내 탈퇴한 사용자 재가입 방지 (username과 email 모두 체크)
+        java.util.Optional<User> withdrawnUser = userRepository.findByUsername(signupRequest.getUsername())
+                .or(() -> userRepository.findByEmail(signupRequest.getEmail()));
+
+        if (withdrawnUser.isPresent() && withdrawnUser.get().getStatus() == UserStatus.WITHDRAWN) {
+            java.time.LocalDateTime withdrawalAt = withdrawnUser.get().getWithdrawalAt();
+            if (withdrawalAt != null) {
+                java.time.LocalDateTime canReregisterAt = withdrawalAt.plusDays(7);
+                if (java.time.LocalDateTime.now().isBefore(canReregisterAt)) {
+                    throw new RuntimeException("7일 이내 탈퇴한 계정입니다. " + 
+                        canReregisterAt.format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")) + "부터 재가입이 가능합니다.");
+                } else {
+                    // 7일 경과 시: 기존 유저 완전 익명화하여 Unique 제약 해제
+                    forceAnonymizeUser(withdrawnUser.get());
+                }
+            }
+        }
+
         if (userRepository.existsByUsername(signupRequest.getUsername())) {
             throw new RuntimeException("Error: Username is already taken!");
         }
@@ -76,7 +94,7 @@ public class UserService {
 
         // [시니어 조치] 양방향 관계 설정 (Cascade 저장 유도)
         user.setActivityStats(UserActivityStats.createEmpty(user));
-        
+
         return userRepository.save(user);
     }
 
@@ -242,20 +260,35 @@ public class UserService {
         messageRepository.deleteBySenderOrReceiver(user, user);
         userBadgeRepository.deleteByUserId(user.getId());
         deviceTokenRepository.deleteByUserId(user.getId());
-        // [시니어 조치] expHistory, postLike, commentLike는 시스템 감사 기록으로 유지 (탈퇴 후에도 기록 유지)
+        
+        // [시니어 조치] 감사 기록 성격의 데이터 삭제
         karmaHistoryRepository.deleteByUserId(user.getId());
         noticeWakeUpRepository.deleteByUserId(user.getId());
 
         // 3. 통계 데이터 직접 초기화
         userActivityStatsRepository.resetStatsByUserId(user.getId());
 
-        // 4. 유저 익명화 및 상태 변경
+        // 4. 유저 상태 변경 및 탈퇴일시 기록 (핵심)
         user.withdraw();
         
-        // 5. 즉시 DB 반영
+        // 5. 즉시 DB 반영 및 영속성 컨텍스트 동기화
         userRepository.saveAndFlush(user);
         
-        log.info("User withdrawal completed successfully: {}", userId);
+        log.info("User withdrawal completed successfully: {} (WithdrawalAt: {})", userId, user.getWithdrawalAt());
+    }
+
+    /**
+     * [시니어 조치] 탈퇴 후 7일이 지난 유저의 식별 정보를 완전히 제거하여 
+     * 새로운 유저가 해당 정보로 가입할 수 있도록 함 (Unique 제약 해제)
+     */
+    @Transactional
+    public void forceAnonymizeUser(User user) {
+        log.info("[Cleanup] Truly anonymizing user {} to free up identifiers for re-registration", user.getId());
+        user.setUsername("anonymized_" + System.currentTimeMillis() + "_" + user.getId());
+        user.setEmail("anonymized_" + user.getId() + "@habidue.com");
+        user.setNickname("탈퇴사용자_" + user.getId());
+        user.setProviderId(null);
+        userRepository.saveAndFlush(user);
     }
 
     @Transactional
