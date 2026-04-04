@@ -17,16 +17,21 @@ const messaging = firebase.messaging();
 
 // 백그라운드 메시지 수신
 messaging.onBackgroundMessage((payload) => {
-  // [시니어 조치] 백엔드에서 notification 객체 대신 data 객체를 보내므로 이를 수신하도록 수정
+  console.log('[SW] Background Message received:', payload);
+  
   const data = payload.data || {};
   const notificationTitle = data.title || 'habiDue 알림';
+  
+  // click_action 우선순위: data.click_action > payload.notification.click_action > '/'
+  const clickAction = data.click_action || (payload.notification && payload.notification.click_action) || '/';
+
   const notificationOptions = {
-    body: data.body || '',
+    body: data.body || (payload.notification && payload.notification.body) || '',
     icon: '/icon.png',
     badge: '/favicon.ico',
-    tag: 'habidue-notification', // 같은 태그의 알림이 오면 기존 알림을 대체함 (도배 방지)
-    renotify: true, // 새로운 알림이 오면 다시 진동/소리 발생
-    data: { url: data.click_action || '/' }
+    tag: 'habidue-notification', // 같은 태그의 알림이 오면 기존 알림을 대체함
+    renotify: true,
+    data: { url: clickAction }
   };
 
   return self.registration.showNotification(notificationTitle, notificationOptions);

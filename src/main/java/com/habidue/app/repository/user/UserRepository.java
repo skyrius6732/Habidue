@@ -14,15 +14,20 @@ import java.util.Optional;
 public interface UserRepository extends JpaRepository<User, Long> {
     Optional<User> findByUsername(String username);
     
-    @Query("SELECT u FROM User u WHERE u.email = :email AND u.status != 'WITHDRAWN'")
-    Optional<User> findByEmail(@Param("email") String email);
+    // [시니어 조치] 재가입 방지(7일) 로직을 위해 탈퇴한 유저도 이메일/소셜ID로 조회 가능해야 함
+    Optional<User> findByEmail(String email);
 
-    @Query("SELECT u FROM User u WHERE u.provider = :provider AND u.providerId = :providerId AND u.status != 'WITHDRAWN'")
-    Optional<User> findByProviderAndProviderId(@Param("provider") String provider, @Param("providerId") String providerId);
+    Optional<User> findByProviderAndProviderId(String provider, String providerId);
 
-    boolean existsByUsername(String username);
-    boolean existsByEmail(String email);
-    boolean existsByNickname(String nickname);
+    // [시니어 조치] 가입 가능 여부 체크 시에는 '활성 유저' 중에서만 중복을 체크해야 함
+    @Query("SELECT COUNT(u) > 0 FROM User u WHERE u.username = :username AND u.status = 'ACTIVE'")
+    boolean existsByUsername(@Param("username") String username);
+
+    @Query("SELECT COUNT(u) > 0 FROM User u WHERE u.email = :email AND u.status = 'ACTIVE'")
+    boolean existsByEmail(@Param("email") String email);
+
+    @Query("SELECT COUNT(u) > 0 FROM User u WHERE u.nickname = :nickname AND u.status = 'ACTIVE'")
+    boolean existsByNickname(@Param("nickname") String nickname);
 
     @Query("SELECT COUNT(u) FROM User u WHERE u.createdAt >= :startDate")
     long countRecent(@Param("startDate") LocalDateTime startDate);
@@ -55,4 +60,6 @@ public interface UserRepository extends JpaRepository<User, Long> {
     @org.springframework.data.jpa.repository.Modifying(clearAutomatically = true)
     @Query("UPDATE User u SET u.level = :level WHERE u.id = :id")
     void updateLevel(@Param("id") Long id, @Param("level") int level);
+
+    List<User> findAllByStatus(com.habidue.app.domain.user.UserStatus status);
 }

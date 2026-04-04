@@ -23,9 +23,8 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(MethodArgumentNotValidException.class)
     protected ResponseEntity<ApiResponse<Void>> handleMethodArgumentNotValidException(MethodArgumentNotValidException e) {
         log.error("handleMethodArgumentNotValidException", e);
-        return ApiResponse.error(HttpStatus.BAD_REQUEST,
-                e.getBindingResult().getFieldError().getDefaultMessage(),
-                e.getClass().getSimpleName());
+        String message = e.getBindingResult().getAllErrors().get(0).getDefaultMessage();
+        return ApiResponse.error(HttpStatus.BAD_REQUEST, message, e.getClass().getSimpleName());
     }
 
     // 데이터 중복 (예: 링크 중복, 키워드 중복 등)
@@ -81,6 +80,7 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(Exception.class)
     protected ResponseEntity<ApiResponse<Void>> handleException(Exception e) {
         log.error("handleException", e);
-        return ApiResponse.error(HttpStatus.INTERNAL_SERVER_ERROR, "알 수 없는 오류가 발생했습니다.", e.getClass().getSimpleName());
+        String errorName = (e != null) ? e.getClass().getSimpleName() : "UnknownException";
+        return ApiResponse.error(HttpStatus.INTERNAL_SERVER_ERROR, "알 수 없는 오류가 발생했습니다.", errorName);
     }
 }

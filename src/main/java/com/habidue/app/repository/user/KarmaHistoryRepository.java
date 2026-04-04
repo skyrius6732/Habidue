@@ -32,4 +32,7 @@ public interface KarmaHistoryRepository extends JpaRepository<KarmaHistory, Long
     @Query("SELECT COALESCE(SUM(kh.pointChange), 0) FROM KarmaHistory kh " +
            "WHERE kh.user.id = :userId AND kh.comment = :comment")
     Integer getSumByUserIdAndComment(@Param("userId") Long userId, @Param("comment") String comment);
+
+    // 사용자 탈퇴 시 모든 신뢰도 이력 삭제
+    void deleteByUserId(Long userId);
 }

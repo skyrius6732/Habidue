@@ -67,6 +67,32 @@
       </div>
     </div>
 
+    <!-- [시니어 추가] 실시간 DB 커넥션 모니터링 패널 -->
+    <div class="trend-row">
+      <div class="trend-panel db-monitor-panel">
+        <div class="panel-header">
+          <div class="panel-title-group">
+            <h3>🔗 실시간 데이터베이스 커넥션</h3>
+            <p class="panel-subtitle">HikariCP 커넥션 풀 상태 (5초 간격 갱신)</p>
+          </div>
+          <div v-if="dbMetrics" class="db-current-status">
+            <div class="status-indicator">
+              <span class="dot active"></span> 사용 중: <b>{{ dbMetrics.activeConnections }}</b>
+            </div>
+            <div class="status-indicator">
+              <span class="dot idle"></span> 대기 중: <b>{{ dbMetrics.idleConnections }}</b>
+            </div>
+            <div class="status-indicator">
+              <span class="dot total"></span> 전체: <b>{{ dbMetrics.totalConnections }}</b> / {{ dbMetrics.maxPoolSize }}
+            </div>
+          </div>
+        </div>
+        <div class="chart-container">
+          <canvas id="dbConnChart"></canvas>
+        </div>
+      </div>
+    </div>
+
     <!-- 공고 분포 패널 (기존) -->
     <div class="chart-row">
       <div class="chart-panel">
@@ -81,7 +107,7 @@
               <span class="bar-count">{{ count.toLocaleString() }}건</span>
             </div>
             <div class="bar-track">
-              <div class="bar-fill source-fill" :style="{ width: (count / stats.totalNotices * 100) + '%' }"></div>
+              <div class="bar-fill source-fill" :style="{ width: (count / (stats.totalNotices || 1) * 100) + '%' }"></div>
             </div>
           </div>
         </div>
@@ -99,14 +125,14 @@
               <span class="bar-count">{{ count.toLocaleString() }}건</span>
             </div>
             <div class="bar-track">
-              <div class="bar-fill status-fill" :style="{ width: (count / stats.totalNotices * 100) + '%' }"></div>
+              <div class="bar-fill status-fill" :style="{ width: (count / (stats.totalNotices || 1) * 100) + '%' }"></div>
             </div>
           </div>
         </div>
       </div>
     </div>
 
-    <!-- 운영 현황 3패널 (신규) -->
+    <!-- 운영 현황 3패널 -->
     <div class="ops-row">
       <!-- 신고 처리 현황 -->
       <div class="ops-panel">
@@ -203,8 +229,9 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, watch, nextTick } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
 import axios from '@/plugins/axios'
+import Chart from 'chart.js/auto'
 
 const stats = ref({
   totalNotices: 0,
@@ -225,84 +252,97 @@ const stats = ref({
   }
 })
 
-// [시니어 추가] 트렌드 그래프 관련 상태
+// 트렌드 그래프 관련 상태
 const trendFilter = ref('daily')
-let chartInstance = null
+let trendChartInstance = null
+
+// DB 모니터링 관련 상태
+const dbMetrics = ref(null)
+let dbChartInstance = null
+let dbPollingInterval = null
+const dbHistoryLimit = 20
+const dbHistory = ref({
+  labels: [],
+  active: [],
+  idle: [],
+  total: []
+})
 
 const fetchStats = async () => {
   try {
     const res = await axios.get('/api/admin/dashboard/stats')
     stats.value = { ...stats.value, ...res.data.data }
-    renderChart()
+    renderTrendChart()
   } catch (e) {
     console.error('통계 로드 실패')
   }
 }
 
-// [시니어 조치] Chart.js 동적 렌더링 로직 (데이터 정합성 및 가독성 고도화)
-const renderChart = async () => {
+const fetchDbMetrics = async () => {
+  try {
+    const res = await axios.get('/api/admin/system/db-metrics')
+    const data = res.data.data
+    dbMetrics.value = data
+
+    const now = new Date()
+    const timeLabel = `${now.getHours()}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}`
+
+    dbHistory.value.labels.push(timeLabel)
+    dbHistory.value.active.push(data.activeConnections)
+    dbHistory.value.idle.push(data.idleConnections)
+    dbHistory.value.total.push(data.totalConnections)
+
+    if (dbHistory.value.labels.length > dbHistoryLimit) {
+      dbHistory.value.labels.shift()
+      dbHistory.value.active.shift()
+      dbHistory.value.idle.shift()
+      dbHistory.value.total.shift()
+    }
+
+    renderDbChart()
+  } catch (e) {
+    console.error('DB 지표 로드 실패')
+  }
+}
+
+const renderTrendChart = async () => {
   await nextTick()
   const ctx = document.getElementById('trendChart')
   if (!ctx) return
 
-  if (!window.Chart) {
-    await new Promise((resolve) => {
-      const script = document.createElement('script')
-      script.src = 'https://cdn.jsdelivr.net/npm/chart.js'
-      script.onload = resolve
-      document.head.appendChild(script)
-    })
-  }
-
-  if (chartInstance) chartInstance.destroy()
+  if (trendChartInstance) trendChartInstance.destroy()
 
   const filter = trendFilter.value
   const noticeData = stats.value.trends[`${filter}Notices`] || {}
   const userData = stats.value.trends[`${filter}Users`] || {}
   
-  // [시니어 조치] 공고와 유저 날짜 키를 합쳐서 정렬된 전체 타임라인 생성 (데이터 누락 방지)
   const allDateKeys = [...new Set([...Object.keys(noticeData), ...Object.keys(userData)])].sort()
-  
-  // 레이블 가독성 개선 (예: 2026-14 -> 2026년 14주)
   const labels = allDateKeys.map(key => {
     if (filter === 'weekly') return key.replace('-', '년 ') + '주'
     if (filter === 'monthly') return key.replace('-', '년 ') + '월'
     return key
   })
 
-  const noticeValues = allDateKeys.map(k => noticeData[k] || 0)
-  const userValues = allDateKeys.map(k => userData[k] || 0)
-
-  chartInstance = new window.Chart(ctx, {
+  trendChartInstance = new Chart(ctx, {
     type: 'line',
     data: {
       labels: labels,
       datasets: [
         {
           label: '신규 공고',
-          data: noticeValues,
+          data: allDateKeys.map(k => noticeData[k] || 0),
           borderColor: '#38a169',
           backgroundColor: 'rgba(56, 161, 105, 0.1)',
-          borderWidth: 3,
           fill: true,
-          tension: 0.4,
-          pointRadius: 4,
-          pointHitRadius: 10,
-          pointBackgroundColor: '#38a169',
-          hidden: false // 초기값 노출
+          tension: 0.4
         },
         {
           label: '신규 유저',
-          data: userValues,
+          data: allDateKeys.map(k => userData[k] || 0),
           borderColor: '#3182ce',
           backgroundColor: 'rgba(49, 130, 206, 0.1)',
-          borderWidth: 3,
           fill: true,
-          tension: 0.4,
-          pointRadius: 4,
-          pointHitRadius: 10,
-          pointBackgroundColor: '#3182ce',
-          hidden: false // 초기값 노출
+          tension: 0.4
         }
       ]
     },
@@ -311,63 +351,76 @@ const renderChart = async () => {
       maintainAspectRatio: false,
       interaction: { intersect: false, mode: 'index' },
       plugins: {
-        legend: { 
-          display: true,
-          position: 'top', 
-          align: 'end', 
-          cursor: 'pointer',
-          labels: { 
-            boxWidth: 12, 
-            usePointStyle: true, 
-            pointStyle: 'circle',
-            font: { size: 12, weight: 'bold' },
-            padding: 20
-          },
-          onClick: function(e, legendItem, legend) {
-            const index = legendItem.datasetIndex;
-            const ci = legend.chart;
-            if (ci.isDatasetVisible(index)) {
-              ci.hide(index);
-              legendItem.hidden = true;
-            } else {
-              ci.show(index);
-              legendItem.hidden = false;
-            }
-          }
-        },
-        tooltip: { 
-          padding: 12, 
-          backgroundColor: 'rgba(0,0,0,0.8)',
-          borderRadius: 8, 
-          titleFont: { size: 14 },
-          bodyFont: { size: 13 },
-          callbacks: {
-            // [시니어 조치] 데이터셋 라벨에 따라 단위(건/명)를 동적으로 표시
-            label: (context) => {
-              const label = context.dataset.label || '';
-              const value = context.parsed.y.toLocaleString();
-              const unit = label.includes('공고') ? '건' : '명';
-              return ` ${label}: ${value}${unit}`;
-            }
-          }
-        }
+        legend: { position: 'top', align: 'end' }
       },
       scales: {
-        y: { 
-          beginAtZero: true, 
-          grid: { color: 'rgba(0,0,0,0.05)' }, 
-          ticks: { font: { size: 11 }, stepSize: 1 } 
-        },
-        x: { 
-          grid: { display: false }, 
-          ticks: { font: { size: 11 }, maxRotation: 45, minRotation: 0 } 
-        }
+        y: { beginAtZero: true, grid: { color: 'rgba(0,0,0,0.05)' } },
+        x: { grid: { display: false } }
       }
     }
   })
 }
 
-watch(trendFilter, renderChart)
+const renderDbChart = async () => {
+  await nextTick()
+  const ctx = document.getElementById('dbConnChart')
+  if (!ctx) return
+
+  if (!dbChartInstance) {
+    dbChartInstance = new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels: dbHistory.value.labels,
+        datasets: [
+          {
+            label: '사용 중 (Active)',
+            data: dbHistory.value.active,
+            borderColor: '#f87171',
+            backgroundColor: 'rgba(248, 113, 113, 0.1)',
+            fill: true,
+            tension: 0.3
+          },
+          {
+            label: '대기 중 (Idle)',
+            data: dbHistory.value.idle,
+            borderColor: '#fbbf24',
+            backgroundColor: 'rgba(251, 191, 36, 0.1)',
+            fill: true,
+            tension: 0.3
+          },
+          {
+            label: '전체 (Total)',
+            data: dbHistory.value.total,
+            borderColor: '#60a5fa',
+            borderDash: [5, 5],
+            fill: false,
+            tension: 0.3
+          }
+        ]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        animation: { duration: 400 },
+        scales: {
+          y: { beginAtZero: true, suggestedMax: 10, ticks: { stepSize: 1 } },
+          x: { grid: { display: false } }
+        },
+        plugins: {
+          legend: { position: 'top', align: 'end', labels: { boxWidth: 10 } }
+        }
+      }
+    })
+  } else {
+    dbChartInstance.data.labels = dbHistory.value.labels
+    dbChartInstance.data.datasets[0].data = dbHistory.value.active
+    dbChartInstance.data.datasets[1].data = dbHistory.value.idle
+    dbChartInstance.data.datasets[2].data = dbHistory.value.total
+    dbChartInstance.update('none')
+  }
+}
+
+watch(trendFilter, renderTrendChart)
 
 const STATUS_LABELS = {
   RECRUITING: '접수중', CLOSED: '마감', UPCOMING: '예정', INFO: '안내',
@@ -399,122 +452,78 @@ const postStatusItems = [
   { key: 'DELETED',      label: '관리자 삭제', color: '#ef4444' }
 ]
 
-onMounted(fetchStats)
+onMounted(() => {
+  fetchStats()
+  fetchDbMetrics()
+  dbPollingInterval = setInterval(fetchDbMetrics, 5000)
+})
+
+onUnmounted(() => {
+  if (dbPollingInterval) clearInterval(dbPollingInterval)
+  if (dbChartInstance) dbChartInstance.destroy()
+  if (trendChartInstance) trendChartInstance.destroy()
+})
 </script>
 
 <style scoped>
-.admin-dashboard-container {
-  display: flex;
-  flex-direction: column;
-  gap: 24px;
-  padding-bottom: 40px;
-}
-
-/* 헤더 */
+.admin-dashboard-container { display: flex; flex-direction: column; gap: 24px; padding-bottom: 40px; }
 .dashboard-header { display: flex; justify-content: space-between; align-items: center; }
 .dashboard-header h2 { margin: 0; font-size: 1.3rem; font-weight: 800; color: var(--text-primary); }
 .btn-refresh { padding: 6px 14px; border: 1px solid var(--border-color); background: var(--card-bg); border-radius: 8px; font-size: 0.8rem; cursor: pointer; color: var(--text-secondary); transition: all 0.2s; }
 .btn-refresh:hover { border-color: var(--link-color); color: var(--link-color); }
 
-/* 요약 카드 */
 .stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
-.stats-card {
-  background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 16px;
-  padding: 20px; display: flex; align-items: center; gap: 14px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.04); transition: box-shadow 0.2s;
-}
-.stats-card:hover { box-shadow: 0 4px 16px rgba(0,0,0,0.08); }
+.stats-card { background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 16px; padding: 20px; display: flex; align-items: center; gap: 14px; box-shadow: 0 2px 8px rgba(0,0,0,0.04); }
 .stats-card.accent-blue { border-color: var(--link-color); background: color-mix(in srgb, var(--link-color) 6%, var(--card-bg)); }
 .stats-card.accent-red { border-color: #ef4444; background: color-mix(in srgb, #ef4444 6%, var(--card-bg)); animation: urgent-pulse 2s infinite; }
 @keyframes urgent-pulse { 0%, 100% { box-shadow: 0 0 0 0 rgba(239,68,68,0); } 50% { box-shadow: 0 0 0 6px rgba(239,68,68,0.12); } }
-.card-icon { font-size: 1.6rem; flex-shrink: 0; }
-.card-body { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.card-icon { font-size: 1.6rem; }
+.card-body { display: flex; flex-direction: column; gap: 2px; }
 .card-label { font-size: 0.75rem; font-weight: 700; color: var(--text-secondary); }
-.card-value { font-size: 1.7rem; font-weight: 900; color: var(--text-primary); line-height: 1; }
+.card-value { font-size: 1.7rem; font-weight: 900; color: var(--text-primary); }
 .card-sub { font-size: 0.7rem; font-weight: 600; color: var(--link-color); }
-.accent-red .card-sub { color: #ef4444; }
 
-/* [시니어 추가] 트렌드 차트 행 */
 .trend-row { margin-bottom: 8px; }
-.trend-panel {
-  background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 16px; padding: 24px;
-}
-.panel-title-group h3 { margin: 0; font-size: 1rem; font-weight: 800; color: var(--text-primary); }
-.panel-subtitle { margin: 2px 0 0 0; font-size: 0.75rem; color: var(--text-secondary); font-weight: 600; }
-
+.trend-panel { background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 16px; padding: 24px; }
+.panel-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 18px; }
+.panel-title-group h3 { margin: 0; font-size: 1rem; font-weight: 800; }
+.panel-subtitle { font-size: 0.75rem; color: var(--text-secondary); }
 .trend-filters { display: flex; gap: 6px; background: var(--hover-bg); padding: 4px; border-radius: 10px; }
-.filter-btn {
-  padding: 6px 14px; border: none; background: transparent; border-radius: 8px;
-  font-size: 0.75rem; font-weight: 700; color: var(--text-secondary); cursor: pointer; transition: all 0.2s;
-}
-.filter-btn.active { background: var(--card-bg); color: var(--link-color); box-shadow: 0 2px 6px rgba(0,0,0,0.1); }
+.filter-btn { padding: 6px 14px; border: none; background: transparent; border-radius: 8px; font-size: 0.75rem; font-weight: 700; cursor: pointer; }
+.filter-btn.active { background: var(--card-bg); color: var(--link-color); }
 
-.chart-container { height: 300px; margin-top: 20px; position: relative; }
+.chart-container { height: 300px; margin-top: 20px; }
 
-/* 공고 차트 행 */
+/* DB 모니터 전용 */
+.db-monitor-panel { border-color: color-mix(in srgb, var(--link-color) 30%, var(--border-color)); }
+.db-current-status { display: flex; gap: 15px; }
+.status-indicator { display: flex; align-items: center; gap: 6px; font-size: 0.75rem; }
+.dot { width: 8px; height: 8px; border-radius: 50%; }
+.dot.active { background: #f87171; }
+.dot.idle { background: #fbbf24; }
+.dot.total { background: #60a5fa; }
+
 .chart-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
-.chart-panel {
-  background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 16px; padding: 20px;
-}
-.panel-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px; }
-.panel-header h3 { margin: 0; font-size: 0.9rem; font-weight: 800; color: var(--text-primary); }
-.panel-total { font-size: 0.75rem; font-weight: 700; color: var(--text-secondary); }
-
+.chart-panel { background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 16px; padding: 20px; }
 .bar-list { display: flex; flex-direction: column; gap: 14px; }
-.bar-item { display: flex; flex-direction: column; gap: 6px; }
 .bar-meta { display: flex; justify-content: space-between; font-size: 0.8rem; font-weight: 700; }
-.bar-label { color: var(--text-primary); }
-.bar-count { color: var(--text-secondary); }
 .bar-track { height: 7px; background: var(--hover-bg); border-radius: 4px; overflow: hidden; }
-.bar-fill { height: 100%; border-radius: 4px; transition: width 0.6s ease; }
+.bar-fill { height: 100%; transition: width 0.6s ease; }
 .source-fill { background: var(--link-color); }
 .status-fill { background: #10b981; }
 
-/* 운영 현황 3패널 행 */
 .ops-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
-.ops-panel {
-  background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 16px; padding: 20px;
-}
-.ops-list { display: flex; flex-direction: column; gap: 10px; }
-.ops-item {
-  display: flex; justify-content: space-between; align-items: center;
-  padding: 10px 12px; border-radius: 10px; background: var(--hover-bg);
-  transition: background 0.2s;
-}
-.ops-item:hover { background: color-mix(in srgb, var(--border-color) 40%, var(--hover-bg)); }
-.ops-item--urgent { background: rgba(239,68,68,0.06); border: 1px solid rgba(239,68,68,0.2); }
+.ops-panel { background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 16px; padding: 20px; }
+.ops-item { display: flex; justify-content: space-between; padding: 10px; border-radius: 10px; background: var(--hover-bg); margin-bottom: 8px; }
 .ops-left { display: flex; align-items: center; gap: 10px; }
-.ops-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
-.ops-labels { display: flex; flex-direction: column; gap: 1px; }
-.ops-type { font-size: 0.7rem; font-weight: 700; color: var(--text-secondary); font-family: monospace; }
-.ops-desc { font-size: 0.78rem; font-weight: 800; color: var(--text-primary); }
-.ops-badge {
-  font-size: 0.8rem; font-weight: 900; padding: 3px 10px; border-radius: 20px; min-width: 36px;
-  text-align: center; flex-shrink: 0;
-}
+.ops-dot { width: 8px; height: 8px; border-radius: 50%; }
+.ops-badge { font-size: 0.8rem; font-weight: 900; padding: 3px 10px; border-radius: 20px; }
 
-/* 퀵 액션 */
-.quick-links h3 { margin: 0 0 14px 0; font-size: 1rem; font-weight: 800; color: var(--text-primary); }
+.quick-links h3 { margin-bottom: 14px; }
 .link-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; }
-.link-card {
-  background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 12px; padding: 14px;
-  text-align: center; text-decoration: none; color: var(--text-primary); font-weight: 700; font-size: 0.85rem;
-  transition: all 0.2s;
-}
-.link-card:hover { border-color: var(--link-color); color: var(--link-color); transform: translateY(-2px); }
+.link-card { background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 12px; padding: 14px; text-align: center; text-decoration: none; color: var(--text-primary); font-weight: 700; }
+.link-card:hover { border-color: var(--link-color); transform: translateY(-2px); }
 
-/* 반응형 */
-@media (max-width: 1200px) {
-  .stats-grid { grid-template-columns: repeat(2, 1fr); }
-  .ops-row { grid-template-columns: 1fr; }
-}
-@media (max-width: 768px) {
-  .stats-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; }
-  .stats-card { padding: 14px; gap: 10px; }
-  .card-icon { font-size: 1.3rem; }
-  .card-value { font-size: 1.3rem; }
-  .chart-row { grid-template-columns: 1fr; }
-  .ops-row { grid-template-columns: 1fr; }
-  .link-grid { grid-template-columns: repeat(2, 1fr); }
-}
+@media (max-width: 1200px) { .stats-grid { grid-template-columns: repeat(2, 1fr); } .ops-row { grid-template-columns: 1fr; } }
+@media (max-width: 768px) { .chart-row { grid-template-columns: 1fr; } .db-current-status { flex-direction: column; gap: 4px; } }
 </style>

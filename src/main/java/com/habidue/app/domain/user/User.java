@@ -85,6 +85,8 @@ public class User {
 
     private LocalDateTime blockedAt; // 차단 일시
 
+    private LocalDateTime withdrawalAt; // 탈퇴 일시
+
     // [시니어 조치] 활동 신뢰도 및 페널티 시스템 필드
     @Builder.Default
     @Column(nullable = false, columnDefinition = "int default 1000")
@@ -138,14 +140,17 @@ public class User {
     // [시니어 조치] 계정 탈퇴 및 익명화 로직
     public void withdraw() {
         this.status = UserStatus.WITHDRAWN;
-        this.email = "withdrawn_" + this.id + "@habidue.com"; // 유니크 제약 조건 회피용 가짜 이메일
-        this.username = "withdrawn_" + this.id;
-        this.nickname = "withdrawn_" + this.id; // [시니어] DB 유니크 제약 회피용 (화면 표시는 DTO에서 마스킹)
-        this.providerId = null; // 재가입 가능하도록 함
+        this.withdrawalAt = LocalDateTime.now();
+        
+        // [시니어 조치] 재가입 방지(7일) 로직을 위해 식별 정보(username, email, providerId)를 보존함.
+        // 탈퇴한 유저의 정보는 status가 WITHDRAWN이므로 로그인 시도는 차단됨.
+        // 7일 이후 배치를 통해 이 필드들을 실제 익명화 처리하는 것이 가장 이상적임.
+        
         this.password = null;
         this.totalExp = 0;
         this.level = 1;
         this.karmaPoint = 0;
         this.equippedBadgeId = null;
+        // 기존 익명화 로직 제거 (재가입 방지 로직 작동을 위해 원본 유지)
     }
 }

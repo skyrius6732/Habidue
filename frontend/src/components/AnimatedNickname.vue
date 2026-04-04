@@ -228,7 +228,7 @@
         ></div>
       </div>
 
-      <span :class="['animated-nickname', currentTierClass]" :data-text="nickname" :style="nicknameTextColor ? { color: nicknameTextColor } : {}" @click.stop="handleToggleClick">
+      <span :class="['animated-nickname', currentTierClass, { 'is-ellipsis': isEllipsis }]" :data-text="nickname" :style="nicknameTextColor ? { color: nicknameTextColor } : {}" @click.stop="handleToggleClick">
         {{ nickname }}
       </span>
 
@@ -440,7 +440,8 @@ const props = defineProps({
   equippedTier: { type: Number, default: null }, // [시니어 조치] 장착 중인 티어 스타일
   equippedEffect: { type: String, default: null }, // 장착 중인 특수 효과 코드
   authorEquippedEffect: { type: String, default: null }, // [시니어 대응] 백엔드 DTO 필드명 호환용
-  ownedEffectCodes: { type: Array, default: () => [] } // 사용자가 소유한 이펙트 목록 (user_effects 테이블)
+  ownedEffectCodes: { type: Array, default: () => [] }, // 사용자가 소유한 이펙트 목록 (user_effects 테이블)
+  isEllipsis: { type: Boolean, default: false } // [시니어 조치] 모바일에서 선택적으로 말줄임 적용
 })
 
 const badgeStore = useBadgeStore()
@@ -1326,7 +1327,7 @@ onUnmounted(() => {
 }
 
 @media (max-width: 768px) {
-  .animated-nickname { 
+  .animated-nickname.is-ellipsis { 
     max-width: 85px; /* 6글자 내외에서 말줄임 발생하도록 제한 */
     text-overflow: ellipsis;
     overflow: hidden;

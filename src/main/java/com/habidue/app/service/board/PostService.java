@@ -283,7 +283,7 @@ public class PostService {
                 if (Boolean.TRUE.equals(canSendNoti)) {
                     String notiContent = String.format("❤️ '%s'님이 회원님의 게시글을 좋아합니다.", user.getNickname());
                     if (gain > 0) notiContent += " (⚖️ 신뢰 점수 +0.1P)";
-                    notificationService.send(author, NotificationType.SYSTEM, notiContent + ": \"" + post.getTitle() + "\"", post.getId(), post.getId());
+                    notificationService.send(author, NotificationType.LIKE, notiContent + ": \"" + post.getTitle() + "\"", post.getId(), post.getId());
                 }
             } else {
                 // [시니어 조치] KarmaService가 DB에서 직접 잔여 좋아요를 계산 (null 전달)

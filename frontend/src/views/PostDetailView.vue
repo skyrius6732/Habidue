@@ -880,6 +880,21 @@ const handleCreateComment = async (parentId = null, rootParentId = null) => {
   }
 }
 const handleGoBack = () => {
+  // [시니어 조치] 마이페이지 '내 활동'에서 온 경우 복원 처리
+  const savedState = sessionStorage.getItem('myActivityNavState')
+  if (savedState) {
+    try {
+      const { fromMyActivity } = JSON.parse(savedState)
+      if (fromMyActivity) {
+        // [시니어 조치] sessionStorage 데이터는 MyKeywordsView의 onMounted에서 소모하므로 유지한 채 이동
+        router.push({ path: '/keywords', query: { tab: 'my-activity' } })
+        return
+      }
+    } catch (e) {
+      console.error('내 활동 상태 복원 오류', e)
+    }
+  }
+
   const noticeId = post.value?.noticeId
   
   // [시니어 조치] URL에 담겨온 모든 맥락(menu, sub, 필터 등)을 그대로 목록으로 복사

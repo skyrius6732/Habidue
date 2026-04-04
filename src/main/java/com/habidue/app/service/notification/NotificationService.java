@@ -133,8 +133,23 @@ public class NotificationService { // [시니어 조치] 클래스 레벨 @Trans
         Notification savedNoti = notificationRepository.saveAndFlush(notification);
         Long userId = receiver.getId();
         
-        // [FCM 조치] 모바일 푸시 알림 발송
-        fcmService.sendPushNotification(userId, "habiDue 알림", content);
+        // [FCM 조치] 모바일 푸시 알림 발송 경로 생성
+        String clickAction = "/";
+        if (type == NotificationType.LIKE || type == NotificationType.COMMENT || type == NotificationType.REPLY) {
+            if (postId != null) {
+                clickAction = "/board/post/" + postId;
+                // 댓글/답글의 경우 상세 위치로 이동하기 위해 쿼리 파라미터 추가
+                if (relatedTargetId != null && (type == NotificationType.COMMENT || type == NotificationType.REPLY)) {
+                    clickAction += "?commentId=" + relatedTargetId;
+                }
+            }
+        } else if (type == NotificationType.MESSAGE) {
+            clickAction = "/keywords?tab=messages";
+        } else {
+            clickAction = "/keywords?tab=notifications";
+        }
+
+        fcmService.sendPushNotification(userId, "habiDue 알림", content, clickAction);
         
         // 트랜잭션 커밋 후에 실제로 SSE 발송
         if (TransactionSynchronizationManager.isActualTransactionActive()) {
@@ -210,9 +225,16 @@ public class NotificationService { // [시니어 조치] 클래스 레벨 @Trans
     @Transactional
     public void sendToAllUsers(NotificationType type, String content, Long relatedTargetId, Long postId) {
         log.info("[SSE-DEBUG] >>> Broadcasting Notification: Type: {}", type);
-        List<User> allUsers = userRepository.findAll();
+        // [시니어 조치] 탈퇴하거나 차단된 유저를 제외하고 활성 유저에게만 발송
+        List<User> activeUsers = userRepository.findAllByStatus(com.habidue.app.domain.user.UserStatus.ACTIVE);
         
-        for (User receiver : allUsers) {
+        // 공통 클릭 경로 생성
+        String clickAction = "/keywords?tab=notifications";
+        if (postId != null) {
+            clickAction = "/board/post/" + postId;
+        }
+
+        for (User receiver : activeUsers) {
             Notification notification = Notification.builder()
                     .user(receiver)
                     .type(type)
@@ -223,12 +245,12 @@ public class NotificationService { // [시니어 조치] 클래스 레벨 @Trans
                     .build();
             notificationRepository.save(notification);
             
-            // [FCM 조치] 모바일 푸시 알림 발송
-            fcmService.sendPushNotification(receiver.getId(), "habiDue 공지", content);
+            // [FCM 조치] 모바일 푸시 알림 발송 (경로 포함)
+            fcmService.sendPushNotification(receiver.getId(), "habiDue 공지", content, clickAction);
             
             // SSE 실시간 전송 시도
             sendSseNotification(receiver.getId(), notification);
         }
-        log.info("[SSE-DEBUG] Broadcasting completed for {} users.", allUsers.size());
+        log.info("[SSE-DEBUG] Broadcasting completed for {} users.", activeUsers.size());
     }
 }

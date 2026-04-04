@@ -575,6 +575,7 @@
                       :equipped-badge-name="equippedBadgeDisplayName"
                       :karma-point="userProfile?.karmaPoint"
                       :owned-effect-codes="authStore.isAdmin ? getAllEffectCodes() : userProfile?.ownedEffectCodes"
+                      :is-ellipsis="(userProfile?.nickname || userProfile?.username || '').length >= 6"
                     />
                   </div>
                   <p class="preview-label">미리보기</p>
@@ -619,6 +620,7 @@
                           :author-equipped-effect="null"
                           :show-avatar="true"
                           tooltip-direction="top"
+                          :is-ellipsis="(userProfile?.nickname || userProfile?.username || '').length >= 6"
                         />
                       </div>
                       <div class="lock-overlay">
@@ -644,6 +646,7 @@
                           :author-equipped-effect="null"
                           :show-avatar="true"
                           tooltip-direction="top"
+                          :is-ellipsis="(userProfile?.nickname || userProfile?.username || '').length >= 6"
                         />
                       </div>
                     </template>
@@ -1044,12 +1047,12 @@ const fetchMyComments = async (isMore = false) => {
 }
 
 const goToDetail = (id) => {
-  sessionStorage.setItem('myActivityNavState', JSON.stringify({ subTab: 'posts', itemId: id }))
+  sessionStorage.setItem('myActivityNavState', JSON.stringify({ subTab: 'posts', itemId: id, fromMyActivity: true }))
   router.push(`/board/post/${id}`)
 }
 
 const goToCommentLocation = (postId, commentId) => {
-  sessionStorage.setItem('myActivityNavState', JSON.stringify({ subTab: 'comments', itemId: commentId }))
+  sessionStorage.setItem('myActivityNavState', JSON.stringify({ subTab: 'comments', itemId: commentId, fromMyActivity: true }))
   router.push({ path: `/board/post/${postId}`, query: { commentId } })
 }
 
@@ -1724,7 +1727,7 @@ onMounted(async () => {
     min-width: 0;
   }
   .level-dashboard-card-v4 .profile-top-info {
-    gap: 12px;
+    gap: 6px;
     flex-wrap: wrap;
     align-items: flex-start;
     transform: none;
@@ -1742,8 +1745,7 @@ onMounted(async () => {
     min-width: 0;
   }
   .level-dashboard-card-v4 .dash-nickname-group {
-    min-width: 0;
-    width: 100%;
+    width: fit-content;
   }
   .level-dashboard-card-v4 .dash-nickname-group :deep(.animated-nickname) {
     font-size: 0.95rem !important;
