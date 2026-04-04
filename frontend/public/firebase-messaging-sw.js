@@ -27,9 +27,9 @@ messaging.onBackgroundMessage((payload) => {
 
   const notificationOptions = {
     body: data.body || (payload.notification && payload.notification.body) || '',
-    icon: '/icon.png',
-    badge: '/favicon.ico',
-    tag: 'habidue-notification', // 같은 태그의 알림이 오면 기존 알림을 대체함
+    icon: '/Habidue_192.png', // 알림창에 표시될 메인 아이콘
+    badge: '/icon.png',       // 모바일 상단 상태바에 표시될 작은 아이콘
+    tag: 'habidue-notification', 
     renotify: true,
     data: { url: clickAction }
   };
