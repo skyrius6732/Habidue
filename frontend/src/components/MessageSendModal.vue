@@ -140,7 +140,8 @@ const handleSend = async () => {
 
         <div class="input-area">
           <textarea 
-            v-model="content" 
+            :value="content"
+            @input="content = $event.target.value"
             placeholder="상대방에게 전달할 내용을 입력하세요. 비방이나 욕설은 제재 대상이 될 수 있습니다."
             maxlength="500"
             :disabled="isSending || isKarmaLow || isReceiverWithdrawn"
