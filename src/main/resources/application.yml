@@ -15,6 +15,7 @@ spring:
     hikari:
       maximum-pool-size: 20
       connection-timeout: 30000
+      register-mbeans: true
   jpa:
     hibernate:
       ddl-auto: update

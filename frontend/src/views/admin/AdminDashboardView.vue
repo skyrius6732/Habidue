@@ -301,7 +301,7 @@ const fetchDbMetrics = async () => {
 
     renderDbChart()
   } catch (e) {
-    console.error('DB 지표 로드 실패')
+    console.error('DB 지표 로드 실패:', e.response?.data || e.message)
   }
 }
 
@@ -370,11 +370,11 @@ const renderDbChart = async () => {
     dbChartInstance = new Chart(ctx, {
       type: 'line',
       data: {
-        labels: dbHistory.value.labels,
+        labels: [...dbHistory.value.labels], // 복사본 전달
         datasets: [
           {
             label: '사용 중 (Active)',
-            data: dbHistory.value.active,
+            data: [...dbHistory.value.active], // 복사본 전달
             borderColor: '#f87171',
             backgroundColor: 'rgba(248, 113, 113, 0.1)',
             fill: true,
@@ -382,7 +382,7 @@ const renderDbChart = async () => {
           },
           {
             label: '대기 중 (Idle)',
-            data: dbHistory.value.idle,
+            data: [...dbHistory.value.idle], // 복사본 전달
             borderColor: '#fbbf24',
             backgroundColor: 'rgba(251, 191, 36, 0.1)',
             fill: true,
@@ -390,7 +390,7 @@ const renderDbChart = async () => {
           },
           {
             label: '전체 (Total)',
-            data: dbHistory.value.total,
+            data: [...dbHistory.value.total], // 복사본 전달
             borderColor: '#60a5fa',
             borderDash: [5, 5],
             fill: false,
@@ -412,10 +412,11 @@ const renderDbChart = async () => {
       }
     })
   } else {
-    dbChartInstance.data.labels = dbHistory.value.labels
-    dbChartInstance.data.datasets[0].data = dbHistory.value.active
-    dbChartInstance.data.datasets[1].data = dbHistory.value.idle
-    dbChartInstance.data.datasets[2].data = dbHistory.value.total
+    // 업데이트 시에도 복사본을 전달하여 순환 참조 방지
+    dbChartInstance.data.labels = [...dbHistory.value.labels]
+    dbChartInstance.data.datasets[0].data = [...dbHistory.value.active]
+    dbChartInstance.data.datasets[1].data = [...dbHistory.value.idle]
+    dbChartInstance.data.datasets[2].data = [...dbHistory.value.total]
     dbChartInstance.update('none')
   }
 }

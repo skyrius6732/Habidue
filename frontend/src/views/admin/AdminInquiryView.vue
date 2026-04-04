@@ -122,7 +122,7 @@
                 
                 <div v-if="selectedInquiry.imageUrl" class="view-attachment">
                   <p class="attach-label">🖼️ 첨부 이미지</p>
-                  <img :src="selectedInquiry.imageUrl" class="attach-preview" @click="openImage(selectedInquiry.imageUrl)">
+                  <img :src="formatImageUrl(selectedInquiry.imageUrl)" class="attach-preview" @click="openImage(formatImageUrl(selectedInquiry.imageUrl))">
                 </div>
               </div>
             </div>
@@ -243,6 +243,13 @@ const submitAnswer = async () => {
 }
 
 const openImage = (url) => { window.open(url, '_blank') }
+const formatImageUrl = (url) => {
+  if (!url) return ''
+  if (url.startsWith('http')) return url
+  // 상대 경로인 경우 백엔드 도메인을 붙여서 반환 (S3가 아닌 로컬 업로드 호환용)
+  const baseUrl = import.meta.env.VITE_API_BASE_URL || ''
+  return baseUrl + url
+}
 const formatDate = (s) => s ? s.replace('T', ' ').substring(0, 16) : '-'
 const formatDateShort = (s) => s ? s.split('T')[0].substring(2).replace(/-/g, '.') : '-'
 

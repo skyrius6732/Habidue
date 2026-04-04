@@ -24,6 +24,8 @@ public class AdminSystemController {
 
     @GetMapping("/db-metrics")
     public ResponseEntity<ApiResponse<DbConnectionMetricsDto>> getDbMetrics() {
+        log.debug("[DB-METRICS] Request received. DataSource type: {}", dataSource.getClass().getName());
+        
         if (dataSource instanceof HikariDataSource hikariDataSource) {
             HikariPoolMXBean poolMXBean = hikariDataSource.getHikariPoolMXBean();
             
@@ -37,7 +39,11 @@ public class AdminSystemController {
                         .build();
                 
                 return ApiResponse.success(metrics);
+            } else {
+                log.warn("[DB-METRICS] HikariPoolMXBean is null. Ensure 'registerMbeans' is true.");
             }
+        } else {
+            log.warn("[DB-METRICS] DataSource is not an instance of HikariDataSource: {}", dataSource.getClass().getName());
         }
         
         return ApiResponse.error(HttpStatus.SERVICE_UNAVAILABLE, "HikariCP metrics are not available.", "METRICS_UNAVAILABLE");

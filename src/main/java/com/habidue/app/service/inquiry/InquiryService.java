@@ -26,15 +26,21 @@ public class InquiryService {
 
     private final InquiryRepository inquiryRepository;
     private final NotificationService notificationService;
-
-    @Value("${file.upload-dir:/home/skyrius/habiDue/uploads/inquiries}")
-    private String uploadDir;
+    private final com.habidue.app.service.storage.FileStorageService fileStorageService; // [시니어 조치] 통합 스토리지 서비스 사용
 
     @Transactional
     public Long createInquiry(InquiryRequestDto requestDto, org.springframework.web.multipart.MultipartFile image, User author) {
         String imageUrl = null;
         if (image != null && !image.isEmpty()) {
-            imageUrl = saveImage(image);
+            try {
+                // [시니어 조치] 통합 스토리지 서비스 규격에 맞춰 List로 전달
+                java.util.List<String> uploadedUrls = fileStorageService.upload(java.util.List.of(image), "inquiries");
+                if (!uploadedUrls.isEmpty()) {
+                    imageUrl = uploadedUrls.get(0);
+                }
+            } catch (java.io.IOException e) {
+                throw new RuntimeException("이미지 업로드 중 오류가 발생했습니다.", e);
+            }
         }
 
         Inquiry inquiry = Inquiry.builder()
@@ -47,22 +53,7 @@ public class InquiryService {
         return inquiryRepository.save(inquiry).getId();
     }
 
-    private String saveImage(org.springframework.web.multipart.MultipartFile file) {
-        java.io.File dir = new java.io.File(uploadDir);
-        if (!dir.exists()) dir.mkdirs();
-        
-        String originalFilename = file.getOriginalFilename();
-        String extension = originalFilename.substring(originalFilename.lastIndexOf("."));
-        String savedName = java.util.UUID.randomUUID().toString() + extension;
-        
-        try {
-            java.nio.file.Path path = java.nio.file.Paths.get(uploadDir, savedName);
-            java.nio.file.Files.copy(file.getInputStream(), path);
-            return "/uploads/inquiries/" + savedName;
-        } catch (java.io.IOException e) {
-            throw new RuntimeException("이미지 저장 실패", e);
-        }
-    }
+    // 기존 saveImage 메서드 삭제 (fileStorageService로 대체)
 
     @Transactional(readOnly = true)
     public Page<InquiryResponseDto> getMyInquiries(User author, Pageable pageable) {
