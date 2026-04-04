@@ -145,17 +145,37 @@ public class PostService {
         // [시니어 조치] 엔티티 시그니처 변경에 따른 호출부 보정 (타입 유지)
         post.update(requestDto.getTitle(), requestDto.getContent(), post.getType(), requestDto.getCategory(), requestDto.getSubCategory(), requestDto.getRegionTag());
 
-        if (requestDto.getTagIds() != null) {
+        // [시니어 조치] 이미지 동기화 (중복 방지, 기존 데이터 보존, 삭제 대응)
+        List<String> incomingUrls = requestDto.getImageUrls() != null ? requestDto.getImageUrls() : new java.util.ArrayList<>();
+        
+        // 1. 기존 이미지 중 요청에 없는 것은 제거 (orphanRemoval=true에 의해 DB에서도 자동 삭제됨)
+        post.getImages().removeIf(existingImg -> !incomingUrls.contains(existingImg.getImageUrl()));
 
-            if (requestDto.getImageUrls() != null) {
-                for (int i = 0; i < requestDto.getImageUrls().size(); i++) {
-                    post.getImages().add(com.habidue.app.domain.board.PostImage.builder().post(post).imageUrl(requestDto.getImageUrls().get(i)).sortOrder(i).build());
-                }
+        // 2. 요청된 URL 순서대로 처리 (유지 또는 추가)
+        for (int i = 0; i < incomingUrls.size(); i++) {
+            String url = incomingUrls.get(i);
+            int sortOrder = i;
+            
+            java.util.Optional<com.habidue.app.domain.board.PostImage> existing = post.getImages().stream()
+                    .filter(img -> img.getImageUrl().equals(url))
+                    .findFirst();
+
+            if (existing.isPresent()) {
+                // 이미 존재하면 순서만 최신화
+                existing.get().setSortOrder(sortOrder);
+            } else {
+                // 존재하지 않는 새로운 URL이면 추가
+                post.getImages().add(com.habidue.app.domain.board.PostImage.builder()
+                        .post(post)
+                        .imageUrl(url)
+                        .sortOrder(sortOrder)
+                        .build());
             }
+        }
+
+        if (requestDto.getTagIds() != null) {
             post.clearTags();
-            if (requestDto.getTagIds() != null) {
-                tagRepository.findAllById(requestDto.getTagIds()).forEach(tag -> post.addPostTag(com.habidue.app.domain.board.PostTag.create(post, tag)));
-            }
+            tagRepository.findAllById(requestDto.getTagIds()).forEach(tag -> post.addPostTag(com.habidue.app.domain.board.PostTag.create(post, tag)));
         }
         return PostResponseDto.from(postRepository.save(post));
     }
