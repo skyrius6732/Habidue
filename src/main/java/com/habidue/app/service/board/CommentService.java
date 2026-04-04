@@ -277,7 +277,7 @@ public class CommentService {
                     if (gain > 0) notiContent += " (⚖️ 신뢰 점수 +0.1P)";
 
                     // relatedTargetId에 comment.getId()를 전달하여 프론트에서 포커싱 가능하게 함
-                    notificationService.send(author, NotificationType.SYSTEM, notiContent + ": \"" + truncatedComment + "\"", comment.getId(), comment.getPost().getId());
+                    notificationService.send(author, NotificationType.LIKE, notiContent + ": \"" + truncatedComment + "\"", comment.getId(), comment.getPost().getId());
                 }
             } catch (Exception e) {
                 log.error("Error sending like notification: {}", e.getMessage());

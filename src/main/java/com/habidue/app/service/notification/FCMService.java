@@ -19,15 +19,18 @@ public class FCMService {
     private final DeviceTokenRepository deviceTokenRepository;
 
     /**
-     * 특정 유저의 모든 기기에 푸시 알림 전송
+     * 특정 유저의 모든 기기에 푸시 알림 전송 (이동 경로 포함)
      */
-    public void sendPushNotification(Long userId, String title, String body) {
+    public void sendPushNotification(Long userId, String title, String body, String clickAction) {
         List<DeviceToken> deviceTokens = deviceTokenRepository.findByUserId(userId);
         
         if (deviceTokens.isEmpty()) {
             log.info("[FCM] No device tokens found for user: {}", userId);
             return;
         }
+
+        // clickAction이 없으면 기본값으로 설정
+        String action = (clickAction == null || clickAction.isEmpty()) ? "/" : clickAction;
 
         for (DeviceToken deviceToken : deviceTokens) {
             try {
@@ -37,7 +40,7 @@ public class FCMService {
                         // 대신 data 객체에 정보를 담아 서비스 워커(SW)가 단독으로 알림을 띄우도록 함
                         .putData("title", title)
                         .putData("body", body)
-                        .putData("click_action", "/") 
+                        .putData("click_action", action) 
                         .build();
 
                 String response = FirebaseMessaging.getInstance().send(message);
@@ -53,5 +56,12 @@ public class FCMService {
                 }
             }
         }
+    }
+
+    /**
+     * 기존 하위 호환을 위한 메서드 (기본 경로 이동)
+     */
+    public void sendPushNotification(Long userId, String title, String body) {
+        sendPushNotification(userId, title, body, "/");
     }
 }

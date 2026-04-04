@@ -6,6 +6,7 @@ import lombok.RequiredArgsConstructor;
 @Getter
 @RequiredArgsConstructor
 public enum NotificationType {
+    LIKE("❤️", "새 좋아요"),
     COMMENT("💬", "새 댓글"),
     REPLY("↪️", "새 답글"),
     MESSAGE("💌", "새 쪽지"),
