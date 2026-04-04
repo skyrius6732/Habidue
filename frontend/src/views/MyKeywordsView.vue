@@ -575,7 +575,6 @@
                       :equipped-badge-name="equippedBadgeDisplayName"
                       :karma-point="userProfile?.karmaPoint"
                       :owned-effect-codes="authStore.isAdmin ? getAllEffectCodes() : userProfile?.ownedEffectCodes"
-                      :is-ellipsis="(userProfile?.nickname || userProfile?.username || '').length >= 6"
                     />
                   </div>
                   <p class="preview-label">미리보기</p>
@@ -2183,6 +2182,7 @@ onMounted(async () => {
   border-radius: 16px;
   min-height: 180px;
   justify-content: center;
+  position: relative; /* [추가] 라벨 배치를 위한 기준점 */
 }
 
 .preview-content {
@@ -2193,12 +2193,19 @@ onMounted(async () => {
 }
 
 .preview-label {
-  font-size: 0.8rem;
-  font-weight: 700;
-  color: var(--text-secondary);
+  position: absolute;
+  top: 15px;
+  right: 15px;
+  font-size: 0.65rem;
+  font-weight: 850;
+  color: var(--text-muted);
   text-transform: uppercase;
   letter-spacing: 0.05em;
   margin: 0;
+  background: var(--border-color);
+  padding: 4px 10px;
+  border-radius: 8px;
+  opacity: 0.8;
 }
 
 .preview-info {
