@@ -12,7 +12,7 @@
     <PageHeader
       icon="👤"
       title="마이 페이지"
-      :stats-text="activeTab === 'activity' ? '획득 배지' : activeTab === 'effects' ? '보유 효과' : activeTab === 'keywords' ? '설정된 태그' : activeTab === 'messages' ? '받은 쪽지' : '알림 채널'"
+      :stats-text="activeTab === 'activity' ? '획득 배지' : activeTab === 'effects' ? '효과' : activeTab === 'keywords' ? '설정된 태그' : activeTab === 'messages' ? '받은 쪽지' : '알림 채널'"
       :stats-value="activeTab === 'activity' ? (activityData?.badges?.length || 0) : activeTab === 'effects' ? effectsStatsText : activeTab === 'keywords' ? userTags.length : activeTab === 'messages' ? (messageStore.receivedMessages.length) : (activeNotificationCount + '개 활성')"
       :bio="currentBio"
     />
