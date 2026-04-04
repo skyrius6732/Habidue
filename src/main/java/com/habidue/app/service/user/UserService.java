@@ -46,7 +46,10 @@ public class UserService {
     private final com.habidue.app.repository.tag.UserTagRepository userTagRepository;
     private final com.habidue.app.repository.message.MessageRepository messageRepository;
     private final com.habidue.app.repository.notification.NotificationRepository notificationRepository;
+    private final com.habidue.app.repository.notification.DeviceTokenRepository deviceTokenRepository;
     private final com.habidue.app.repository.user.AttendanceRepository attendanceRepository;
+    private final com.habidue.app.repository.user.KarmaHistoryRepository karmaHistoryRepository;
+    private final com.habidue.app.repository.notice.NoticeWakeUpRepository noticeWakeUpRepository;
     private final UserEffectService userEffectService;
 
     private static final String BADGE_RULES_CACHE_KEY = "badge:rules:all";
@@ -238,6 +241,10 @@ public class UserService {
         notificationRepository.deleteByUser(user);
         messageRepository.deleteBySenderOrReceiver(user, user);
         userBadgeRepository.deleteByUserId(user.getId());
+        deviceTokenRepository.deleteByUserId(user.getId());
+        // [시니어 조치] expHistory, postLike, commentLike는 시스템 감사 기록으로 유지 (탈퇴 후에도 기록 유지)
+        karmaHistoryRepository.deleteByUserId(user.getId());
+        noticeWakeUpRepository.deleteByUserId(user.getId());
 
         // 3. 통계 데이터 직접 초기화
         userActivityStatsRepository.resetStatsByUserId(user.getId());

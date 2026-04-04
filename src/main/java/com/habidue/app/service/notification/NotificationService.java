@@ -135,11 +135,11 @@ public class NotificationService { // [시니어 조치] 클래스 레벨 @Trans
         
         // [FCM 조치] 모바일 푸시 알림 발송 경로 생성
         String clickAction = "/";
-        if (type == NotificationType.COMMENT || type == NotificationType.REPLY) {
+        if (type == NotificationType.LIKE || type == NotificationType.COMMENT || type == NotificationType.REPLY) {
             if (postId != null) {
                 clickAction = "/board/post/" + postId;
                 // 댓글/답글의 경우 상세 위치로 이동하기 위해 쿼리 파라미터 추가
-                if (relatedTargetId != null) {
+                if (relatedTargetId != null && (type == NotificationType.COMMENT || type == NotificationType.REPLY)) {
                     clickAction += "?commentId=" + relatedTargetId;
                 }
             }

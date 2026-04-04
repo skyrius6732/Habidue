@@ -22,4 +22,7 @@ public interface NoticeWakeUpRepository extends JpaRepository<NoticeWakeUp, Long
      * [시니어 조치] 깨우기 성공 시 해당 공고의 모든 기록을 초기화
      */
     void deleteAllByNoticeId(Long noticeId);
+
+    // 사용자 탈퇴 시 모든 공고 깨우기 기록 삭제
+    void deleteByUserId(Long userId);
 }
