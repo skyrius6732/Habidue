@@ -16,6 +16,7 @@
     "@tsparticles/slim": "^3.9.1",
     "@tsparticles/vue3": "^3.0.1",
     "axios": "^1.13.5",
+    "chart.js": "^4.5.1",
     "firebase": "^12.11.0",
     "gsap": "^3.14.2",
     "pinia": "^3.0.4",
