@@ -386,15 +386,27 @@ const submitPost = async () => {
   if (!isFormValid.value) return;
   loading.value = true;
   try {
-    let imageUrls = [...imagePreviews.value.filter(url => url.startsWith('http'))];
+    // [시니어 조치] 기존 이미지 추출 로직 수정: 
+    // base64 데이터(data:image)가 아닌 모든 문자열(상대경로 / 시작 또는 절대경로 http 시작)을 기존 URL로 인정
+    const existingUrls = imagePreviews.value.filter(url => 
+      typeof url === 'string' && !url.startsWith('data:') && (url.startsWith('http') || url.startsWith('/'))
+    );
+    let finalImageUrls = [...existingUrls];
+
+    // 2. 새로 선택한 파일이 있다면 업로드
     if (images.value.length > 0) {
       const formData = new FormData();
       images.value.forEach(file => { formData.append('files', file); });
+      
       const uploadRes = await axios.post('/api/images/upload', formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
         timeout: 60000
       });
-      imageUrls = [...imageUrls, ...uploadRes.data.data];
+      
+      // 업로드된 새 URL들을 기존 리스트 뒤에 추가
+      if (uploadRes.data.data && Array.isArray(uploadRes.data.data)) {
+        finalImageUrls = [...finalImageUrls, ...uploadRes.data.data];
+      }
     }
     
     const payload = { 
@@ -404,10 +416,12 @@ const submitPost = async () => {
       subCategory: post.value.subCategory || 'ALL', 
       type: post.value.type,
       noticeId: post.value.noticeId, 
-      imageUrls: imageUrls, 
+      imageUrls: finalImageUrls, // [중요] 기존 + 신규가 모두 포함된 전체 리스트
       tagIds: [...selectedTagIds.value],
       regionTag: post.value.regionTag
     };
+
+    console.log('[DEBUG] Submit Payload:', payload); // 로컬 테스트 시 페이로드 확인용
 
     if (editMode.value && route.params.postId) {
       await axios.put(`/api/posts/${route.params.postId}`, payload);
