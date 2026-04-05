@@ -452,7 +452,7 @@ const getRangeStyle = (date) => {
   if (!isWithinSelectedRange(date)) return {};
   const color = selectedRange.value.color;
   return {
-    backgroundColor: `${color}15`, borderTop: `2px solid ${color}30`, borderBottom: `2px solid ${color}30`,
+    backgroundColor: `${color}66`, borderTop: `2px solid ${color}99`, borderBottom: `2px solid ${color}99`,
     borderLeft: isRangeStart(date) ? `4px solid ${color}` : 'none',
     borderRight: isRangeEnd(date) ? `4px solid ${color}` : 'none'
   };
