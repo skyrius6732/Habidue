@@ -61,22 +61,33 @@ public class AttendanceService {
         Attendance savedAttendance = attendanceRepository.save(attendance);
 
         // [시니어 조치] 연속 출석 통계 업데이트 및 배지 체크
-        // insertIgnore로 데이터 존재 보장 (StaleObjectStateException 방지)
+        // insertIgnore(clearAutomatically=true)로 데이터 존재 보장 및 영속성 컨텍스트 동기화
         userActivityStatsRepository.insertIgnore(user.getId());
         UserActivityStats stats = userActivityStatsRepository.findById(user.getId()).orElseThrow();
+
+        // [시니어 조치] 데이터 정합성 강화 - 실제 출석 기록 기반으로 카운트 동기화 (Self-repair)
+        // attendanceRepository.save(attendance)가 앞서 수행되었으므로 오늘의 출석이 포함된 수치임
+        long actualTotalCount = attendanceRepository.countByUser(user);
+        stats.setTotalAttendanceCount((int) actualTotalCount);
 
         LocalDate yesterday = today.minusDays(1);
         if (stats.getLastAttendanceDate() != null && stats.getLastAttendanceDate().equals(yesterday)) {
             stats.setConsecutiveAttendanceDays(stats.getConsecutiveAttendanceDays() + 1);
         } else {
+            // [시니어 조치] 어제 빼먹었거나 처음 출석하는 경우 1로 초기화
             stats.setConsecutiveAttendanceDays(1);
         }
-        stats.incrementAttendanceCount(); // 누적 출석수 증가
+        
+        // [시니어 조치] 역대 최장 연속 출석 기록(Max Streak) 경신 체크
+        if (stats.getConsecutiveAttendanceDays() > stats.getMaxConsecutiveAttendanceDays()) {
+            stats.setMaxConsecutiveAttendanceDays(stats.getConsecutiveAttendanceDays());
+        }
+        
         stats.setLastAttendanceDate(today);
 
-        // [시니어 조치] save() 대신 Dirty Checking에 의존하거나 명시적으로 필드 업데이트 수행
-        // 여기서는 이미 findById로 가져온 엔티티를 수정하므로 트랜잭션 종료 시 자동 반영됨
-        // 단, 더 안전하게 하기 위해 명시적으로 save를 호출하지 않음 (충돌 방지)
+        // [시니어 조치] Dirty Checking에만 의존하지 않고 명시적으로 저장 및 플러시
+        // BadgeService 등에서 최신 통계 수치를 즉시 조회할 수 있도록 함
+        userActivityStatsRepository.saveAndFlush(stats);
 
         badgeService.checkAndAwardBadges(stats); // 배지 엔진 가동        
         // [시니어 조치] 출석 EXP 부여

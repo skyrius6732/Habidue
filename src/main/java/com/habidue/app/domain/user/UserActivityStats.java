@@ -52,6 +52,9 @@ public class UserActivityStats {
     private int consecutiveAttendanceDays = 0;
 
     @Builder.Default
+    private int maxConsecutiveAttendanceDays = 0; // [신규] 역대 최장 연속 출석 기록
+
+    @Builder.Default
     private int totalAttendanceCount = 0;
 
     @Builder.Default

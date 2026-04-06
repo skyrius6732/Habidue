@@ -8,6 +8,7 @@ import router from './router';
 import axiosInstance from './plugins/axios';
 import VCalendar from 'v-calendar';
 import 'v-calendar/style.css';
+import { getAnalytics, logEvent } from 'firebase/analytics';
 
 // [시니어 조치] tsParticles 초기화 설정
 import Particles from "@tsparticles/vue3";
@@ -18,6 +19,16 @@ const app = createApp(App);
 app.use(createPinia());
 app.use(router);
 app.use(VCalendar, {});
+
+// [시니어 조치] Google Analytics 페이지 뷰 추적
+const analytics = getAnalytics();
+router.afterEach((to) => {
+  logEvent(analytics, 'page_view', {
+    page_path: to.fullPath,
+    page_title: to.name || to.path,
+    page_location: window.location.href
+  });
+});
 
 // [시니어 조치] 파티클 엔진 등록 (가벼운 slim 버전 사용)
 app.use(Particles, {

@@ -283,7 +283,7 @@
                 <span class="s-icon">📝</span>
                 <div class="s-info">
                   <span class="s-label">총 게시글</span>
-                  <span class="s-value">{{ activityData.totalPostCount }}</span>
+                  <span class="s-value">{{ activityData.totalPostCount }}건</span>
                 </div>
                 <div class="stat-tooltip-v2">{{ getStatTooltip('COMMUNITY', activityData.totalPostCount) }}</div>
               </div>
@@ -291,7 +291,7 @@
                 <span class="s-icon">💬</span>
                 <div class="s-info">
                   <span class="s-label">총 댓글</span>
-                  <span class="s-value">{{ activityData.totalCommentCount }}</span>
+                  <span class="s-value">{{ activityData.totalCommentCount }}건</span>
                 </div>
                 <div class="stat-tooltip-v2">{{ getStatTooltip('COMMUNICATOR', activityData.totalCommentCount) }}</div>
               </div>
@@ -299,7 +299,7 @@
                 <span class="s-icon">❤️</span>
                 <div class="s-info">
                   <span class="s-label">받은 게시글</span>
-                  <span class="s-value">{{ activityData.postLikeReceivedCount }}</span>
+                  <span class="s-value">{{ activityData.postLikeReceivedCount }}건</span>
                 </div>
                 <div class="stat-tooltip-v2">{{ getStatTooltip('KNOWLEDGE', activityData.postLikeReceivedCount) }}</div>
               </div>
@@ -307,7 +307,7 @@
                 <span class="s-icon">❤️</span>
                 <div class="s-info">
                   <span class="s-label">받은 댓글</span>
-                  <span class="s-value">{{ activityData.commentLikeReceivedCount }}</span>
+                  <span class="s-value">{{ activityData.commentLikeReceivedCount }}건</span>
                 </div>
                 <div class="stat-tooltip-v2">{{ getStatTooltip('KNOWLEDGE', activityData.commentLikeReceivedCount) }}</div>
               </div>
@@ -320,7 +320,7 @@
                 </span>
                 <div class="s-info">
                   <span class="s-label">누적 조회수</span>
-                  <span class="s-value">{{ activityData.totalViewReceivedCount }}</span>
+                  <span class="s-value">{{ activityData.totalViewReceivedCount }}회</span>
                 </div>
                 <div class="stat-tooltip-v2">{{ getStatTooltip('VIEW', activityData.totalViewReceivedCount) }}</div>
               </div>
@@ -328,15 +328,15 @@
                 <span class="s-icon">🔖</span>
                 <div class="s-info">
                   <span class="s-label">관심 공고</span>
-                  <span class="s-value">{{ activityData.totalNoticeInterestCount }}</span>
+                  <span class="s-value">{{ activityData.totalNoticeInterestCount }}건</span>
                 </div>
                 <div class="stat-tooltip-v2">{{ getStatTooltip('COLLECTOR', activityData.totalNoticeInterestCount) }}</div>
               </div>
               <div class="stat-card-v2" :class="{ 'is-active': activeStatTooltip === 'ATTENDANCE' }" @click="toggleStatTooltip('ATTENDANCE')">
                 <span class="s-icon">📅</span>
                 <div class="s-info">
-                  <span class="s-label">연속 출석</span>
-                  <span class="s-value">{{ activityData.consecutiveAttendanceDays }}일</span>
+                  <span class="s-label">연속 / 최고 출석</span>
+                  <span class="s-value">{{ activityData.consecutiveAttendanceDays }}일 / {{ activityData.maxConsecutiveAttendanceDays }}일</span>
                 </div>
                 <div class="stat-tooltip-v2">
                   {{ getStatTooltip('ATTENDANCE', activityData.totalAttendanceCount + activityData.consecutiveAttendanceDays) }}
@@ -354,7 +354,7 @@
                 <span class="s-icon">🔥</span>
                 <div class="s-info">
                   <span class="s-label">누적 출석</span>
-                  <span class="s-value">{{ activityData.totalAttendanceCount }}회</span>
+                  <span class="s-value">{{ activityData.totalAttendanceCount }}일</span>
                 </div>
                 <div class="stat-tooltip-v2">
                   {{ getStatTooltip('ATTENDANCE', activityData.totalAttendanceCount + activityData.consecutiveAttendanceDays) }}
@@ -1853,6 +1853,10 @@ onMounted(async () => {
   cursor: pointer; position: relative; 
 }
 .stat-card-v2:hover { transform: translateY(-4px); border-color: var(--link-color); background: var(--card-bg); box-shadow: 0 10px 25px rgba(0,0,0,0.06); }
+
+.s-value-container { display: flex; flex-direction: column; align-items: flex-start; }
+.s-max-value { font-size: 0.65rem; color: var(--text-secondary); opacity: 0.8; font-weight: 500; margin-top: 2px; white-space: nowrap; }
+@media (max-width: 992px) { .s-value-container { align-items: center; } .s-max-value { font-size: 0.6rem; } }
 
 /* 커스텀 미니 툴팁 스타일 */
 .stat-tooltip-v2 {

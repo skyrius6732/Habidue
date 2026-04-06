@@ -1,6 +1,7 @@
 // src/utils/fcm.js
 import { initializeApp } from 'firebase/app';
 import { getMessaging, getToken, onMessage } from 'firebase/messaging';
+import { getAnalytics } from 'firebase/analytics';
 import axios from '@/plugins/axios';
 import { useAuthStore } from '@/stores/auth';
 
@@ -16,6 +17,7 @@ const firebaseConfig = {
 };
 
 const app = initializeApp(firebaseConfig);
+const analytics = getAnalytics(app); // Analytics 초기화
 let messaging = null;
 try {
   messaging = getMessaging(app);

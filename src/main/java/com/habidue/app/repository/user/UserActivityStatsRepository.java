@@ -82,8 +82,25 @@ public interface UserActivityStatsRepository extends JpaRepository<UserActivityS
     @Query("UPDATE UserActivityStats s SET s.totalNoticeInterestCount = s.totalNoticeInterestCount - 1 WHERE s.userId = :userId AND s.totalNoticeInterestCount > 0")
     void decrementNoticeInterestCount(@Param("userId") Long userId);
 
-    // [시니어 조치] 원자적 생성 (이미 존재하면 무시)
+    // --- 출석 관련 원자적 업데이트 ---
+
     @Modifying
+    @Query("UPDATE UserActivityStats s SET " +
+            "s.totalAttendanceCount = s.totalAttendanceCount + 1, " +
+            "s.consecutiveAttendanceDays = :consecutiveDays, " +
+            "s.lastAttendanceDate = :lastDate " +
+            "WHERE s.userId = :userId")
+    void updateAttendanceStats(@Param("userId") Long userId, 
+                               @Param("consecutiveDays") int consecutiveDays, 
+                               @Param("lastDate") java.time.LocalDate lastDate);
+
+    @Modifying
+    @Query("UPDATE UserActivityStats s SET s.totalAttendanceCount = s.totalAttendanceCount + 1 WHERE s.userId = :userId")
+    void incrementAttendanceCount(@Param("userId") Long userId);
+
+    // [시니어 조치] 원자적 생성 (이미 존재하면 무시)
+    // clearAutomatically = true를 추가하여 영속성 컨텍스트와의 정합성 보장
+    @Modifying(clearAutomatically = true)
     @Query(value = "INSERT IGNORE INTO user_activity_stats (user_id, total_post_count, total_comment_count, post_like_received_count, comment_like_received_count, total_view_received_count, total_notice_interest_count, consecutive_attendance_days, total_attendance_count, review_post_count, updated_at) " +
                    "VALUES (:userId, 0, 0, 0, 0, 0, 0, 0, 0, 0, NOW())", nativeQuery = true)
     void insertIgnore(@Param("userId") Long userId);

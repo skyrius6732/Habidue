@@ -23,6 +23,7 @@ public class UserActivityResponseDto {
     private int totalViewReceivedCount;
     private int totalNoticeInterestCount;
     private int consecutiveAttendanceDays;
+    private int maxConsecutiveAttendanceDays; // [신규] 역대 최고 연속 출석 기록
     private int totalAttendanceCount;
     private int reviewPostCount;
     private List<BadgeResponseDto> badges;
@@ -47,6 +48,7 @@ public class UserActivityResponseDto {
                 .totalViewReceivedCount(stats.getTotalViewReceivedCount())
                 .totalNoticeInterestCount(stats.getTotalNoticeInterestCount())
                 .consecutiveAttendanceDays(stats.getConsecutiveAttendanceDays())
+                .maxConsecutiveAttendanceDays(stats.getMaxConsecutiveAttendanceDays())
                 .totalAttendanceCount(stats.getTotalAttendanceCount())
                 .reviewPostCount(stats.getReviewPostCount())
                 .badges(badges)

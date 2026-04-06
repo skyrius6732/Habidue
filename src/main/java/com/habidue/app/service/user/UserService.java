@@ -20,6 +20,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.NoSuchElementException;
@@ -105,6 +106,32 @@ public class UserService {
 
         userActivityStatsRepository.insertIgnore(userId);
         UserActivityStats stats = userActivityStatsRepository.findById(userId).orElseThrow();
+
+        // [시니어 조치] 마이페이지 조회 시 출석 통계 정합성 실시간 보정 (Self-repair)
+        long actualTotalCount = attendanceRepository.countByUser(user);
+        boolean isStatsUpdated = false;
+
+        if (stats.getTotalAttendanceCount() != (int) actualTotalCount) {
+            int oldCount = stats.getTotalAttendanceCount();
+            stats.setTotalAttendanceCount((int) actualTotalCount);
+            isStatsUpdated = true;
+            log.info("📢 유저 [{}]님의 누적 출석수가 실시간 보정되었습니다 ({} -> {})", 
+                user.getNickname(), oldCount, actualTotalCount);
+        }
+
+        // [시니어 조치] 연속 출석 정화 (Yesterday 이후 출석 기록이 없으면 연속 끊김 처리)
+        LocalDate today = LocalDate.now();
+        LocalDate lastDate = stats.getLastAttendanceDate();
+        if (lastDate != null && !lastDate.equals(today) && !lastDate.equals(today.minusDays(1))) {
+            log.info("📢 유저 [{}]님의 연속 출석이 끊겼습니다 (마지막 출석: {}, 현재 연속일: {} -> 0)", 
+                user.getNickname(), lastDate, stats.getConsecutiveAttendanceDays());
+            stats.setConsecutiveAttendanceDays(0);
+            isStatsUpdated = true;
+        }
+
+        if (isStatsUpdated) {
+            userActivityStatsRepository.save(stats);
+        }
 
         List<com.habidue.app.dto.badge.BadgeResponseDto> badges = badgeService.getMyBadgeDtos(user);
         List<com.habidue.app.dto.badge.BadgeLevelRuleResponseDto> badgeRules = null;
