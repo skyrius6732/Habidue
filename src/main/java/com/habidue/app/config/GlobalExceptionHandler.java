@@ -12,12 +12,31 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.multipart.MaxUploadSizeExceededException;
+import org.springframework.web.context.request.async.AsyncRequestNotUsableException;
 
+import java.io.IOException;
 import java.util.NoSuchElementException;
 
 @Slf4j
 @RestControllerAdvice
 public class GlobalExceptionHandler {
+
+    // SSE 연결이 이미 끊긴 상태에서 응답을 보내려 할 때 발생하는 예외 (Spring 6+)
+    @ExceptionHandler(AsyncRequestNotUsableException.class)
+    protected void handleAsyncRequestNotUsableException(AsyncRequestNotUsableException e) {
+        // 이미 응답을 보낼 수 없는 상태이므로 로그만 남기고 아무것도 하지 않음 (JSON 변환 시도 방지)
+        log.warn("AsyncRequestNotUsableException: SSE connection already closed or unusable. (User disconnected)");
+    }
+
+    // 네트워크 연결 단절 (Broken pipe 등) 처리
+    @ExceptionHandler(IOException.class)
+    protected void handleIOException(IOException e) {
+        if (e.getMessage() != null && (e.getMessage().contains("Broken pipe") || e.getMessage().contains("Connection reset"))) {
+            log.warn("IOException: Broken pipe or Connection reset. (User disconnected)");
+        } else {
+            log.error("IOException occurred", e);
+        }
+    }
 
     // @Valid 검증 실패 시
     @ExceptionHandler(MethodArgumentNotValidException.class)
