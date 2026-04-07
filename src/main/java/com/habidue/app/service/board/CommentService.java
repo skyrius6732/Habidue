@@ -304,7 +304,7 @@ public class CommentService {
     @Transactional
     public void deleteComment(Long commentId) {
         User currentUser = getCurrentUser();
-        Comment comment = commentRepository.findById(commentId).orElseThrow();
+        Comment comment = commentRepository.findByIdWithAllInfo(commentId).orElseThrow();
         if (!comment.getAuthor().getId().equals(currentUser.getId())) throw new IllegalArgumentException("권한 없음");
         
         // [시니어 조치] 중복 회수 방지 가드: ACTIVE 상태가 아니면 (USER_DELETED, DELETED, BLINDED 등) 모두 스킵
@@ -325,7 +325,6 @@ public class CommentService {
         // KarmaService.computeRemainingHeartsForPostKey()의 DB 쿼리에서 이 댓글이 제외되도록 함
         int originalLikeCount = comment.getLikeCount();
         comment.changeStatus("USER_DELETED");
-        comment.getCommentLikes().clear(); // 연관된 좋아요 물리 삭제
         commentRepository.saveAndFlush(comment);
 
         if (originalLikeCount > 0) {

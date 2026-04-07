@@ -34,6 +34,7 @@ public interface CommentRepository extends JpaRepository<Comment, Long>, Comment
            "join fetch c.author a " +
            "join fetch c.post p " +
            "join fetch p.author pa " +
+           "left join fetch p.notice n " +
            "left join fetch c.parent pr " +
            "left join fetch pr.author pra " +
            "where c.id = :id")

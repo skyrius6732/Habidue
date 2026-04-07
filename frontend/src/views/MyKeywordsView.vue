@@ -760,7 +760,7 @@
                     <span class="status-badge-verified">인증됨</span>
                   </div>
                   <div class="verified-actions-horizontal">
-                    <button @click="sendTestReport" class="btn-test-report-mini">테스트 발송</button>
+                    <button v-if="isAdmin" @click="sendTestReport" class="btn-test-report-mini">테스트 발송</button>
                     <button @click="resetEmailVerification" class="btn-email-change-mini">메일 변경</button>
                   </div>
                 </div>
@@ -820,6 +820,8 @@ import { useBadgeStore } from '@/stores/badge'
 import { useMessageStore } from '@/stores/message'
 import { useNotificationStore } from '@/stores/notification'
 import { useUiStore } from '@/stores/ui'
+import ActivityTab from './mypage/tabs/ActivityTab.vue'
+import MyPostsTab from './mypage/tabs/MyPostsTab.vue'
 
 const authStore = useAuthStore()
 const badgeStore = useBadgeStore()
@@ -3035,5 +3037,39 @@ onMounted(async () => {
 .exp-text b { color: var(--text-primary); font-weight: 800; }
 .point-badge-group { display: flex; flex-wrap: wrap; gap: 8px; }
 .exp-points { font-size: 0.72rem; font-weight: 900; color: #3498db; background: rgba(52, 152, 219, 0.08); padding: 4px 10px; border-radius: 8px; border: 1px solid rgba(52, 152, 219, 0.15); }
+
+
+/* [시니어 조치] 메일 인증 관련 누락된 버튼 스타일 추가 */
+.btn-verify-action { background: var(--link-color); color: white; border: none; padding: 0 15px; border-radius: 8px; font-size: 0.85rem; font-weight: 700; cursor: pointer; transition: all 0.2s; white-space: nowrap; height: 45px; }
+.btn-verify-action:disabled { opacity: 0.5; cursor: not-allowed; }
+.btn-verify-action:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(52, 152, 219, 0.2); }
+
+.btn-verify-cancel { background: var(--hover-bg); border: 1px solid var(--border-color); color: var(--text-secondary); padding: 0 15px; border-radius: 8px; font-size: 0.85rem; font-weight: 700; cursor: pointer; transition: all 0.2s; height: 45px; }
+.btn-verify-cancel:hover { background: var(--card-bg); border-color: var(--text-secondary); color: var(--text-primary); }
+
+.btn-verify-confirm { background: #10b981; color: white; border: none; padding: 0 20px; border-radius: 8px; font-size: 0.85rem; font-weight: 700; cursor: pointer; transition: all 0.2s; height: 45px; }
+.btn-verify-confirm:hover { background: #059669; transform: translateY(-1px); }
+
+.btn-test-report-mini { background: var(--hover-bg); border: 1px solid var(--border-color); color: var(--link-color); padding: 8px 16px; border-radius: 8px; font-size: 0.75rem; font-weight: 700; cursor: pointer; transition: all 0.2s; }
+.btn-test-report-mini:hover { background: var(--link-color); color: white; border-color: var(--link-color); }
+
+.btn-email-change-mini { background: transparent; border: 1px solid var(--border-color); color: var(--text-secondary); padding: 8px 16px; border-radius: 8px; font-size: 0.75rem; font-weight: 700; cursor: pointer; transition: all 0.2s; }
+.btn-email-change-mini:hover { border-color: var(--text-secondary); color: var(--text-primary); }
+
+
+/* [시니어 조치] 메일 인증 UI 미세 조정 (PC 최적화) */
+.btn-verify-cancel, .btn-verify-confirm { 
+  min-width: 100px; /* 버튼 크기 통일 */
+  padding: 0 20px; 
+  justify-content: center;
+  display: inline-flex;
+  align-items: center;
+}
+
+.mt-15 { margin-top: 20px !important; } /* 입력창 사이 간격 확대 */
+
+@media (max-width: 992px) {
+  .btn-verify-cancel, .btn-verify-confirm { min-width: 0; width: 100%; } /* 모바일은 가득 차게 */
+}
 
 </style>

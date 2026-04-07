@@ -38,7 +38,7 @@ public class MailService {
             MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
             helper.setTo(to);
             helper.setSubject(subject);
-            helper.setFrom("HabiDue <noreply@habidue.com>");
+            helper.setFrom("HabiDue <" + mailUsername + ">");
 
             Context context = new Context();
             context.setVariables(variables);
