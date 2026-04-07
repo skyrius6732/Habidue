@@ -47,6 +47,7 @@ const specialEffects = [
   { id: 'AURORA_FLAME', name: '🔥 오로라 화염 (Flame)' },
   { id: 'ICE_FROST', name: '❄️ 얼음 결정 (Frost)' },
   { id: 'SAKURA_BLOOM', name: '🌸 벚꽃 (Sakura)' },
+  { id: 'ROSES_BLOOM', name: '🌹 장미 (Roses)' },
   { id: 'SHADOW_DEMON', name: '👹 섀도우 데몬 (Shadow)' },
   { id: 'NEON_SIGN', name: '🌟 네온 사인 (Neon)' },
   { id: 'PIXEL_GLITCH', name: '💥 픽셀 글리치 (Glitch)' },
@@ -54,9 +55,23 @@ const specialEffects = [
   { id: 'LOVE_HEART', name: '💕 두근두근 하트 (Heart)' },
   { id: 'RAINBOW_WAVE', name: '🌈 무지개 (Rainbow)' },
   { id: 'SHOOTING_STAR', name: '🌠 별똥별 (Shooting Star)' },
-  { id: 'BLACK_HOLE', name: '🕳️ 블랙홀 (Black Hole)' },
-  { id: 'WHITE_HOLE', name: '🤍 화이트홀 (White Hole)' },
-  { id: 'BOMB', name: '🔫 레이저 (laser)' }
+  { id: 'BOMB', name: '🔫 레이저 (Laser)' },
+  { id: 'CROWN', name: '👑 왕관 (Crown)' },
+  { id: 'SWORDS_CROSS', name: '⚔️ 칼 교차 (Swords)' },
+  { id: 'FLOWER_CROWN', name: '🌸 화관 (Flower Crown)' },
+  { id: 'STAR_TIARA', name: '🌟 별 티아라 (Star Tiara)' },
+  { id: 'FLOWER_RAIN', name: '🌺 꽃비 (Flower Rain)' },
+  { id: 'SCAN_LINE', name: '📺 스캔라인 (Scan Line)' },
+  { id: 'CHROMATIC_ABERRATION', name: '🌈 색상 분리 (Chromatic)' },
+  { id: 'ECHO_TRAIL', name: '👻 잔상 (Echo Trail)' },
+  { id: 'CORRUPTED_TEXT', name: '🔲 손상된 텍스트 (Corrupted)' },
+  { id: 'GLITCH_SHIFT', name: '⚡ 글리치 (Glitch Shift)' },
+  { id: 'LIQUID_DISTORT', name: '💧 액체 (Liquid Distort)' },
+  { id: 'HALO', name: '✨ 후광 (Halo)' },
+  { id: 'LEAVES', name: '🍂 낙엽 (Leaves)' },
+  { id: 'BUTTERFLIES', name: '🦋 나비 (Butterflies)' },
+  { id: 'ORBS', name: '🔮 구체들 (Orbs)' },
+  { id: 'SCALE_COLLAPSE', name: '⬇️ 축소 & 사라지기 (Collapse)' }
 ]
 
 const updateEffect = async (effectId) => {

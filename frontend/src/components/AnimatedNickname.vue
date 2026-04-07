@@ -25,7 +25,7 @@
     <span v-if="(Number(karmaPoint) <= 800)" class="karma-warning-icon-outer" title="활동 신뢰 점수 주의">⚠️</span>
 
     <!-- 화려한 닉네임 표시부 (클릭 시 토글) -->
-    <div :class="['nickname-with-effects', { 'has-wings': isWingsEffect, 'has-bubbles': isBubblesEffect, 'has-stars': isStarsEffect, 'has-thunder': isThunderEffect, 'has-flame': isFlameEffect, 'has-ice': isIceFrostEffect, 'has-sakura': isSakuraEffect, 'has-shadow': isShadowEffect, 'has-neon': isNeonEffect, 'has-glitch': isGlitchEffect, 'has-void': isVoidEffect, 'has-heart': isHeartEffect, 'has-rainbow': isRainbowEffect, 'has-shooting': isShootingStarEffect, 'has-blackhole': isBlackholeEffect, 'has-whitehole': isWhiteholeEffect, 'has-bomb': isBombEffect }]">
+    <div :class="['nickname-with-effects', { 'has-wings': isWingsEffect, 'has-bubbles': isBubblesEffect, 'has-stars': isStarsEffect, 'has-thunder': isThunderEffect, 'has-flame': isFlameEffect, 'has-ice': isIceFrostEffect, 'has-sakura': isSakuraEffect, 'has-roses': isRosesEffect, 'has-shadow': isShadowEffect, 'has-neon': isNeonEffect, 'has-glitch': isGlitchEffect, 'has-void': isVoidEffect, 'has-heart': isHeartEffect, 'has-rainbow': isRainbowEffect, 'has-shooting': isShootingStarEffect, 'has-bomb': isBombEffect, 'has-crown': isCrownEffect, 'has-swords': isSwordsCrossEffect, 'has-flower': isFlowerCrownEffect, 'has-star-tiara': isStarTiaraEffect, 'has-flower-rain': isFlowerRainEffect, 'has-scanline': isScanLineEffect, 'has-chromatic': isChromaticAberrationEffect, 'has-echo': isEchoTrailEffect, 'has-corrupted': isCorruptedTextEffect, 'has-glitch-shift': isGlitchShiftEffect, 'has-liquid': isLiquidDistortEffect, 'has-halo': isHaloEffect, 'has-leaves': isLeavesEffect, 'has-butterflies': isButterfliesEffect, 'has-orbs': isOrbsEffect, 'has-scale-collapse': isScaleCollapseEffect }]">
       
       <!-- Effect Components Left -->
       <EffectWings v-if="isWingsEffect" direction="left" :wing-layers="wingLayers" :wing-colors="wingColors" :instance-id="instanceId" />
@@ -34,16 +34,31 @@
       <EffectThunder v-if="isThunderEffect" />
       <EffectIceFrost v-if="isIceFrostEffect" />
       <EffectSakura v-if="isSakuraEffect" />
+      <EffectRoses v-if="isRosesEffect" />
       <EffectShadow v-if="isShadowEffect" />
       <EffectRainbow v-if="isRainbowEffect" />
       <EffectShootingStar v-if="isShootingStarEffect" />
-      <EffectBlackhole v-if="isBlackholeEffect" />
-      <EffectWhitehole v-if="isWhiteholeEffect" />
       <EffectBomb v-if="isBombEffect" />
       <EffectHeart v-if="isHeartEffect" />
       <EffectVoid v-if="isVoidEffect" />
+      <EffectCrown v-if="isCrownEffect" />
+      <EffectSwordsCross v-if="isSwordsCrossEffect" />
+      <EffectFlowerCrown v-if="isFlowerCrownEffect" />
+      <EffectStarTiara v-if="isStarTiaraEffect" />
+      <EffectFlowerRain v-if="isFlowerRainEffect" />
+      <EffectScanLine v-if="isScanLineEffect" />
+      <EffectChromaticAberration v-if="isChromaticAberrationEffect" />
+      <EffectEchoTrail v-if="isEchoTrailEffect" />
+      <EffectCorruptedText v-if="isCorruptedTextEffect" />
+      <EffectGlitchShift v-if="isGlitchShiftEffect" />
+      <EffectLiquidDistort v-if="isLiquidDistortEffect" />
+      <EffectHalo v-if="isHaloEffect" />
+      <EffectLeaves v-if="isLeavesEffect" />
+      <EffectButterflies v-if="isButterfliesEffect" />
+      <EffectOrbs v-if="isOrbsEffect" />
+      <EffectScaleCollapse v-if="isScaleCollapseEffect" />
 
-      <span :class="['animated-nickname', currentTierClass, { 'is-ellipsis': isEllipsis }]" :data-text="nickname" :style="nicknameTextColor ? { color: nicknameTextColor } : {}" @click.stop="handleToggleClick">
+      <span ref="nicknameRef" :class="['animated-nickname', currentTierClass, { 'is-ellipsis': isEllipsis }]" :data-text="nickname" :style="nicknameTextColor ? { color: nicknameTextColor } : {}" @click.stop="handleToggleClick">
         {{ nickname }}
       </span>
 
@@ -155,14 +170,29 @@ import EffectStars from '@/components/effects/EffectStars.vue'
 import EffectThunder from '@/components/effects/EffectThunder.vue'
 import EffectIceFrost from '@/components/effects/EffectIceFrost.vue'
 import EffectSakura from '@/components/effects/EffectSakura.vue'
+import EffectRoses from '@/components/effects/EffectRoses.vue'
 import EffectShadow from '@/components/effects/EffectShadow.vue'
 import EffectRainbow from '@/components/effects/EffectRainbow.vue'
 import EffectShootingStar from '@/components/effects/EffectShootingStar.vue'
-import EffectBlackhole from '@/components/effects/EffectBlackhole.vue'
-import EffectWhitehole from '@/components/effects/EffectWhitehole.vue'
 import EffectBomb from '@/components/effects/EffectBomb.vue'
 import EffectHeart from '@/components/effects/EffectHeart.vue'
 import EffectVoid from '@/components/effects/EffectVoid.vue'
+import EffectCrown from '@/components/effects/EffectCrown.vue'
+import EffectSwordsCross from '@/components/effects/EffectSwordsCross.vue'
+import EffectFlowerCrown from '@/components/effects/EffectFlowerCrown.vue'
+import EffectStarTiara from '@/components/effects/EffectStarTiara.vue'
+import EffectFlowerRain from '@/components/effects/EffectFlowerRain.vue'
+import EffectScanLine from '@/components/effects/EffectScanLine.vue'
+import EffectChromaticAberration from '@/components/effects/EffectChromaticAberration.vue'
+import EffectEchoTrail from '@/components/effects/EffectEchoTrail.vue'
+import EffectCorruptedText from '@/components/effects/EffectCorruptedText.vue'
+import EffectGlitchShift from '@/components/effects/EffectGlitchShift.vue'
+import EffectLiquidDistort from '@/components/effects/EffectLiquidDistort.vue'
+import EffectHalo from '@/components/effects/EffectHalo.vue'
+import EffectLeaves from '@/components/effects/EffectLeaves.vue'
+import EffectButterflies from '@/components/effects/EffectButterflies.vue'
+import EffectOrbs from '@/components/effects/EffectOrbs.vue'
+import EffectScaleCollapse from '@/components/effects/EffectScaleCollapse.vue'
 import gsap from 'gsap'
 import { SPECIAL_EFFECTS, WING_COLORS, DEFAULT_WING_COLOR, WING_LAYERS_MAP, LEVEL_UNLOCKS, PARTICLE_PRESETS, getParticleOptionsForLevel } from '@/components/effectConfig'
 
@@ -234,6 +264,7 @@ const badgeStore = useBadgeStore()
 const authStore = useAuthStore()
 const uiStore = useUiStore()
 const showTooltip = ref(false)
+const nicknameRef = ref(null)
 
 // 다크/라이트 테마 감지
 const isDark = ref(document.documentElement.classList.contains('dark-mode'))
@@ -377,6 +408,7 @@ const isThunderEffect = computed(() => displayEquippedEffect.value === 'THUNDER_
 const isFlameEffect = computed(() => displayEquippedEffect.value === 'AURORA_FLAME')
 const isIceFrostEffect = computed(() => displayEquippedEffect.value === 'ICE_FROST')
 const isSakuraEffect = computed(() => displayEquippedEffect.value === 'SAKURA_BLOOM')
+const isRosesEffect = computed(() => displayEquippedEffect.value === 'ROSES_BLOOM')
 const isShadowEffect = computed(() => displayEquippedEffect.value === 'SHADOW_DEMON')
 const isNeonEffect = computed(() => displayEquippedEffect.value === 'NEON_SIGN')
 const isGlitchEffect = computed(() => displayEquippedEffect.value === 'PIXEL_GLITCH')
@@ -384,9 +416,23 @@ const isVoidEffect = computed(() => displayEquippedEffect.value === 'VOID_RIFT')
 const isHeartEffect = computed(() => displayEquippedEffect.value === 'LOVE_HEART')
 const isRainbowEffect = computed(() => displayEquippedEffect.value === 'RAINBOW_WAVE')
 const isShootingStarEffect = computed(() => displayEquippedEffect.value === 'SHOOTING_STAR')
-const isBlackholeEffect = computed(() => displayEquippedEffect.value === 'BLACK_HOLE')
-const isWhiteholeEffect = computed(() => displayEquippedEffect.value === 'WHITE_HOLE')
 const isBombEffect = computed(() => displayEquippedEffect.value === 'BOMB')
+const isCrownEffect = computed(() => displayEquippedEffect.value === 'CROWN')
+const isSwordsCrossEffect = computed(() => displayEquippedEffect.value === 'SWORDS_CROSS')
+const isFlowerCrownEffect = computed(() => displayEquippedEffect.value === 'FLOWER_CROWN')
+const isStarTiaraEffect = computed(() => displayEquippedEffect.value === 'STAR_TIARA')
+const isFlowerRainEffect = computed(() => displayEquippedEffect.value === 'FLOWER_RAIN')
+const isScanLineEffect = computed(() => displayEquippedEffect.value === 'SCAN_LINE')
+const isChromaticAberrationEffect = computed(() => displayEquippedEffect.value === 'CHROMATIC_ABERRATION')
+const isEchoTrailEffect = computed(() => displayEquippedEffect.value === 'ECHO_TRAIL')
+const isCorruptedTextEffect = computed(() => displayEquippedEffect.value === 'CORRUPTED_TEXT')
+const isGlitchShiftEffect = computed(() => displayEquippedEffect.value === 'GLITCH_SHIFT')
+const isLiquidDistortEffect = computed(() => displayEquippedEffect.value === 'LIQUID_DISTORT')
+const isHaloEffect = computed(() => displayEquippedEffect.value === 'HALO')
+const isLeavesEffect = computed(() => displayEquippedEffect.value === 'LEAVES')
+const isButterfliesEffect = computed(() => displayEquippedEffect.value === 'BUTTERFLIES')
+const isOrbsEffect = computed(() => displayEquippedEffect.value === 'ORBS')
+const isScaleCollapseEffect = computed(() => displayEquippedEffect.value === 'SCALE_COLLAPSE')
 
 // [드래그 스크롤 로직]
 const scrollContainer = ref(null)
@@ -798,4 +844,37 @@ onUnmounted(() => {
   .user-avatar { width: 28px; height: 32px; font-size: 0.9rem; }
   .user-name-styled { font-size: 0.8rem; }
 }
+
+/* 색상 분리 효과 */
+.has-chromatic .animated-nickname { animation: chromatic-shift 2.5s ease-in-out infinite; text-shadow: -2px 0 #ff0000, 2px 0 #00ff00, 0 -2px #0000ff; }
+@keyframes chromatic-shift { 0%, 100% { text-shadow: -2px 0 #ff0000, 2px 0 #00ff00, 0 -2px #0000ff; } 50% { text-shadow: -3px 0 #ff0000, 3px 0 #00ff00, 0 -3px #0000ff; } }
+
+/* 잔상 효과 */
+.has-echo .animated-nickname { animation: echo-wave 2s ease-in-out infinite; position: relative; }
+.has-echo .animated-nickname::before { content: attr(data-text); position: absolute; left: 0; top: 0; opacity: 0; animation: echo-ghost 2s ease-in-out infinite; }
+.has-echo .animated-nickname::after { content: attr(data-text); position: absolute; left: 0; top: 0; opacity: 0; animation: echo-ghost 2s ease-in-out infinite 0.3s; }
+@keyframes echo-wave { 0%, 100% { transform: translateX(0); } 50% { transform: translateX(3px); } }
+@keyframes echo-ghost { 0% { opacity: 0; transform: translateX(-8px); } 20% { opacity: 0.6; } 50% { opacity: 0.3; transform: translateX(0); } 100% { opacity: 0; transform: translateX(8px); } }
+
+/* 손상된 텍스트 효과 */
+.has-corrupted .animated-nickname { animation: text-corrupt 3s ease-in-out infinite; }
+.has-corrupted .animated-nickname::before { content: attr(data-text); position: absolute; left: 0; top: 0; opacity: 0; color: #ff0000; animation: corrupt-glitch 3s ease-in-out infinite; clip-path: polygon(0 0, 100% 0, 100% 45%, 0 45%); }
+@keyframes text-corrupt { 0%, 100% { opacity: 1; transform: skewX(0); } 20% { opacity: 0.8; transform: skewX(-2deg); } 40% { opacity: 1; } 55% { opacity: 0.3; transform: skewX(3deg); } 65% { opacity: 1; transform: skewX(0); } }
+@keyframes corrupt-glitch { 0%, 100% { opacity: 0; } 20% { opacity: 0.7; } 40% { opacity: 0; } 55% { opacity: 0.8; } 65% { opacity: 0; } }
+
+/* 글리치 이동 효과 */
+.has-glitch-shift .animated-nickname { animation: glitch-shake 0.4s ease-in-out infinite; }
+.has-glitch-shift .animated-nickname::before { content: attr(data-text); position: absolute; left: 0; top: 0; opacity: 0; color: #ff00ff; animation: glitch-offset-left 0.4s ease-in-out infinite; clip-path: polygon(0 0, 100% 0, 100% 30%, 0 30%); }
+.has-glitch-shift .animated-nickname::after { content: attr(data-text); position: absolute; left: 0; top: 0; opacity: 0; color: #00ffff; animation: glitch-offset-right 0.4s ease-in-out infinite; clip-path: polygon(0 70%, 100% 70%, 100% 100%, 0 100%); }
+@keyframes glitch-shake { 0% { transform: translateX(-2px); } 25% { transform: translateX(2px); } 50% { transform: translateX(-3px); } 75% { transform: translateX(3px); } 100% { transform: translateX(0); } }
+@keyframes glitch-offset-left { 0%, 25%, 50%, 75%, 100% { opacity: 0; } 10% { opacity: 0.8; transform: translateX(-3px); } 30% { opacity: 0; } 60% { opacity: 0.8; transform: translateX(-4px); } }
+@keyframes glitch-offset-right { 0%, 25%, 50%, 75%, 100% { opacity: 0; } 20% { opacity: 0.8; transform: translateX(3px); } 40% { opacity: 0; } 70% { opacity: 0.8; transform: translateX(4px); } }
+
+/* 액체 흐름 효과 */
+.has-liquid .animated-nickname { animation: liquid-wave 3s ease-in-out infinite; filter: blur(0.3px); }
+@keyframes liquid-wave { 0%, 100% { transform: skewY(0); letter-spacing: 0; } 15% { transform: skewY(-1deg); letter-spacing: 1px; } 30% { transform: skewY(1deg); letter-spacing: -1px; } 45% { transform: skewY(-0.5deg); letter-spacing: 0.5px; } 60% { transform: skewY(0.5deg); letter-spacing: -0.5px; } 75% { transform: skewY(-1deg); letter-spacing: 1px; } 90% { transform: skewY(0); letter-spacing: 0; } }
+
+/* 축소 사라지기 효과 */
+.has-scale-collapse .animated-nickname { animation: scale-collapse-effect 2.5s ease-in-out infinite; transform-origin: center center; }
+@keyframes scale-collapse-effect { 0% { opacity: 1; transform: scale(1); } 35% { opacity: 1; transform: scale(1); } 50% { opacity: 0; transform: scale(0.1); } 75% { opacity: 0; transform: scale(0.1); } 100% { opacity: 1; transform: scale(1); } }
 </style>

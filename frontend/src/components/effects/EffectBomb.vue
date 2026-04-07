@@ -1,6 +1,13 @@
 <template>
-  <svg class="bomb-fuse-container" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="none">
-    <rect class="bomb-border-rect" x="4" y="4" width="92" height="92" />
+  <svg class="laser-container" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="none">
+    <!-- 상단 레이저 -->
+    <line class="laser-line laser-top" x1="4" y1="4" x2="96" y2="4" />
+    <!-- 우측 레이저 -->
+    <line class="laser-line laser-right" x1="96" y1="4" x2="96" y2="96" />
+    <!-- 하단 레이저 -->
+    <line class="laser-line laser-bottom" x1="96" y1="96" x2="4" y2="96" />
+    <!-- 좌측 레이저 -->
+    <line class="laser-line laser-left" x1="4" y1="96" x2="4" y2="4" />
   </svg>
 </template>
 
@@ -8,37 +15,47 @@
 </script>
 
 <style scoped>
-/* 18. BOMB: 폭탄 심줄 테두리 따라 타들어감 */
-.bomb-fuse-container {
+/* LASER: 레이저 테두리 */
+.laser-container {
   position: absolute; inset: 0px 0px 0px 0px;
   pointer-events: none; z-index: 7; overflow: visible;
-   width: 100%; height: 100%;
+  width: 100%; height: 100%;
 }
-.bomb-border-rect {
-  fill: none;
+
+.laser-line {
   stroke: rgb(255, 255, 255);
-  stroke-width: 5;
   stroke-linecap: round;
-  stroke-linejoin: round;
   stroke-dasharray: 400;
   stroke-dashoffset: 400;
-  filter: drop-shadow(0 0 2px rgb(255, 135, 135))
-  drop-shadow(0 0 20px rgba(255, 173, 173, 0.9))
-  drop-shadow(0 0 20px rgba(255, 201, 201, 0.6));
-  animation: bomb-burn-border 4s infinite ease-in;
+  filter: drop-shadow(0 0 3px rgb(0, 255, 150))
+  drop-shadow(0 0 15px rgba(0, 255, 150, 0.8))
+  drop-shadow(0 0 25px rgba(100, 255, 200, 0.5));
+  animation: laser-scan 3s infinite ease-in;
 }
-@keyframes bomb-burn-border {
+
+/* 좌우는 얇게, 상하는 두껍게 */
+.laser-line.laser-top,
+.laser-line.laser-bottom {
+  stroke-width: 7;
+}
+
+.laser-line.laser-left,
+.laser-line.laser-right {
+  stroke-width: 4;
+}
+
+@keyframes laser-scan {
   0% { stroke-dashoffset: 400; opacity: 1; }
-  90% { stroke-dashoffset: 0; opacity: 1; }
+  85% { stroke-dashoffset: 0; opacity: 1; }
   100% { stroke-dashoffset: 0; opacity: 0; }
 }
 
 .has-bomb .animated-nickname {
-  animation: bomb-nick-glow 3s infinite ease-in !important;
+  animation: laser-nick-glow 3s infinite ease-in !important;
 }
-@keyframes bomb-nick-glow {
-  0% { box-shadow: 0 0 5px rgba(255, 0, 0, 0.2); }
-  50% { box-shadow: 0 0 12px rgba(255, 100, 100, 0.5); }
-  100% { box-shadow: 0 0 5px rgba(255, 0, 0, 0); }
+@keyframes laser-nick-glow {
+  0% { box-shadow: 0 0 5px rgba(0, 255, 150, 0.2); }
+  50% { box-shadow: 0 0 12px rgba(0, 255, 150, 0.6); }
+  100% { box-shadow: 0 0 5px rgba(0, 255, 150, 0); }
 }
 </style>

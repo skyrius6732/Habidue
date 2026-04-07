@@ -16,6 +16,7 @@ export const SPECIAL_EFFECTS = [
   { id: 'AURORA_FLAME', name: '🔥 오로라 화염 (Flame)', icon: '🔥' },
   { id: 'ICE_FROST', name: '❄️ 얼음 결정 (Frost)', icon: '❄️' },
   { id: 'SAKURA_BLOOM', name: '🌸 벚꽃 (Sakura)', icon: '🌸' },
+  { id: 'ROSES_BLOOM', name: '🌹 장미 (Roses)', icon: '🌹' },
   { id: 'SHADOW_DEMON', name: '👹 섀도우 데몬 (Shadow)', icon: '👹' },
   { id: 'NEON_SIGN', name: '🌟 네온 사인 (Neon)', icon: '🌟' },
   { id: 'PIXEL_GLITCH', name: '💥 픽셀 글리치 (Glitch)', icon: '💥' },
@@ -23,8 +24,23 @@ export const SPECIAL_EFFECTS = [
   { id: 'LOVE_HEART', name: '💕 두근두근 하트 (Heart)', icon: '💕' },
   { id: 'RAINBOW_WAVE', name: '🌈 무지개 (Rainbow)', icon: '🌈' },
   { id: 'SHOOTING_STAR', name: '🌠 별똥별 (Shooting Star)', icon: '🌠' },
-  { id: 'BLACK_HOLE', name: '🕳️ 블랙홀 (Black Hole)', icon: '🕳️' },
-  { id: 'WHITE_HOLE', name: '🤍 화이트홀 (White Hole)', icon: '🤍' }
+  { id: 'BOMB', name: '🔫 레이저 (Laser)', icon: '🔫' },
+  { id: 'CROWN', name: '👑 왕관 (Crown)', icon: '👑' },
+  { id: 'SWORDS_CROSS', name: '⚔️ 칼 교차 (Swords)', icon: '⚔️' },
+  { id: 'FLOWER_CROWN', name: '🌸 화관 (Flower Crown)', icon: '🌸' },
+  { id: 'STAR_TIARA', name: '🌟 별 티아라 (Star Tiara)', icon: '🌟' },
+  { id: 'FLOWER_RAIN', name: '🌺 꽃비 (Flower Rain)', icon: '🌺' },
+  { id: 'SCAN_LINE', name: '📺 스캔라인 (Scan Line)', icon: '📺' },
+  { id: 'CHROMATIC_ABERRATION', name: '🌈 색상 분리 (Chromatic)', icon: '🌈' },
+  { id: 'ECHO_TRAIL', name: '👻 잔상 (Echo Trail)', icon: '👻' },
+  { id: 'CORRUPTED_TEXT', name: '🔲 손상된 텍스트 (Corrupted)', icon: '🔲' },
+  { id: 'GLITCH_SHIFT', name: '⚡ 글리치 (Glitch Shift)', icon: '⚡' },
+  { id: 'LIQUID_DISTORT', name: '💧 액체 (Liquid Distort)', icon: '💧' },
+  { id: 'HALO', name: '✨ 후광 (Halo)', icon: '✨' },
+  { id: 'LEAVES', name: '🍂 낙엽 (Leaves)', icon: '🍂' },
+  { id: 'BUTTERFLIES', name: '🦋 나비 (Butterflies)', icon: '🦋' },
+  { id: 'ORBS', name: '🔮 구체들 (Orbs)', icon: '🔮' },
+  { id: 'SCALE_COLLAPSE', name: '⬇️ 축소 & 사라지기 (Collapse)', icon: '⬇️' }
 ]
 
 // 날개 이펙트별 색상 설정
@@ -128,7 +144,5 @@ export const EFFECT_CHECKS = {
   isHeartEffect: (effect) => effect === 'LOVE_HEART',
   isRainbowEffect: (effect) => effect === 'RAINBOW_WAVE',
   isShootingStarEffect: (effect) => effect === 'SHOOTING_STAR',
-  isBlackholeEffect: (effect) => effect === 'BLACK_HOLE',
-  isWhiteholeEffect: (effect) => effect === 'WHITE_HOLE',
   isBombEffect: (effect) => effect === 'BOMB'
 }
