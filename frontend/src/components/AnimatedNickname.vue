@@ -27,229 +27,28 @@
     <!-- 화려한 닉네임 표시부 (클릭 시 토글) -->
     <div :class="['nickname-with-effects', { 'has-wings': isWingsEffect, 'has-bubbles': isBubblesEffect, 'has-stars': isStarsEffect, 'has-thunder': isThunderEffect, 'has-flame': isFlameEffect, 'has-ice': isIceFrostEffect, 'has-sakura': isSakuraEffect, 'has-shadow': isShadowEffect, 'has-neon': isNeonEffect, 'has-glitch': isGlitchEffect, 'has-void': isVoidEffect, 'has-heart': isHeartEffect, 'has-rainbow': isRainbowEffect, 'has-shooting': isShootingStarEffect, 'has-blackhole': isBlackholeEffect, 'has-whitehole': isWhiteholeEffect, 'has-bomb': isBombEffect }]">
       
-      <!-- 1. 날개 이펙트 (멀티 티어 시스템) -->
-      <template v-if="isWingsEffect">
-        <div class="wings-container left">
-          <div v-for="n in wingLayers" :key="`wing-l-${n}`" class="wing-layer" :style="{ '--layer': n, '--total': wingLayers }">
-            <svg class="pioneer-wing-svg left" viewBox="0 0 100 100" :style="{ filter: `drop-shadow(0 0 ${3 + n}px ${wingColors.glow})` }">
-              <path d="M90,50 Q70,10 20,40 Q40,50 90,50 Z" :fill="`url(#wing-grad-${instanceId}-${n})`" />
-              <path d="M85,55 Q65,25 25,50 Q45,60 85,55 Z" :fill="`url(#wing-grad-${instanceId}-${n})`" opacity="0.6" />
-              <defs>
-                <linearGradient :id="`wing-grad-${instanceId}-${n}`" x1="0%" y1="0%" x2="100%" y2="100%">
-                  <stop offset="0%" :style="{ 'stop-color': wingColors.s1 }" />
-                  <stop offset="50%" :style="{ 'stop-color': wingColors.s2 }" />
-                  <stop offset="100%" :style="{ 'stop-color': wingColors.s3 }" />
-                </linearGradient>
-              </defs>
-            </svg>
-          </div>
-        </div>
-      </template>
-
-      <!-- 2. 신비로운 버블 이펙트 (MAGIC_BUBBLES) -->
-      <div v-if="isBubblesEffect" class="bubbles-container">
-        <div v-for="n in 8" :key="`bubble-${n}`" class="bubble" 
-          :style="{ 
-            '--left': `${Math.random() * 100}%`, 
-            '--size': `${4 + Math.random() * 6}px`,
-            '--delay': `${Math.random() * 4}s`,
-            '--dur': `${2 + Math.random() * 2}s`
-          }"
-        ></div>
-      </div>
-
-      <!-- 3. 반짝이는 별무리 이펙트 (STARRY_NIGHT) -->
-      <div v-if="isStarsEffect" class="stars-container">
-        <svg v-for="n in 6" :key="`star-${n}`" class="twinkle-star" viewBox="0 0 24 24"
-          :style="{
-            '--top': `${5 + Math.random() * 70}%`,
-            '--left': `${3 + Math.random() * 94}%`,
-            '--delay': `${Math.random() * 3}s`,
-            '--size': `${8 + Math.random() * 8}px`
-          }"
-        >
-          <path fill="#facc15" d="M12,2L15.09,8.26L22,9.27L17,14.14L18.18,21.02L12,17.77L5.82,21.02L7,14.14L2,9.27L8.91,8.26L12,2Z" />
-        </svg>
-      </div>
-
-      <!-- 5. 번개 이펙트 (THUNDER_BLUE) -->
-      <div v-if="isThunderEffect" class="thunder-container">
-        <svg v-for="n in 6" :key="`bolt-${n}`" class="lightning-bolt" viewBox="0 0 16 32"
-          :style="{
-            '--left': `${10 + (n - 1) * 14}%`,
-            '--top': `${-5 + (n % 3) * 28}%`,
-            '--delay': `${((n * 0.47) % 2.2).toFixed(2)}s`,
-            '--dur': `${(1.2 + (n % 3) * 0.6).toFixed(2)}s`,
-            '--size': `${13 + (n % 3) * 5}px`
-          }"
-        >
-          <polygon points="10,0 5,13 9,13 6,32 14,11 8,11 12,0"
-            :fill="n % 2 === 0 ? '#93c5fd' : '#e0f2fe'"
-            stroke="#bfdbfe" stroke-width="0.4"/>
-        </svg>
-      </div>
-
-
-      <!-- 7. ICE_FROST: 눈결정 흩날림 -->
-      <div v-if="isIceFrostEffect" class="frost-container">
-        <svg v-for="n in 7" :key="`flake-${n}`" class="snowflake" viewBox="0 0 24 24"
-          :style="{
-            '--left': `${(n - 1) * 15 + 2}%`,
-            '--delay': `${((n * 0.62) % 3).toFixed(2)}s`,
-            '--dur': `${(2.4 + (n % 3) * 0.7).toFixed(1)}s`,
-            '--size': `${8 + (n % 3) * 4}px`,
-            '--drift': `${-8 + (n % 5) * 4}px`
-          }"
-        >
-          <line x1="12" y1="2" x2="12" y2="22" stroke="#bae6fd" stroke-width="1.8" stroke-linecap="round"/>
-          <line x1="2" y1="7" x2="22" y2="17" stroke="#bae6fd" stroke-width="1.8" stroke-linecap="round"/>
-          <line x1="22" y1="7" x2="2" y2="17" stroke="#bae6fd" stroke-width="1.8" stroke-linecap="round"/>
-          <line x1="2" y1="12" x2="22" y2="12" stroke="#bae6fd" stroke-width="1.8" stroke-linecap="round"/>
-          <line x1="7" y1="3.5" x2="17" y2="20.5" stroke="#7dd3fc" stroke-width="1" stroke-linecap="round" opacity="0.6"/>
-          <line x1="17" y1="3.5" x2="7" y2="20.5" stroke="#7dd3fc" stroke-width="1" stroke-linecap="round" opacity="0.6"/>
-        </svg>
-      </div>
-
-      <!-- 8. SAKURA_BLOOM: 벚꽃잎 살랑살랑 -->
-      <div v-if="isSakuraEffect" class="sakura-container">
-        <svg v-for="n in 9" :key="`petal-${n}`" class="sakura-petal" viewBox="0 0 20 30"
-          :style="{
-            '--left': `${(n - 1) * 11 - 3}%`,
-            '--delay': `${((n * 0.55) % 2.8).toFixed(2)}s`,
-            '--dur': `${(2.4 + (n % 4) * 0.5).toFixed(1)}s`,
-            '--size': `${6 + (n % 3) * 2}px`,
-            '--sway': `${-22 + (n % 5) * 11}px`,
-            '--rot-s': `${-40 + (n % 4) * 22}deg`
-          }"
-        >
-          <template v-if="n % 3 === 0">
-            <path d="M10,1 C13,1 16,5 15,10 C14,16 12,22 10,28 C8,22 6,16 5,10 C4,5 7,1 10,1Z"
-              :fill="`hsl(${340 + (n % 4) * 7}, 86%, ${74 + (n % 3) * 5}%)`" opacity="0.9"/>
-            <path d="M10,4 C11.5,4 12.5,8 12,13 C11.5,17 11,21 10,25 C9,21 8.5,17 8,13 C7.5,8 8.5,4 10,4Z"
-              fill="rgba(255,255,255,0.35)"/>
-          </template>
-          <template v-else-if="n % 3 === 1">
-            <path d="M10,3 C16,3 19,8 17,14 C15,19 12,24 10,27 C8,24 5,19 3,14 C1,8 4,3 10,3Z"
-              :fill="`hsl(${338 + (n % 4) * 7}, 82%, ${76 + (n % 3) * 5}%)`" opacity="0.87"/>
-            <path d="M10,6 C13,6 15,10 14,14 C13,18 11.5,22 10,25 C8.5,22 7,18 6,14 C5,10 7,6 10,6Z"
-              fill="rgba(255,255,255,0.3)"/>
-          </template>
-          <template v-else>
-            <path d="M8,1 C13,1 17,6 16,12 C15,18 12,24 10,28 C8,24 6,18 5.5,12 C5,7 7,2 8,1Z"
-              :fill="`hsl(${342 + (n % 4) * 7}, 84%, ${75 + (n % 3) * 5}%)`" opacity="0.88"/>
-            <path d="M9,5 C11,5 12.5,9 12,13 C11.5,17 11,21 10,25 C9,21 8,17 7.5,13 C7,9 7.5,5 9,5Z"
-              fill="rgba(255,255,255,0.28)"/>
-          </template>
-        </svg>
-      </div>
-
-      <!-- 9. SHADOW_DEMON: 어두운 연기 blob -->
-      <div v-if="isShadowEffect" class="shadow-container">
-        <div v-for="n in 6" :key="`smoke-${n}`" class="smoke-blob"
-          :style="{
-            '--left': `${5 + (n - 1) * 16}%`,
-            '--delay': `${((n * 0.5) % 2.5).toFixed(2)}s`,
-            '--dur': `${(1.8 + (n % 3) * 0.6).toFixed(1)}s`,
-            '--size': `${14 + (n % 4) * 6}px`,
-            '--hue': `${260 + (n % 4) * 12}`
-          }"
-        ></div>
-      </div>
-
-      <!-- 14. RAINBOW_WAVE: 무지개 아치형 -->
-      <svg v-if="isRainbowEffect" class="rainbow-arch-wrap" viewBox="0 0 200 170" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="none">
-        <defs>
-          <linearGradient id="rainbowGrad" x1="0%" y1="0%" x2="100%" y2="0%">
-            <stop offset="0%" style="stop-color:#ff0000;stop-opacity:1" />
-            <stop offset="16.67%" style="stop-color:#ff7700;stop-opacity:1" />
-            <stop offset="33.33%" style="stop-color:#ffee00;stop-opacity:1" />
-            <stop offset="50%" style="stop-color:#00dd44;stop-opacity:1" />
-            <stop offset="66.67%" style="stop-color:#0088ff;stop-opacity:1" />
-            <stop offset="83.33%" style="stop-color:#6600dd;stop-opacity:1" />
-            <stop offset="100%" style="stop-color:#cc00ff;stop-opacity:1" />
-          </linearGradient>
-        </defs>
-        <path class="rainbow-arch" d="M 20,70 Q 100,15 180,70" stroke="url(#rainbowGrad)" stroke-width="15" fill="none" stroke-linecap="round" />
-      </svg>
-
-      <!-- 15. SHOOTING_STAR: 별똥별 닉네임 앞 가로질러 -->
-      <div v-if="isShootingStarEffect" class="shooting-star-container">
-        <div class="shooting-star"
-          :style="{
-            '--delay': '0s',
-            '--y': '50%'
-          }"
-        ></div>
-      </div>
-
-      <!-- 16. BLACK_HOLE: 블랙홀 빨려들어감 -->
-      <div v-if="isBlackholeEffect" class="blackhole-container">
-        <div class="bh-ring"></div>
-      </div>
-
-      <!-- 17. WHITE_HOLE: 화이트홀 뱉어냄 -->
-      <div v-if="isWhiteholeEffect" class="whitehole-container">
-        <div class="wh-ring"></div>
-      </div>
-
-
-      <!-- 18. BOMB: 폭탄 심줄 테두리 타들어감 -->
-      <svg v-if="isBombEffect" class="bomb-fuse-container" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="none">
-        <rect class="bomb-border-rect" x="4" y="4" width="92" height="92" />
-      </svg>
-
-      <!-- 13. LOVE_HEART: 하트 아래서 위로 -->
-      <div v-if="isHeartEffect" class="heart-container">
-        <svg v-for="n in 7" :key="`heart-${n}`" class="floating-heart" viewBox="0 0 24 22"
-          :style="{
-            '--left': `${(n - 1) * 15 + 2}%`,
-            '--delay': `${((n * 0.58) % 3).toFixed(2)}s`,
-            '--dur': `${(2.2 + (n % 3) * 0.7).toFixed(1)}s`,
-            '--size': `${7 + (n % 4) * 3}px`,
-            '--sway': `${-10 + (n % 5) * 5}px`
-          }"
-        >
-          <path d="M12,20 C12,20 2,13 2,7 C2,4.24 4.24,2 7,2 C8.9,2 10.6,3 12,4.7 C13.4,3 15.1,2 17,2 C19.76,2 22,4.24 22,7 C22,13 12,20 12,20Z"
-            :fill="`hsl(${345 + (n % 3) * 12}, 92%, ${62 + (n % 3) * 8}%)`"/>
-          <path d="M7,4 C6,4 5,5 5,6 C5,7.5 6,8.5 7,9.5" stroke="rgba(255,255,255,0.45)" stroke-width="1" fill="none" stroke-linecap="round"/>
-        </svg>
-      </div>
-
-      <!-- 12. VOID_RIFT: 차원 균열 보라 파티클 orbit -->
-      <div v-if="isVoidEffect" class="void-container">
-        <div v-for="n in 8" :key="`void-p-${n}`" class="void-particle"
-          :style="{
-            '--angle': `${(n - 1) * 45}deg`,
-            '--delay': `${((n * 0.38) % 2.5).toFixed(2)}s`,
-            '--dur': `${(1.6 + (n % 3) * 0.5).toFixed(1)}s`,
-            '--dist': `${18 + (n % 3) * 7}px`,
-            '--size': `${3 + (n % 3) * 2}px`
-          }"
-        ></div>
-      </div>
+      <!-- Effect Components Left -->
+      <EffectWings v-if="isWingsEffect" direction="left" :wing-layers="wingLayers" :wing-colors="wingColors" :instance-id="instanceId" />
+      <EffectBubbles v-if="isBubblesEffect" />
+      <EffectStars v-if="isStarsEffect" />
+      <EffectThunder v-if="isThunderEffect" />
+      <EffectIceFrost v-if="isIceFrostEffect" />
+      <EffectSakura v-if="isSakuraEffect" />
+      <EffectShadow v-if="isShadowEffect" />
+      <EffectRainbow v-if="isRainbowEffect" />
+      <EffectShootingStar v-if="isShootingStarEffect" />
+      <EffectBlackhole v-if="isBlackholeEffect" />
+      <EffectWhitehole v-if="isWhiteholeEffect" />
+      <EffectBomb v-if="isBombEffect" />
+      <EffectHeart v-if="isHeartEffect" />
+      <EffectVoid v-if="isVoidEffect" />
 
       <span :class="['animated-nickname', currentTierClass, { 'is-ellipsis': isEllipsis }]" :data-text="nickname" :style="nicknameTextColor ? { color: nicknameTextColor } : {}" @click.stop="handleToggleClick">
         {{ nickname }}
       </span>
 
-      <!-- 4. 날개 오른쪽 (멀티 티어) -->
-      <template v-if="isWingsEffect">
-        <div class="wings-container right">
-          <div v-for="n in wingLayers" :key="`wing-r-${n}`" class="wing-layer" :style="{ '--layer': n, '--total': wingLayers }">
-            <svg class="pioneer-wing-svg right" viewBox="0 0 100 100" :style="{ filter: `drop-shadow(0 0 ${3 + n}px ${wingColors.glow})` }">
-              <path d="M10,50 Q30,10 80,40 Q60,50 10,50 Z" :fill="`url(#wing-grad-rev-${instanceId}-${n})`" />
-              <path d="M15,55 Q35,25 75,50 Q55,60 15,55 Z" :fill="`url(#wing-grad-rev-${instanceId}-${n})`" opacity="0.6" />
-              <defs>
-                <linearGradient :id="`wing-grad-rev-${instanceId}-${n}`" x1="100%" y1="0%" x2="0%" y2="100%">
-                  <stop offset="0%" :style="{ 'stop-color': wingColors.s1 }" />
-                  <stop offset="50%" :style="{ 'stop-color': wingColors.s2 }" />
-                  <stop offset="100%" :style="{ 'stop-color': wingColors.s3 }" />
-                </linearGradient>
-              </defs>
-            </svg>
-          </div>
-        </div>
-      </template>
+      <!-- Wings Right -->
+      <EffectWings v-if="isWingsEffect" direction="right" :wing-layers="wingLayers" :wing-colors="wingColors" :instance-id="instanceId" />
 
     </div>
 
@@ -350,31 +149,25 @@ import { useBadgeStore } from '@/stores/badge'
 import { useAuthStore } from '@/stores/auth'
 import { useUiStore } from '@/stores/ui'
 import MessageSendModal from '@/components/MessageSendModal.vue'
+import EffectWings from '@/components/effects/EffectWings.vue'
+import EffectBubbles from '@/components/effects/EffectBubbles.vue'
+import EffectStars from '@/components/effects/EffectStars.vue'
+import EffectThunder from '@/components/effects/EffectThunder.vue'
+import EffectIceFrost from '@/components/effects/EffectIceFrost.vue'
+import EffectSakura from '@/components/effects/EffectSakura.vue'
+import EffectShadow from '@/components/effects/EffectShadow.vue'
+import EffectRainbow from '@/components/effects/EffectRainbow.vue'
+import EffectShootingStar from '@/components/effects/EffectShootingStar.vue'
+import EffectBlackhole from '@/components/effects/EffectBlackhole.vue'
+import EffectWhitehole from '@/components/effects/EffectWhitehole.vue'
+import EffectBomb from '@/components/effects/EffectBomb.vue'
+import EffectHeart from '@/components/effects/EffectHeart.vue'
+import EffectVoid from '@/components/effects/EffectVoid.vue'
 import gsap from 'gsap'
+import { SPECIAL_EFFECTS, WING_COLORS, DEFAULT_WING_COLOR, WING_LAYERS_MAP, LEVEL_UNLOCKS, PARTICLE_PRESETS, getParticleOptionsForLevel } from '@/components/effectConfig'
 
 // [시니어 조치] 특수 효과 리스트
-const specialEffects = [
-  { id: null, name: '효과 없음', icon: '🚫' },
-  { id: 'PIONEER_WINGS', name: '🕊️ 화이트 윙 (White)', icon: '🕊️' },
-  { id: 'BRONZE_WINGS', name: '🥉 브론즈 윙 (Bronze)', icon: '🥉' },
-  { id: 'SILVER_WINGS', name: '🥈 실버 윙 (Silver)', icon: '🥈' },
-  { id: 'GOLD_WINGS', name: '👑 골드 윙 (Gold)', icon: '👑' },
-  { id: 'MAGIC_BUBBLES', name: '🫧 신비로운 버블 (Bubble)', icon: '🫧' },
-  { id: 'STARRY_NIGHT', name: '✨ 반짝이는 별무리 (Starry)', icon: '✨' },
-  { id: 'THUNDER_BLUE', name: '⚡ 푸른 번개 (Thunder)', icon: '⚡' },
-  { id: 'AURORA_FLAME', name: '🔥 오로라 화염 (Flame)', icon: '🔥' },
-  { id: 'ICE_FROST', name: '❄️ 얼음 결정 (Frost)', icon: '❄️' },
-  { id: 'SAKURA_BLOOM', name: '🌸 벚꽃 (Sakura)', icon: '🌸' },
-  { id: 'SHADOW_DEMON', name: '👹 섀도우 데몬 (Shadow)', icon: '👹' },
-  { id: 'NEON_SIGN', name: '🌟 네온 사인 (Neon)', icon: '🌟' },
-  { id: 'PIXEL_GLITCH', name: '💥 픽셀 글리치 (Glitch)', icon: '💥' },
-  { id: 'VOID_RIFT', name: '🌀 보이드 리프트 (Void)', icon: '🌀' },
-  { id: 'LOVE_HEART', name: '💕 두근두근 하트 (Heart)', icon: '💕' },
-  { id: 'RAINBOW_WAVE', name: '🌈 무지개 (Rainbow)', icon: '🌈' },
-  { id: 'SHOOTING_STAR', name: '🌠 별똥별 (Shooting Star)', icon: '🌠' },
-  { id: 'BLACK_HOLE', name: '🕳️ 블랙홀 (Black Hole)', icon: '🕳️' },
-  { id: 'WHITE_HOLE', name: '🤍 화이트홀 (White Hole)', icon: '🤍' }
-]
+const specialEffects = SPECIAL_EFFECTS
 
 // [시니어 조치] 실제 장착 중인 효과 코드 (UI 선택 상태 표시용)
 const actualEquippedEffect = computed(() => {
@@ -407,20 +200,13 @@ const displayEquippedEffect = computed(() => {
 // 이펙트별 색상 정의
 const wingColors = computed(() => {
   const effect = actualEquippedEffect.value
-  if (effect === 'GOLD_WINGS') return { s1: '#fff9c4', s2: '#facc15', s3: '#a16207', glow: 'rgba(250, 204, 21, 0.8)' }
-  if (effect === 'SILVER_WINGS') return { s1: '#f8fafc', s2: '#94a3b8', s3: '#475569', glow: 'rgba(148, 163, 184, 0.7)' }
-  if (effect === 'BRONZE_WINGS') return { s1: '#fed7aa', s2: '#ea580c', s3: '#7c2d12', glow: 'rgba(234, 88, 12, 0.6)' }
-  if (effect === 'PIONEER_WINGS') return { s1: '#ffffff', s2: '#e2e8f0', s3: '#94a3b8', glow: 'rgba(255, 255, 255, 0.9)' }
-  return { s1: '#ffffff', s2: '#e2e8f0', s3: '#94a3b8', glow: 'rgba(255, 255, 255, 0.8)' }
+  return WING_COLORS[effect] || DEFAULT_WING_COLOR
 })
 
 // [시니어 조치] 날개 레이어 개수 계산 (장착된 이펙트 코드 기준 고정)
 const wingLayers = computed(() => {
   const effect = actualEquippedEffect.value
-  if (effect === 'GOLD_WINGS') return 4
-  if (effect === 'SILVER_WINGS') return 3
-  if (effect === 'BRONZE_WINGS' || effect === 'PIONEER_WINGS') return 2
-  return 1
+  return WING_LAYERS_MAP[effect] || 1
 })
 
 const props = defineProps({
@@ -555,23 +341,8 @@ const effectCodes = computed(() => {
   // 2. [안전장치] 레벨 기반 자동 해금 보완
   // ownedEffectCodes가 로드되지 않은 경우나 누락된 경우를 위해 레벨로 한 번 더 체크
   const userLv = isMe.value && authStore.user ? authStore.user.level : props.level
-  
-  const levelUnlocks = {
-    5: 'MAGIC_BUBBLES',
-    10: 'BRONZE_WINGS',
-    15: 'STARRY_NIGHT',
-    20: 'SILVER_WINGS',
-    25: 'BOMB',
-    30: 'GOLD_WINGS',
-    35: 'SHADOW_DEMON',
-    40: 'VOID_RIFT',
-    45: 'THUNDER_BLUE',
-    50: 'NEON_SIGN',
-    60: 'AURORA_FLAME',
-    70: 'RAINBOW_WAVE'
-  }
 
-  Object.entries(levelUnlocks).forEach(([lv, id]) => {
+  Object.entries(LEVEL_UNLOCKS).forEach(([lv, id]) => {
     if (userLv >= parseInt(lv) && !codes.includes(id)) {
       codes.push(id)
     }
@@ -691,14 +462,7 @@ const updateEffect = (effectId, event) => {
 const onMessageSuccess = () => {}
 
 const showParticles = computed(() => displayShowEffects.value && (props.level >= 50))
-const particleOptions = computed(() => {
-  const lv = props.level
-  if (lv >= 100) return { fullScreen: { enable: false }, particles: { number: { value: 15 }, color: { value: "#facc15" }, size: { value: { min: 1, max: 2.5 } }, move: { enable: true, speed: 1.2, direction: "top" } } }
-  if (lv >= 90) return { fullScreen: { enable: false }, particles: { number: { value: 10 }, color: { value: "#22d3ee" }, shape: { type: "star" }, opacity: { value: 0.5 }, size: { value: 1 }, move: { enable: true, speed: 0.4 } } }
-  if (lv >= 70) return { fullScreen: { enable: false }, particles: { number: { value: 10 }, color: { value: ["#ff416c", "#ffd700", "#48bb78", "#4facfe", "#9400d3"] }, opacity: { value: 0.4 }, size: { value: { min: 1.5, max: 2.5 } }, move: { enable: true, speed: 0.8, direction: "top", outModes: "out" } } }
-  if (lv >= 50) return { fullScreen: { enable: false }, particles: { number: { value: 6 }, color: { value: "#10b981" }, size: { value: 1 }, move: { enable: true, speed: 0.6, direction: "top" } } }
-  return null
-})
+const particleOptions = computed(() => getParticleOptionsForLevel(props.level))
 
 const currentTierClass = computed(() => {
   if (!displayShowEffects.value) return 'tier-none'
@@ -764,71 +528,7 @@ onUnmounted(() => {
 
 .nickname-with-effects { display: flex; align-items: center; position: relative; gap: 4px; padding: 0 4px; }
 
-/* 1. Wings System */
-.wings-container { display: flex; align-items: center; justify-content: center; position: relative; width: 40px; height: 32px; pointer-events: none; z-index: 1; }
-.wing-layer {
-  position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
-  transform: scale(calc(1 + (var(--layer) - 1) * 0.15)) rotate(calc((var(--layer) - 1) * 12deg));
-  opacity: calc(1 - (var(--layer) - 1) * 0.2);
-  animation: wing-flap-multi 3s infinite ease-in-out;
-  animation-delay: calc(var(--layer) * -0.4s);
-}
-.wings-container.right .wing-layer { transform: scale(calc(1 + (var(--layer) - 1) * 0.15)) rotate(calc((var(--layer) - 1) * -12deg)); animation-name: wing-flap-multi-rev; }
-.pioneer-wing-svg { width: 100%; height: 100%; filter: drop-shadow(0 0 5px rgba(255,255,255,0.4)); }
 
-@keyframes wing-flap-multi {
-  0%, 100% { transform: scale(calc(1 + (var(--layer) - 1) * 0.15)) rotate(calc((var(--layer) - 1) * 12deg)) translateY(0); }
-  50% { transform: scale(calc(1.1 + (var(--layer) - 1) * 0.15)) rotate(calc((var(--layer) - 1) * 12deg + 15deg)) translateY(-4px); }
-}
-@keyframes wing-flap-multi-rev {
-  0%, 100% { transform: scale(calc(1 + (var(--layer) - 1) * 0.15)) rotate(calc((var(--layer) - 1) * -12deg)) translateY(0); }
-  50% { transform: scale(calc(1.1 + (var(--layer) - 1) * 0.15)) rotate(calc((var(--layer) - 1) * -12deg - 15deg)) translateY(-4px); }
-}
-
-/* 2. Magic Bubbles (귀여운 버블) */
-.bubbles-container { position: absolute; inset: -10px -5px; pointer-events: none; z-index: 1; overflow: hidden; }
-.bubble {
-  position: absolute; bottom: 0; left: var(--left); width: var(--size); height: var(--size);
-  background: rgba(255, 255, 255, 0.4); border: 1px solid rgba(255, 255, 255, 0.6); border-radius: 50%;
-  box-shadow: inset -2px -2px 4px rgba(0,0,0,0.05), 0 0 10px rgba(255,255,255,0.3);
-  animation: bubble-float var(--dur) infinite ease-in var(--delay); opacity: 0;
-}
-@keyframes bubble-float {
-  0% { transform: translateY(0) scale(0.5); opacity: 0; }
-  20% { opacity: 0.8; }
-  80% { opacity: 0.8; transform: translateY(-30px) translateX(10px); }
-  100% { transform: translateY(-40px) scale(1.2); opacity: 0; }
-}
-
-/* 3. Starry Night (반짝이는 별) */
-.stars-container { position: absolute; inset: -4px; pointer-events: none; z-index: 10; }
-.twinkle-star {
-  position: absolute; top: var(--top); left: var(--left); width: var(--size); height: var(--size);
-  filter: drop-shadow(0 0 5px #facc15);
-  animation: star-twinkle 2s infinite ease-in-out var(--delay); opacity: 0;
-}
-@keyframes star-twinkle {
-  0%, 100% { transform: scale(0) rotate(0deg); opacity: 0; }
-  50% { transform: scale(1) rotate(180deg); opacity: 1; }
-}
-
-/* 5. Thunder Blue (번개) */
-.thunder-container { position: absolute; inset: -12px -8px; pointer-events: none; z-index: 5; overflow: visible; }
-.lightning-bolt {
-  position: absolute; top: var(--top); left: var(--left); width: var(--size); height: var(--size);
-  filter: drop-shadow(0 0 3px #60a5fa) drop-shadow(0 0 7px rgba(147, 197, 253, 0.9));
-  animation: bolt-flash var(--dur) infinite var(--delay) ease-out;
-  opacity: 0;
-}
-@keyframes bolt-flash {
-  0%, 100% { opacity: 0; transform: scaleY(0.85) translateY(2px); }
-  8% { opacity: 1; transform: scaleY(1.1) translateY(-1px); }
-  18% { opacity: 0.6; transform: scaleY(0.95); }
-  22% { opacity: 1; }
-  30% { opacity: 0; }
-}
-.has-thunder .animated-nickname { box-shadow: 0 0 6px rgba(96, 165, 250, 0.5) !important; animation: thunder-nick-pulse 0.6s infinite alternate !important; }
-@keyframes thunder-nick-pulse { from { box-shadow: 0 0 4px rgba(96, 165, 250, 0.3); } to { box-shadow: 0 0 14px rgba(147, 197, 253, 0.7); } }
 
 /* 6. Aurora Flame — 태양 코로나 불꽃 테두리 (세로 불꽃 없음, box-shadow 전용) */
 .has-flame .animated-nickname {
@@ -870,75 +570,6 @@ onUnmounted(() => {
   }
 }
 
-/* 7. ICE_FROST — 눈결정 흩날림 */
-.frost-container { position: absolute; inset: -15px -5px; pointer-events: none; z-index: 5; overflow: hidden; }
-.snowflake {
-  position: absolute; top: -10px; left: var(--left); width: var(--size); height: var(--size);
-  filter: drop-shadow(0 0 4px rgba(125, 211, 252, 0.95));
-  animation: snowfall var(--dur) infinite var(--delay) ease-in-out;
-  opacity: 0;
-}
-@keyframes snowfall {
-  0%   { opacity: 0; transform: translateY(-4px) translateX(0) rotate(0deg); }
-  15%  { opacity: 0.95; }
-  85%  { opacity: 0.8; transform: translateY(36px) translateX(var(--drift)) rotate(240deg); }
-  100% { opacity: 0; transform: translateY(42px) translateX(var(--drift)) rotate(360deg); }
-}
-.has-ice .animated-nickname { border-color: #7dd3fc !important; animation: ice-glow 1.6s ease-in-out infinite alternate !important; }
-@keyframes ice-glow {
-  from { box-shadow: 0 0 4px rgba(125,211,252,0.4), 0 0 8px rgba(186,230,253,0.2); }
-  to   { box-shadow: 0 0 10px rgba(186,230,253,0.75), 0 0 20px rgba(125,211,252,0.35), 0 0 32px rgba(56,189,248,0.18); }
-}
-
-/* 8. SAKURA_BLOOM — 벚꽃잎 살랑살랑 */
-.sakura-container { position: absolute; inset: -18px -8px; pointer-events: none; z-index: 5; overflow: hidden; }
-.sakura-petal {
-  position: absolute; top: -14px; left: var(--left); width: var(--size); height: calc(var(--size) * 1.7);
-  filter: drop-shadow(0 0 2px rgba(251, 164, 175, 0.65));
-  animation: petal-fall var(--dur) infinite var(--delay) ease-in-out;
-  opacity: 0;
-  transform-origin: center 60%;
-}
-@keyframes petal-fall {
-  0%   { opacity: 0; transform: translateY(-5px) translateX(0) rotate(var(--rot-s)); }
-  10%  { opacity: 0.92; }
-  30%  { transform: translateY(12px) translateX(var(--sway)) rotate(calc(var(--rot-s) + 42deg)); }
-  58%  { transform: translateY(26px) translateX(calc(var(--sway) * -0.75)) rotate(calc(var(--rot-s) + 88deg)); }
-  82%  { opacity: 0.5; transform: translateY(40px) translateX(calc(var(--sway) * 0.5)) rotate(calc(var(--rot-s) + 125deg)); }
-  100% { opacity: 0; transform: translateY(50px) translateX(calc(var(--sway) * -0.2)) rotate(calc(var(--rot-s) + 158deg)); }
-}
-.has-sakura .animated-nickname { border-color: #fb7185 !important; animation: sakura-glow 2s ease-in-out infinite alternate !important; }
-@keyframes sakura-glow {
-  from { box-shadow: 0 0 5px rgba(251,113,133,0.35); }
-  to   { box-shadow: 0 0 12px rgba(253,164,175,0.65), 0 0 22px rgba(251,113,133,0.28); }
-}
-
-/* 9. SHADOW_DEMON — 보라 연기 blob */
-.shadow-container { position: absolute; inset: -10px -8px; pointer-events: none; z-index: 1; overflow: visible; }
-.smoke-blob {
-  position: absolute; bottom: 0; left: var(--left);
-  width: var(--size); height: var(--size);
-  border-radius: 50%;
-  background: radial-gradient(circle,
-    hsla(var(--hue), 65%, 25%, 0.88) 0%,
-    hsla(var(--hue), 75%, 12%, 0.5) 50%,
-    transparent 78%
-  );
-  filter: blur(4px);
-  animation: smoke-rise var(--dur) infinite var(--delay) ease-out;
-  opacity: 0;
-}
-@keyframes smoke-rise {
-  0%   { opacity: 0; transform: translateY(0) scale(0.45); }
-  20%  { opacity: 0.88; transform: translateY(-10px) scale(0.85) translateX(4px); }
-  60%  { opacity: 0.55; transform: translateY(-26px) scale(1.4) translateX(-5px); }
-  100% { opacity: 0; transform: translateY(-40px) scale(1.7) translateX(2px); }
-}
-.has-shadow .animated-nickname { border-color: #7c3aed !important; animation: shadow-pulse 1.4s ease-in-out infinite alternate !important; }
-@keyframes shadow-pulse {
-  from { box-shadow: 0 0 6px rgba(124,58,237,0.45); }
-  to   { box-shadow: 0 0 14px rgba(124,58,237,0.75), 0 0 28px rgba(76,29,149,0.4), 0 0 0 2px rgba(109,40,217,0.3); }
-}
 
 /* 10. NEON_SIGN — 형광 네온 깜박임 (CSS only) */
 .has-neon .animated-nickname { border-color: #00f5ff !important; animation: neon-flicker 3.5s steps(1) infinite !important; }
@@ -999,190 +630,6 @@ onUnmounted(() => {
   86% { opacity: 0; }
 }
 
-/* 13. LOVE_HEART — 하트 아래서 위로 */
-.heart-container { position: absolute; inset: -10px -5px; pointer-events: none; z-index: 5; overflow: hidden; }
-.floating-heart {
-  position: absolute; bottom: 0; left: var(--left); width: var(--size); height: var(--size);
-  filter: drop-shadow(0 0 3px rgba(244, 63, 94, 0.8));
-  animation: heart-float var(--dur) infinite var(--delay) ease-in-out;
-  opacity: 0;
-}
-@keyframes heart-float {
-  0%   { opacity: 0; transform: translateY(0) translateX(0) scale(0.55); }
-  12%  { opacity: 0.92; transform: translateY(-6px) translateX(calc(var(--sway) * 0.3)) scale(0.8); }
-  45%  { opacity: 0.85; transform: translateY(-20px) translateX(var(--sway)) scale(1.05); }
-  78%  { opacity: 0.4; transform: translateY(-34px) translateX(calc(var(--sway) * 0.4)) scale(0.9); }
-  100% { opacity: 0; transform: translateY(-44px) translateX(0) scale(0.6); }
-}
-.has-heart .animated-nickname { border-color: #f43f5e !important; animation: heart-glow 1.8s ease-in-out infinite alternate !important; }
-@keyframes heart-glow {
-  from { box-shadow: 0 0 5px rgba(244,63,94,0.38); }
-  to   { box-shadow: 0 0 12px rgba(251,113,133,0.68), 0 0 22px rgba(244,63,94,0.3); }
-}
-
-/* 14. RAINBOW_WAVE — 무지개 아치형 */
-.rainbow-arch-wrap {
-  position: absolute; bottom: -10px; left: 0; right: 0;
-  pointer-events: none; z-index: 3; width: 100%; height: 80px;
-}
-.rainbow-arch {
-  stroke-dasharray: 240;
-  stroke-dashoffset: 240;
-  filter: drop-shadow(0 0 8px rgba(255, 100, 150, 0.5)) drop-shadow(0 0 15px rgba(120, 80, 255, 0.3));
-  animation: rainbow-draw-erase 4s ease-in-out infinite;
-}
-@keyframes rainbow-draw-erase {
-  0%   { stroke-dashoffset: 240; opacity: 1; }
-  25%  { stroke-dashoffset: 0; opacity: 1; }
-  50%  { stroke-dashoffset: 0; opacity: 1; }
-  75%  { stroke-dashoffset: -240; opacity: 1; }
-  100% { stroke-dashoffset: -240; opacity: 1; }
-}
-
-/* 15. SHOOTING_STAR — 별똥별 가로지름 */
-.shooting-star-container { position: absolute; inset: -2px; pointer-events: none; z-index: 6; overflow: hidden; }
-.shooting-star {
-  position: absolute; top: var(--y); left: -15%;
-  width: 54px; height: 1.5px;
-  background: linear-gradient(90deg, transparent 0%, rgba(255,255,220,0.25) 35%, rgba(255,255,255,0.85) 80%, transparent 100%);
-  border-radius: 1px;
-  animation: shoot-across 1.0s infinite var(--delay) ease-in;
-  opacity: 0;
-}
-.shooting-star::after {
-  content: ''; position: absolute; right: 0; top: -2px;
-  width: 5px; height: 5px; background: white; border-radius: 50%;
-  box-shadow: 0 0 5px 2px rgba(255,255,200,0.95), 0 0 12px rgba(200,225,255,0.7);
-}
-@keyframes shoot-across {
-  0%   { opacity: 0; transform: translateX(-100%); }
-  1.5%   { opacity: 3; }
-  92%  { opacity: 1; }
-  100% { opacity: 0; transform: translateX(250%); }
-}
-
-/* 16. BLACK_HOLE — 블랙홀 빨려들어감 */
-.blackhole-container {
-  position: absolute; right: -24px; top: 50%; transform: translateY(-50%);
-  pointer-events: none; z-index: 4;
-}
-.bh-ring {
-  width: 22px; height: 22px; border-radius: 50%;
-  background: radial-gradient(circle, #000 32%, rgba(80,0,130,0.88) 62%, rgba(50,0,80,0.35) 82%, transparent 100%);
-  animation: bh-pulse 1.4s ease-in-out infinite alternate, bh-appear 7s ease-in-out infinite;
-}
-@keyframes bh-pulse {
-  from { box-shadow: 0 0 8px 2px rgba(120,0,200,0.75), 0 0 16px rgba(60,0,100,0.45); }
-  to   { box-shadow: 0 0 14px 4px rgba(160,0,255,0.9), 0 0 26px rgba(80,0,150,0.6); }
-}
-@keyframes bh-appear {
-  0%, 22%  { opacity: 0; transform: scale(0); }
-  28%, 68% { opacity: 1; transform: scale(1); }
-  76%, 100% { opacity: 0; transform: scale(0); }
-}
-.has-blackhole .animated-nickname {
-  animation: blackhole-pull 7s ease-in-out infinite !important;
-  transform-origin: right center;
-}
-@keyframes blackhole-pull {
-  0%, 26%  { opacity: 1; transform: scale(1) translateX(0); filter: none; }
-  48%      { opacity: 0.5; transform: scale(0.45) translateX(22px); filter: blur(1.5px); }
-  58%, 78% { opacity: 0; transform: scale(0.05) translateX(40px); filter: blur(4px); }
-  79%      { opacity: 0; transform: scale(1) translateX(0); filter: none; }
-  88%, 100% { opacity: 1; transform: scale(1) translateX(0); filter: none; }
-}
-
-/* 17. WHITE_HOLE — 화이트홀 뱉어냄 */
-.whitehole-container {
-  position: absolute; left: -24px; top: 50%; transform: translateY(-50%);
-  pointer-events: none; z-index: 4;
-}
-.wh-ring {
-  width: 22px; height: 22px; border-radius: 50%;
-  background: radial-gradient(circle, #ffffff 32%, rgba(210,235,255,0.88) 62%, rgba(170,210,255,0.3) 82%, transparent 100%);
-  animation: wh-pulse 1.4s ease-in-out infinite alternate, wh-appear 7s ease-in-out infinite;
-}
-@keyframes wh-pulse {
-  from { box-shadow: 0 0 8px 3px rgba(210,235,255,0.85), 0 0 18px rgba(150,200,255,0.55); }
-  to   { box-shadow: 0 0 14px 5px rgba(230,245,255,0.95), 0 0 28px rgba(170,220,255,0.7); }
-}
-@keyframes wh-appear {
-  0%, 10%  { opacity: 0; transform: scale(0); }
-  18%, 38% { opacity: 1; transform: scale(1); }
-  46%, 100% { opacity: 0; transform: scale(0); }
-}
-.has-whitehole .animated-nickname {
-  animation: whitehole-eject 7s ease-in-out infinite !important;
-  transform-origin: left center;
-}
-@keyframes whitehole-eject {
-  0%, 14%  { opacity: 0; transform: scale(0.05) translateX(-40px); filter: blur(4px); }
-  32%      { opacity: 0.5; transform: scale(0.5) translateX(-15px); filter: blur(1.5px); }
-  43%, 74% { opacity: 1; transform: scale(1) translateX(0); filter: none; }
-  88%      { opacity: 0.3; filter: blur(1px); }
-  100%     { opacity: 0; transform: scale(0.05) translateX(-40px); filter: blur(4px); }
-}
-
-/* 18. BOMB — 폭탄 심줄 테두리 따라 타들어감 */
-.bomb-fuse-container {
-  position: absolute; inset: 0px 0px 0px 0px; 
-  pointer-events: none; z-index: 7; overflow: visible;
-   width: 100%; height: 100%;
-}
-.bomb-border-rect {
-  fill: none;
-  stroke: rgb(255, 255, 255);
-  stroke-width: 5;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-  stroke-dasharray: 400;
-  stroke-dashoffset: 400;
-  filter: drop-shadow(0 0 2px rgb(255, 135, 135)) 
-  drop-shadow(0 0 20px rgba(255, 173, 173, 0.9)) 
-  drop-shadow(0 0 20px rgba(255, 201, 201, 0.6));
-  animation: bomb-burn-border 4s infinite ease-in;
-}
-@keyframes bomb-burn-border {
-  0% { stroke-dashoffset: 400; opacity: 1; }
-  90% { stroke-dashoffset: 0; opacity: 1; }
-  100% { stroke-dashoffset: 0; opacity: 0; }
-}
-
-.has-bomb .animated-nickname {
-  animation: bomb-nick-glow 3s infinite ease-in !important;
-}
-@keyframes bomb-nick-glow {
-  0% { box-shadow: 0 0 5px rgba(255, 0, 0, 0.2); }
-  50% { box-shadow: 0 0 12px rgba(255, 100, 100, 0.5); }
-  100% { box-shadow: 0 0 5px rgba(255, 0, 0, 0); }
-}
-
-/* 12. VOID_RIFT — 차원 균열 파티클 orbit */
-.void-container { position: absolute; inset: -22px; pointer-events: none; z-index: 5; }
-.void-particle {
-  position: absolute; top: 50%; left: 50%;
-  width: var(--size); height: var(--size);
-  margin: calc(var(--size) / -2) 0 0 calc(var(--size) / -2);
-  border-radius: 50%;
-  background: radial-gradient(circle, rgba(192,132,252,0.95), rgba(109,40,217,0.65));
-  box-shadow: 0 0 5px rgba(167,139,250,0.9);
-  animation: void-orbit var(--dur) infinite var(--delay) ease-in-out;
-  opacity: 0;
-}
-@keyframes void-orbit {
-  0%   { opacity: 0; transform: rotate(var(--angle)) translateX(var(--dist)) scale(0.4); }
-  25%  { opacity: 1; }
-  70%  { opacity: 0.7; transform: rotate(calc(var(--angle) + 130deg)) translateX(var(--dist)) scale(1.3); }
-  100% { opacity: 0; transform: rotate(calc(var(--angle) + 210deg)) translateX(calc(var(--dist) * 0.25)) scale(0.2); }
-}
-.has-void .animated-nickname { border-color: #8b5cf6 !important; animation: void-distort 4.5s ease-in-out infinite !important; }
-@keyframes void-distort {
-  0%, 78%, 100% { transform: skewX(0) skewY(0); box-shadow: 0 0 7px rgba(109,40,217,0.5); }
-  80% { transform: skewX(-3deg) skewY(1deg); box-shadow: 0 0 12px rgba(167,139,250,0.75); }
-  82% { transform: skewX(2.5deg); box-shadow: 0 0 18px rgba(139,92,246,0.85); }
-  84% { transform: skewX(0); box-shadow: 0 0 22px rgba(109,40,217,0.55), 0 0 40px rgba(76,29,149,0.3); }
-  93% { transform: skewX(-1deg) scaleX(0.98); }
-}
 
 /* --- Tier CSS Variables --- */
 .tier-1 { --tier-color: var(--text-secondary); --tier-bg: rgba(0,0,0,0.03); --tier-gradient: var(--text-primary); }
