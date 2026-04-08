@@ -68,12 +68,15 @@ public class CommentService {
 
     @Transactional
     public CommentResponseDto createComment(Long postId, CommentRequestDto requestDto) {
-        // [시니어 조치] 최후의 수단: 현재 세션의 오염된 프록시(특히 User #1)를 모두 비우고 시작
-        entityManager.clear();
-
+        // [시니어 조치] 세션 전체를 비우는 clear() 대신, 특정 유저(User #1 등)의 프록시 오염만 정밀 타격하여 해결
+        // 과거 LazyInitializationException의 원인이었던 clear()를 제거하고 refresh()를 도입합니다.
+        
         UserPrincipal principal = (UserPrincipal) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
         User author = userRepository.findById(principal.getId())
                 .orElseThrow(() -> new NoSuchElementException("사용자를 찾을 수 없습니다."));
+        
+        // [시니어 조치] 오염된 프록시를 방지하기 위해 DB의 최신 상태로 강제 동기화
+        entityManager.refresh(author);
         
         if (karmaService.isRestricted(author)) throw new IllegalArgumentException("활동 제한 상태입니다.");
         
