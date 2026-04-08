@@ -90,6 +90,9 @@ public class PostService {
     @Transactional
     public PostResponseDto createPost(PostRequestDto requestDto, UserPrincipal currentUser) {
         User author = userRepository.findById(currentUser.getId()).orElseThrow();
+        // [시니어 조치] 오염된 프록시를 방지하기 위해 DB의 최신 상태로 강제 동기화
+        entityManager.refresh(author);
+        
         if (karmaService.isRestricted(author)) throw new IllegalArgumentException("활동 제한 상태입니다.");
         Notice notice = null;
         if (requestDto.getType() == PostType.NOTICE) notice = noticeRepository.findById(requestDto.getNoticeId()).orElseThrow();
@@ -140,6 +143,9 @@ public class PostService {
     @Transactional
     public PostResponseDto updatePost(Long postId, PostRequestDto requestDto, UserPrincipal currentUser) {
         Post post = postRepository.findById(postId).orElseThrow();
+        // [시니어 조치] 수정 전 게시글 상태와 작성자 정보를 최신화
+        entityManager.refresh(post);
+        
         if (!post.getAuthor().getId().equals(currentUser.getId())) throw new IllegalArgumentException("수정 권한 없음");
 
         // [시니어 조치] 엔티티 시그니처 변경에 따른 호출부 보정 (타입 유지)
@@ -430,6 +436,9 @@ public class PostService {
     @Transactional
     public void deletePost(Long postId, UserPrincipal currentUser) {
         Post post = postRepository.findById(postId).orElseThrow();
+        // [시니어 조치] 삭제 및 회수 정산 전 상태를 최신화
+        entityManager.refresh(post);
+        
         if (!post.getAuthor().getId().equals(currentUser.getId())) throw new IllegalArgumentException("삭제 권한 없음");
         
         // 1. [방어] 이미 삭제된 게시글 중복 처리 방지

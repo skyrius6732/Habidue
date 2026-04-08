@@ -77,8 +77,8 @@ public class BadgeService {
                 int updated = userBadgeRepository.updateLevelIfLower(userBadge.getId(), targetRule.getLevel());
                 if (updated > 0) {
                     expService.grantExp(stats.getUser().getId(), ExpReason.BADGE_ACQUIRED, "배지 승급: " + targetRule.getRankTitle() + " " + targetRule.getCategoryName());
-                    log.info("🎖️ 유저 [{}]님의 [{}] 배지가 Lv.{}로 승급했습니다!",
-                            stats.getUser().getNickname(), type, targetRule.getLevel());
+                    log.info("🎖️ 유저 ID [{}]님의 [{}] 배지가 Lv.{}로 승급했습니다!",
+                            stats.getUser().getId(), type, targetRule.getLevel());
                 }
             }
         });

@@ -115,16 +115,16 @@ public class UserService {
             int oldCount = stats.getTotalAttendanceCount();
             stats.setTotalAttendanceCount((int) actualTotalCount);
             isStatsUpdated = true;
-            log.info("📢 유저 [{}]님의 누적 출석수가 실시간 보정되었습니다 ({} -> {})", 
-                user.getNickname(), oldCount, actualTotalCount);
+            log.info("📢 유저 ID [{}]님의 누적 출석수가 실시간 보정되었습니다 ({} -> {})", 
+                user.getId(), oldCount, actualTotalCount);
         }
 
         // [시니어 조치] 연속 출석 정화 (Yesterday 이후 출석 기록이 없으면 연속 끊김 처리)
         LocalDate today = LocalDate.now();
         LocalDate lastDate = stats.getLastAttendanceDate();
         if (lastDate != null && !lastDate.equals(today) && !lastDate.equals(today.minusDays(1))) {
-            log.info("📢 유저 [{}]님의 연속 출석이 끊겼습니다 (마지막 출석: {}, 현재 연속일: {} -> 0)", 
-                user.getNickname(), lastDate, stats.getConsecutiveAttendanceDays());
+            log.info("📢 유저 ID [{}]님의 연속 출석이 끊겼습니다 (마지막 출석: {}, 현재 연속일: {} -> 0)", 
+                user.getId(), lastDate, stats.getConsecutiveAttendanceDays());
             stats.setConsecutiveAttendanceDays(0);
             isStatsUpdated = true;
         }
@@ -218,15 +218,15 @@ public class UserService {
         // 장착 해제
         if (effectCode == null || effectCode.trim().isEmpty()) {
             user.setEquippedEffect(null);
-            log.info("유저 [{}]님의 특수 효과가 해제되었습니다.", user.getNickname());
+            log.info("유저 ID [{}]님의 특수 효과가 해제되었습니다.", user.getId());
             return userRepository.save(user);
         }
 
         // [시니어 조치] 관리자는 모든 검증 생략
         if (user.getRole() == Role.ADMIN) {
             user.setEquippedEffect(effectCode);
-            log.info("관리자 [{}]님이 사용자 [{}]의 특수 효과를 [{}]로 변경했습니다.",
-                user.getNickname(), user.getId(), effectCode);
+            log.info("관리자가 사용자 ID [{}]의 특수 효과를 [{}]로 변경했습니다.",
+                user.getId(), effectCode);
             return userRepository.save(user);
         }
 
@@ -236,7 +236,7 @@ public class UserService {
                 throw new IllegalArgumentException("아직 해금되지 않은 이펙트입니다.");
             }
             user.setEquippedEffect(effectCode);
-            log.info("유저 [{}]님의 특수 효과가 [{}]로 변경되었습니다.", user.getNickname(), effectCode);
+            log.info("유저 ID [{}]님의 특수 효과가 [{}]로 변경되었습니다.", user.getId(), effectCode);
             return userRepository.save(user);
         }
 
@@ -265,7 +265,7 @@ public class UserService {
         }
 
         user.setEquippedEffect(effectCode);
-        log.info("유저 [{}]님의 특수 효과가 [{}]로 변경되었습니다.", user.getNickname(), effectCode);
+        log.info("유저 ID [{}]님의 특수 효과가 [{}]로 변경되었습니다.", user.getId(), effectCode);
         return userRepository.save(user);
     }
 

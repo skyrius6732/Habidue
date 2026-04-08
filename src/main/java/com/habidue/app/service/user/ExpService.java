@@ -23,6 +23,7 @@ public class ExpService {
     private final com.habidue.app.service.ranking.RankingService rankingService;
     private final UserEffectService userEffectService;
     private final NotificationService notificationService;
+    private final jakarta.persistence.EntityManager entityManager;
 
     /**
      * 레벨 테이블 (간단한 산술식 또는 고정 구간)
@@ -46,6 +47,8 @@ public class ExpService {
 
         // 2. 이력 저장을 위한 유저 조회 (업데이트된 값 포함)
         User user = userRepository.findById(userId).orElseThrow();
+        // [시니어 조치] 레벨 계산 전 유저 경험치 상태를 DB와 강제 동기화 (프록시 오염 방지)
+        entityManager.refresh(user);
         
         // 3. 경험치 이력 저장
         ExpHistory history = ExpHistory.create(user, expToGrant, reason, description);
@@ -133,8 +136,10 @@ public class ExpService {
 
         // 2. 이력 저장을 위한 유저 조회
         User user = userRepository.findById(userId).orElseThrow();
+        // [시니어 조치] 레벨 재계산 전 유저 경험치 상태를 DB와 강제 동기화
+        entityManager.refresh(user);
 
-        // 3. 경험치 회수 이력 저장
+        // 3. 경험치 이력 저장 (차감 내역)
         ExpHistory history = ExpHistory.create(user, -expToRevoke, reason, "[회수] " + description);
         expHistoryRepository.save(history);
 

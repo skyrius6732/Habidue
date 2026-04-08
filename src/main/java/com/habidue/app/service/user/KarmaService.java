@@ -26,6 +26,7 @@ public class KarmaService {
     private final NotificationService notificationService;
     private final PostRepository postRepository;
     private final CommentRepository commentRepository;
+    private final jakarta.persistence.EntityManager entityManager;
 
     public static final int KARMA_SCALE = 10;
     public static final int DAILY_MAX_RECOVERY = 50;
@@ -33,6 +34,9 @@ public class KarmaService {
     @Transactional
     public void deductKarma(Long userId, int points, KarmaReason reason, String comment, User admin, boolean shouldTriggerBan) {
         User user = userRepository.findById(userId).orElseThrow();
+        // [시니어 조치] 오염된 프록시를 방지하기 위해 DB의 최신 상태로 강제 동기화
+        entityManager.refresh(user);
+        
         int scaledPoints = Math.abs(points) * KARMA_SCALE;
         int newPoint = Math.max(0, user.getKarmaPoint() - scaledPoints);
         user.setKarmaPoint(newPoint);
@@ -47,6 +51,9 @@ public class KarmaService {
     @Transactional
     public int restoreKarma(Long userId, int points, String comment, User admin, Integer maxAllowedTotal, KarmaReason reason) {
         User user = userRepository.findById(userId).orElseThrow();
+        // [시니어 조치] 오염된 프록시를 방지하기 위해 DB의 최신 상태로 강제 동기화
+        entityManager.refresh(user);
+        
         if (user.getKarmaPoint() >= 1000) return 0;
 
         // [시니어 조치] 게시글 단위 상한선(Cap) 정밀 체크
@@ -110,6 +117,8 @@ public class KarmaService {
     @Transactional
     public int revokeKarma(Long userId, int points, String comment, KarmaReason reason, Integer currentTotalActiveCount, Integer maxAllowedTotal) {
         User user = userRepository.findById(userId).orElseThrow();
+        // [시니어 조치] 회수 전 현재 유저 점수 상태를 최신화
+        entityManager.refresh(user);
 
         // 1. 이 postKey로 실제 획득한 순수 점수 (부여 - 회수 합산)
         Integer sumResult = (comment != null) ? karmaHistoryRepository.getSumByUserIdAndComment(userId, comment) : 0;
@@ -187,11 +196,15 @@ public class KarmaService {
 
     @Transactional
     public void manualAdjustKarmaRaw(Long userId, int rawDelta, KarmaReason reason, String comment, User admin, boolean shouldTriggerBan) {
+        // [시니어 조치] 수동 조정 전 유저 상태를 최신화하여 정합성 보장
+        User user = userRepository.findById(userId).orElseThrow();
+        entityManager.refresh(user);
+        
         // 1. 원자적 업데이트 수행
         userRepository.updateKarmaPoint(userId, rawDelta);
 
         // 2. 최신 점수 재조회
-        User user = userRepository.findById(userId).orElseThrow();
+        user = userRepository.findById(userId).orElseThrow();
         int newPoint = user.getKarmaPoint();
         
         // 이력 저장을 위해 실제 변화량 계산 (상한/하한 적용 후)
@@ -222,6 +235,9 @@ public class KarmaService {
     @Transactional
     public void liftRestriction(Long userId, User admin) {
         User user = userRepository.findById(userId).orElseThrow();
+        // [시니어 조치] 상태 해제 전 유저 정보를 최신화
+        entityManager.refresh(user);
+        
         user.setRestrictedUntil(null);
         if (user.getStatus() == UserStatus.RESTRICTED) user.setStatus(UserStatus.ACTIVE);
         karmaHistoryRepository.save(KarmaHistory.builder().user(user).reason(KarmaReason.RESTORATION).pointChange(0).resultingPoint(user.getKarmaPoint()).comment("관리자에 의한 활동 제한 해제").admin(admin).build());
