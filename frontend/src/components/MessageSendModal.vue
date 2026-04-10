@@ -7,7 +7,8 @@ import { useUiStore } from '@/stores/ui'
 const props = defineProps({
   show: Boolean,
   receiverPublicId: [Number, String], // [시니어 조치] 공개 ID로 명칭 통일
-  receiverNickname: String
+  receiverNickname: String,
+  isWithdrawn: { type: Boolean, default: false } // [시니어 조치] 탈퇴 여부 직접 전달
 })
 
 const emit = defineEmits(['close', 'success'])
@@ -31,7 +32,8 @@ const isKarmaLow = computed(() => {
 })
 
 const isReceiverWithdrawn = computed(() => {
-  return !props.receiverPublicId || props.receiverNickname === '(탈퇴한 사용자)'
+  // [시니어 조치] 데이터 기반 탈퇴 여부와 닉네임 표기 기반 여부를 모두 확인 (이중 방어)
+  return props.isWithdrawn || !props.receiverPublicId || props.receiverNickname === '(탈퇴한 사용자)'
 })
 
 onMounted(async () => {

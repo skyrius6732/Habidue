@@ -1475,8 +1475,8 @@ onMounted(async () => {
   background: var(--card-bg); border: 1.5px solid var(--border-color); border-radius: 28px;
   display: grid; grid-template-columns: 6fr 4fr; margin-bottom: 35px; box-shadow: 0 12px 40px rgba(0,0,0,0.04); overflow: visible;
 }
-.dash-main-col { padding: 35px; border-right: 1.5px solid var(--border-color); background: linear-gradient(135deg, var(--hover-bg), var(--card-bg)); border-radius: 28px 0 0 28px; }
-.dash-side-col { padding: 25px; display: flex; flex-direction: column; gap: 12px; justify-content: center; background: var(--card-bg); border-radius: 0 28px 28px 0; }
+.dash-main-col { padding: 35px; border-right: 1.5px solid var(--border-color); background: linear-gradient(135deg, var(--hover-bg), var(--card-bg)); border-radius: 28px 0 0 28px; position: relative; z-index: 10; }
+.dash-side-col { padding: 25px; display: flex; flex-direction: column; gap: 12px; justify-content: center; background: var(--card-bg); border-radius: 0 28px 28px 0; position: relative; z-index: 1; overflow: visible; }
 
 .dash-integrated-profile { display: flex; flex-direction: column; gap: 90px; }
 .profile-top-info { display: flex; align-items: center; gap: 25px; transform: translateY(30px); }
@@ -1514,7 +1514,8 @@ onMounted(async () => {
   flex-direction: column;
   gap: 8px;
   transition: all 0.2s;
-  position: relative; /* 태그 배치를 위해 추가 */
+  position: relative;
+  z-index: 1;
 }
 
 .dash-percent-tag {
@@ -1530,7 +1531,7 @@ onMounted(async () => {
   box-shadow: 0 4px 8px rgba(250, 219, 20, 0.3);
   z-index: 10;
 }
-.dash-stat-box:hover { transform: translateY(-3px); border-color: var(--link-color); }
+.dash-stat-box:hover { transform: translateY(-3px); border-color: var(--link-color); z-index: 20; }
 .stat-icon-mini { font-size: 1.5rem; }
 .stat-label { font-size: 0.65rem; font-weight: 800; color: var(--text-secondary); text-transform: uppercase; }
 .stat-num { font-size: 1.2rem; font-weight: 950; }

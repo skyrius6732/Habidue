@@ -103,18 +103,37 @@ public class MessageService {
     @Transactional
     public void deleteConversation(User user, Long partnerId) {
         User partner = userRepository.findById(partnerId).orElseThrow();
-        List<Message> messages = messageRepository.findConversationWithPartner(user, partner);
+        // [시니어 조치] 시스템 메시지 필터링 없이 모든 메시지 조회 (대화방 완전 삭제용)
+        List<Message> messages = messageRepository.findAllMessagesWithPartnerForDeletion(user, partner);
+        log.info("[deleteConversation] user={}, partnerId={}, 조회된 메시지 수={}", user.getId(), partnerId, messages.size());
         for (Message msg : messages) {
-            if (msg.getSender().getId().equals(user.getId())) msg.deleteBySender();
-            else if (msg.getReceiver().getId().equals(user.getId())) msg.deleteByReceiver();
+            // [시니어 조치] sender가 null이거나 system 메시지인 경우도 처리
+            if (msg.getSender() != null && msg.getSender().getId().equals(user.getId())) {
+                log.info("[deleteConversation] 메시지 ID={} - deleteBySender 처리 (sender={})", msg.getId(), msg.getSender().getId());
+                msg.deleteBySender();
+            } else if (msg.getReceiver().getId().equals(user.getId())) {
+                log.info("[deleteConversation] 메시지 ID={} - deleteByReceiver 처리 (receiver={})", msg.getId(), msg.getReceiver().getId());
+                msg.deleteByReceiver();
+            } else {
+                log.warn("[deleteConversation] 메시지 ID={} - 처리 실패 (sender={}, receiver={})", msg.getId(),
+                    msg.getSender() != null ? msg.getSender().getId() : "null", msg.getReceiver().getId());
+            }
         }
     }
 
     @Transactional
     public void deleteMessage(Long messageId, User user) {
         Message message = messageRepository.findById(messageId).orElseThrow();
-        if (message.getSender().getId().equals(user.getId())) message.deleteBySender();
-        else if (message.getReceiver().getId().equals(user.getId())) message.deleteByReceiver();
+        log.info("[deleteMessage] messageId={}, user={}", messageId, user.getId());
+        if (message.getSender() != null && message.getSender().getId().equals(user.getId())) {
+            log.info("[deleteMessage] messageId={} - deleteBySender 처리", messageId);
+            message.deleteBySender();
+        } else if (message.getReceiver().getId().equals(user.getId())) {
+            log.info("[deleteMessage] messageId={} - deleteByReceiver 처리", messageId);
+            message.deleteByReceiver();
+        } else {
+            log.warn("[deleteMessage] messageId={} - 처리 실패", messageId);
+        }
     }
 
     @Transactional
@@ -197,14 +216,23 @@ public class MessageService {
     @Transactional
     public void blockUser(User blocker, Long blockedId, String reason, boolean isSystemBlock) {
         User blocked = userRepository.findById(blockedId).orElseThrow();
-        if (userBlockRepository.existsByBlockerAndBlocked(blocker, blocked)) return;
-        
-        // [시니어 조치] 수동 차단시에만 대화방을 숨김 처리하고, 
+        log.info("[blockUser] blocker={}, blocked={}, isSystemBlock={}", blocker.getId(), blockedId, isSystemBlock);
+
+        // [시니어 조치] 수동 차단시에만 대화방을 숨김 처리하고,
         // 관리자 제재에 의한 시스템 차단 시에는 대화 맥락 보존을 위해 삭제하지 않음.
+        // 이미 차단되어 있어도 사용자의 수동 차단 요청이면 대화방 삭제 처리
         if (!isSystemBlock) {
+            log.info("[blockUser] 수동 차단 - deleteConversation 호출");
             deleteConversation(blocker, blockedId);
+        } else {
+            log.info("[blockUser] 시스템 차단 - deleteConversation 호출 안 함 (대화방 유지, 차단만 처리)");
         }
-        
+
+        if (userBlockRepository.existsByBlockerAndBlocked(blocker, blocked)) {
+            log.info("[blockUser] 이미 차단 레코드 존재 - early return");
+            return;
+        }
+        log.info("[blockUser] 차단 레코드 생성");
         userBlockRepository.save(UserBlock.builder().blocker(blocker).blocked(blocked).reason(reason).isSystemBlock(isSystemBlock).build());
     }
 

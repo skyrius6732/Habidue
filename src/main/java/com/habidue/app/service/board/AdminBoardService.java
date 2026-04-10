@@ -251,22 +251,27 @@ public class AdminBoardService {
                     messageService.sendAdminResultSystemMessage(suspect, reporter, reporterMsg, reporter.getId(), false, targetId);
                 }
             } else if (status == ReportStatus.DELETE_COMPLETE) {
+                log.info("[DELETE_COMPLETE] targetId={}, suspect={}, reporters 수={}", targetId, suspect.getId(), reporters.size());
                 karmaService.deductKarma(suspect.getId(), 70, KarmaReason.REPORT_MESSAGE_APPROVED, "심각한 위반으로 인한 영구 제한 (ID: " + targetId + ")", null, true);
                 notificationService.send(suspect, NotificationType.SYSTEM, "🚫 보내신 쪽지가 심각한 운영 정책 위반으로 영구 제한되었습니다: \"" + preview + "\"", null, null);
-                
+
                 // 피신고자 대상 시스템 메시지
                 String suspectMsg = hasAiAnalysis
                     ? "🚫 [주의] 심각한 운영 정책 위반('" + violation + "') 정황이 확인되어 본 대화방 이용이 영구 제한됩니다."
                     : "🚫 [주의] 심각한 운영 정책 위반 사항이 확인되어 본 대화방 이용이 영구 제한됩니다.";
                 messageService.sendAdminResultSystemMessage(partner, suspect, suspectMsg, suspect.getId(), true, targetId);
-                
+                log.info("[DELETE_COMPLETE] 피신고자 시스템 메시지 발송 완료");
+
                 // 신고자 대상 시스템 메시지
                 for (User reporter : reporters) {
+                    log.info("[DELETE_COMPLETE] blockUser 호출 - reporter={}, suspect={}", reporter.getId(), suspect.getId());
                     messageService.blockUser(reporter, suspect.getId(), "심각한 운영원칙 위반('" + violation + "')으로 인한 자동 격리", true);
+                    log.info("[DELETE_COMPLETE] blockUser 호출 완료 - reporter={}", reporter.getId());
                     String reporterMsg = hasAiAnalysis
                         ? "📢 [안내] 신고하신 대화방에 대해 '" + violation + "' 심각한 위반이 확인되어 영구 제한 및 상대방 차단 조치가 완료되었습니다."
                         : "📢 [안내] 신고하신 내용에 대해 심각한 운영 정책 위반 확인으로 상대방 차단 및 영구 조치가 완료되었습니다.";
                     messageService.sendAdminResultSystemMessage(suspect, reporter, reporterMsg, reporter.getId(), true, targetId);
+                    log.info("[DELETE_COMPLETE] 신고자 시스템 메시지 발송 완료 - reporter={}", reporter.getId());
                 }
             } else if (status == ReportStatus.REJECTED || status == ReportStatus.WAITING) {
                 messageService.restoreMessage(targetId);

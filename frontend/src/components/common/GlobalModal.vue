@@ -67,7 +67,7 @@ onUnmounted(() => window.removeEventListener('keydown', handleEsc))
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 10000;
+  z-index: 20000;
   padding: 20px;
 }
 

@@ -250,10 +250,20 @@ const getStatTooltip = (type, value) => {
 /* 레벨 대시보드 v4 */
 .level-dashboard-card-v4 {
   background: var(--card-bg); border: 1.5px solid var(--border-color); border-radius: 28px;
-  display: grid; grid-template-columns: 6fr 4fr; margin-bottom: 35px; box-shadow: 0 12px 40px rgba(0,0,0,0.04); overflow: visible;
+  display: grid; grid-template-columns: 6fr 4fr; margin-bottom: 35px; box-shadow: 0 12px 40px rgba(0,0,0,0.04); 
+  position: relative; z-index: 10; overflow: visible;
 }
-.dash-main-col { padding: 35px; border-right: 1.5px solid var(--border-color); background: linear-gradient(135deg, var(--hover-bg), var(--card-bg)); border-radius: 28px 0 0 28px; }
-.dash-side-col { padding: 25px; display: flex; flex-direction: column; gap: 12px; justify-content: center; background: var(--card-bg); border-radius: 0 28px 28px 0; }
+.dash-main-col { 
+  padding: 35px; border-right: 1.5px solid var(--border-color); 
+  background: linear-gradient(135deg, var(--hover-bg), var(--card-bg)); 
+  border-radius: 28px 0 0 28px;
+  position: relative; z-index: 5; /* [시니어 조치] 툴팁이 사이드바를 덮도록 레이어 상향 */
+}
+.dash-side-col { 
+  padding: 25px; display: flex; flex-direction: column; gap: 12px; justify-content: center; 
+  background: var(--card-bg); border-radius: 0 28px 28px 0;
+  position: relative; z-index: 1; /* [시니어 조치] 메인 컬럼보다 낮은 레이어 유지 */
+}
 
 .dash-integrated-profile { display: flex; flex-direction: column; gap: 40px; }
 .profile-top-info { display: flex; align-items: center; gap: 25px; }
@@ -294,7 +304,7 @@ const getStatTooltip = (type, value) => {
 .dash-karma-box-v2.danger .score-num-v2 { color: #ef4444; }
 
 /* Activity Stats Grid */
-.activity-stats-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; }
+.activity-stats-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; position: relative; z-index: 1; }
 .stat-card-v2 { background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 18px; cursor: pointer; transition: all 0.2s; position: relative; }
 .stat-card-v2:hover { border-color: var(--link-color); transform: translateY(-3px); }
 .stat-card-inner-v2 { padding: 18px; display: flex; align-items: center; gap: 15px; position: relative; }

@@ -47,6 +47,7 @@ public interface MessageRepository extends JpaRepository<Message, Long> {
     long countUnreadMessagesWithPartner(@Param("user") User user, @Param("partner") User partner);
 
     // 대화방 목록 조회 (상대방별 최신 쪽지 1개씩, 최근 90일 내역만) - OSIV OFF 대응 Fetch Join 추가
+    // [시니어 조치] 사용자가 수동으로 차단한 상대방과의 대화방만 제외 (운영자 시스템 차단은 대화방 유지)
     @Query("SELECT m FROM Message m " +
            "LEFT JOIN FETCH m.sender " +
            "LEFT JOIN FETCH m.receiver " +
@@ -57,6 +58,7 @@ public interface MessageRepository extends JpaRepository<Message, Long> {
            "  OR (m2.receiver = :user AND m2.deletedByReceiver = false)) " +
            "  AND m2.isDeleted = false " +
            "  AND m2.createdAt >= :since " +
+           "  AND NOT EXISTS (SELECT 1 FROM UserBlock ub WHERE ub.blocker = :user AND ub.isSystemBlock = false AND ((ub.blocked = m2.sender AND m2.sender IS NOT NULL) OR (ub.blocked = m2.receiver)))" +
            "  GROUP BY CASE WHEN m2.sender = :user THEN m2.receiver.id ELSE COALESCE(m2.sender.id, 0) END" +
            ") ORDER BY m.createdAt DESC")
     Page<Message> findLatestMessagesByPartnersWithTime(@Param("user") User user, @Param("since") java.time.LocalDateTime since, Pageable pageable);
@@ -74,7 +76,7 @@ public interface MessageRepository extends JpaRepository<Message, Long> {
     List<Message> findConversationWithPartnerWithTime(@Param("user") User user, @Param("partner") User partner, @Param("since") java.time.LocalDateTime since);
 
     // 특정 유저와의 전체 대화 내역 조회 (삭제/관리용) - [시니어 정밀 보정]
-    // 핵심 로직: 
+    // 핵심 로직:
     // 1. 내가 삭제하지 않은(deletedBy... = false) 메시지는 일반/시스템 모두 노출
     // 2. 시스템 메시지(isSystem=true)인 경우, visibleToUserId가 지정되어 있다면 본인에게만 노출
     @Query("SELECT m FROM Message m " +
@@ -88,6 +90,19 @@ public interface MessageRepository extends JpaRepository<Message, Long> {
            ") " +
            "AND m.isDeleted = false")
     List<Message> findConversationWithPartner(@Param("user") User user, @Param("partner") User partner);
+
+    // [시니어 조치] 대화방 삭제용 - 모든 관련 메시지 조회 (시스템 메시지 포함)
+    @Query("SELECT m FROM Message m " +
+           "LEFT JOIN FETCH m.sender " +
+           "LEFT JOIN FETCH m.receiver " +
+           "LEFT JOIN FETCH m.attachments " +
+           "WHERE ( " +
+           "  (m.sender = :user AND m.receiver = :partner AND m.deletedBySender = false) " +
+           "  OR " +
+           "  (m.sender = :partner AND m.receiver = :user AND m.deletedByReceiver = false) " +
+           ") " +
+           "AND m.isDeleted = false")
+    List<Message> findAllMessagesWithPartnerForDeletion(@Param("user") User user, @Param("partner") User partner);
 
     // 특정 유저에게 온 AI 위험 메시지 조회 (관리자용)
     @Query("SELECT m FROM Message m WHERE m.aiScore >= :threshold ORDER BY m.createdAt DESC")

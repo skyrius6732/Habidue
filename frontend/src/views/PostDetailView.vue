@@ -96,6 +96,7 @@
                     :author-equipped-effect="post.authorEquippedEffect"
                     :show-avatar="true"
                     :karma-point="post.authorKarmaPoint"
+                    :author-active="post.authorActive"
                   />
                 </div>
                 <div class="post-info-right">                  <span class="info-item date">{{ formatFullDate(post.createdAt) }}</span>
@@ -186,6 +187,7 @@
                         :author-equipped-effect="comment.authorEquippedEffect"
                         :show-avatar="true"
                         :karma-point="comment.authorKarmaPoint"
+                        :author-active="comment.authorActive"
                       />
                       
                       <!-- [시니어] 운영자 전용 댓글 관리 버튼 -->
@@ -268,6 +270,7 @@
                           :author-equipped-effect="reply.authorEquippedEffect"
                           :show-avatar="true"
                           :karma-point="reply.authorKarmaPoint"
+                          :author-active="reply.authorActive"
                         />
 
                         <!-- [시니어] 운영자 전용 답글 관리 버튼 -->

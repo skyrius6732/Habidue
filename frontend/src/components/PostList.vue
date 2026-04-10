@@ -70,6 +70,7 @@
                 :author-equipped-effect="post.authorEquippedEffect"
                 :show-avatar="true"
                 :karma-point="post.authorKarmaPoint"
+                :author-active="post.authorActive"
               />
             </div>
             <span class="post-date-v2">{{ formatDate(post.createdAt) }}</span>

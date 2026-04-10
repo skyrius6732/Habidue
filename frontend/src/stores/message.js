@@ -150,7 +150,13 @@ export const useMessageStore = defineStore('message', () => {
   }
 
   const deleteConversation = async (partnerPublicId) => {
-    try { await axios.delete(`/api/messages/conversation/${partnerPublicId}`); return true } catch (e) { return false }
+    try {
+      await axios.delete(`/api/messages/conversation/${partnerPublicId}`)
+      return true
+    } catch (e) {
+      console.error('대화방 삭제 실패:', e)
+      return false
+    }
   }
 
   // 개별 메시지 삭제
@@ -175,8 +181,45 @@ export const useMessageStore = defineStore('message', () => {
     }
   }
 
-  return { 
+  // [시니어 조치] 대화방 리스트에서 특정 방 제거 (반응성 유지)
+  const removeMessageRoom = (roomId) => {
+    const index = receivedMessages.value.findIndex(r => r.id === roomId)
+    if (index !== -1) {
+      receivedMessages.value.splice(index, 1)
+    }
+  }
+
+  // [시니어 조치] 대화방 리스트에서 파트너의 모든 방 제거 (반응성 유지)
+  const removeMessageRoomsByPartnerId = (partnerId) => {
+    // partnerId와 비교하기 위한 헬퍼 함수 (getPartnerId와 동일 로직)
+    const getPartnerIdFromRoom = (room) => {
+      if (!room) return null
+      const senderPublicId = room.sender?.publicId || room.senderPublicId || null
+      const senderId = room.sender?.id || room.senderId || null
+      const receiverPublicId = room.receiver?.publicId || room.receiverPublicId || null
+      const receiverId = room.receiver?.id || room.receiverId || null
+
+      // 공개 ID와 내부 ID 모두 비교
+      if (String(senderPublicId) === String(partnerId) || String(senderId) === String(partnerId)) {
+        return senderPublicId || senderId
+      }
+      if (String(receiverPublicId) === String(partnerId) || String(receiverId) === String(partnerId)) {
+        return receiverPublicId || receiverId
+      }
+      return null
+    }
+
+    // 파트너 관련 방 역순으로 제거 (인덱스 변동 방지)
+    for (let i = receivedMessages.value.length - 1; i >= 0; i--) {
+      if (getPartnerIdFromRoom(receivedMessages.value[i]) === partnerId ||
+          getPartnerIdFromRoom(receivedMessages.value[i]) === String(partnerId)) {
+        receivedMessages.value.splice(i, 1)
+      }
+    }
+  }
+
+  return {
     receivedMessages, currentConversation, unreadCount, isLoading, dailyStatus,
-    fetchMessageRooms, fetchReceivedMessages, fetchConversation, sendMessage, markAsRead, markRoomAsRead, reportMessage, blockUser, unblockUser, fetchBlockedUsers, fetchDailyStatus, deleteConversation, deleteMessage, editMessage
+    fetchMessageRooms, fetchReceivedMessages, fetchConversation, sendMessage, markAsRead, markRoomAsRead, reportMessage, blockUser, unblockUser, fetchBlockedUsers, fetchDailyStatus, deleteConversation, deleteMessage, editMessage, removeMessageRoom, removeMessageRoomsByPartnerId
   }
 })

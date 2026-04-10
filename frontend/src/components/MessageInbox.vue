@@ -77,14 +77,15 @@ const isMe = (userPublicId) => {
 const getPartnerId = (room) => {
   if (!room) return null
   const myPublicId = String(authStore.user?.publicId)
-  
-  // [시니어 조치] 공개 ID 기반으로 상대방 식별 (보안 강화)
-  const senderId = room.sender?.publicId ? String(room.sender.publicId) : null
-  const receiverId = room.receiverPublicId ? String(room.receiverPublicId) : null
 
-  if (senderId && senderId !== myPublicId) return senderId
-  if (receiverId && receiverId !== myPublicId) return receiverId
-  
+  // [시니어 조치] 공개 ID(publicId)만 사용 (BackEnd와 일관성)
+  const senderPublicId = room.sender?.publicId || room.senderPublicId || null
+  const receiverPublicId = room.receiver?.publicId || room.receiverPublicId || null
+
+  // 공개 ID 기반 식별만 수행
+  if (senderPublicId && String(senderPublicId) !== myPublicId) return String(senderPublicId)
+  if (receiverPublicId && String(receiverPublicId) !== myPublicId) return String(receiverPublicId)
+
   return null
 }
 
@@ -154,7 +155,7 @@ const isPartnerWithdrawn = computed(() => {
   if (selectedRoom.value.isPartnerWithdrawn) return true
   
   // 2. 닉네임이 마스킹 처리되었는지 확인
-  const partnerNickname = String(selectedRoom.value.sender?.id) === String(authStore.user?.id) 
+  const partnerNickname = isMe(selectedRoom.value.sender?.publicId) 
     ? selectedRoom.value.receiverNickname 
     : selectedRoom.value.sender?.nickname;
     
@@ -297,21 +298,6 @@ const handleReportMsg = async (msg) => {
   }
 }
 
-const handleBlock = async () => {
-  const partnerId = getPartnerId(selectedRoom.value)
-  if (!partnerId) return
-  if (await uiStore.showConfirm('사용자를 차단하시겠습니까?\n차단 시 서로 메시지를 주고받을 수 없으며, 차단 목록에서 관리할 수 있습니다.', '사용자 차단')) {
-    const blockSuccess = await messageStore.blockUser(partnerId)
-    if (blockSuccess) {
-      await uiStore.showAlert('사용자가 차단되었습니다.', '차단 완료')
-      showMenu.value = false
-      // [시니어 조치] 방을 삭제하지 않고 내역만 다시 불러와 입력창 차단 확인
-      conversationList.value = await messageStore.fetchConversation(partnerId)
-      await messageStore.fetchMessageRooms()
-    }
-  }
-}
-
 // [시니어 조치] 현재 대화방이 차단 상태인지 확인
 const isRoomBlocked = computed(() => {
   if (!conversationList.value || conversationList.value.length === 0) return false
@@ -350,15 +336,66 @@ const openBlockedList = async () => {
   showBlockedListModal.value = true
 }
 
+// [시니어 조치] 대화방 삭제 로직 (시스템 방 및 본인 방 완벽 제거)
 const handleDeleteChat = async () => {
+  if (!selectedRoom.value) return
+  
   const partnerId = getPartnerId(selectedRoom.value)
-  if (partnerId && await uiStore.showConfirm('대화방을 나가시겠습니까? 삭제된 내역은 복구할 수 없습니다.', '대화방 나가기')) {
-    const success = await messageStore.deleteConversation(partnerId)
+  const isSystemRoom = !partnerId && selectedRoom.value.isSystem
+  
+  if (await uiStore.showConfirm('대화방을 나가시겠습니까? 삭제된 내역은 복구할 수 없습니다.', '대화방 나가기')) {
+    // 1. UI에서 즉시 제거 (낙관적 업데이트)
+    const currentPartnerId = partnerId
+    messageStore.receivedMessages = messageStore.receivedMessages.filter(r => {
+      const rpId = getPartnerId(r)
+      if (currentPartnerId) return rpId !== currentPartnerId
+      return rpId !== null // 시스템 방인 경우 모든 시스템 방 제거
+    })
+
+    const targetRoomId = selectedRoom.value.id
+    selectedRoom.value = null
+    conversationList.value = []
+    currentMobileView.value = 'LIST'
+
+    // 2. 서버 요청
+    let success = false
+    if (currentPartnerId) {
+      success = await messageStore.deleteConversation(currentPartnerId)
+    } else if (isSystemRoom) {
+      success = await messageStore.deleteMessage(targetRoomId)
+    }
+
     if (success) {
-      selectedRoom.value = null
-      conversationList.value = []
       await messageStore.fetchMessageRooms()
-      currentMobileView.value = 'LIST'
+      await uiStore.showAlert('대화방이 삭제되었습니다.', '알림')
+    } else {
+      // 실패 시 목록 복구
+      await messageStore.fetchMessageRooms()
+    }
+  }
+}
+
+// [시니어 조치] 사용자 차단 로직 (리스트에서 즉시 제거)
+const handleBlock = async () => {
+  const partnerId = getPartnerId(selectedRoom.value)
+  if (!partnerId) return
+  
+  if (await uiStore.showConfirm('이 사용자를 차단하시겠습니까? 차단하면 서로 메시지를 주고받을 수 없으며 대화방이 목록에서 즉시 사라집니다.', '사용자 차단')) {
+    // 1. UI에서 즉시 제거
+    const currentPartnerId = partnerId
+    messageStore.receivedMessages = messageStore.receivedMessages.filter(r => getPartnerId(r) !== currentPartnerId)
+    
+    selectedRoom.value = null
+    conversationList.value = []
+    currentMobileView.value = 'LIST'
+
+    // 2. 서버 요청
+    const blockSuccess = await messageStore.blockUser(currentPartnerId)
+    if (blockSuccess) {
+      await messageStore.fetchMessageRooms()
+      await uiStore.showAlert('차단되었습니다.', '차단 완료')
+    } else {
+      await messageStore.fetchMessageRooms()
     }
   }
 }
@@ -437,7 +474,7 @@ const vClickOutside = {
           v-for="room in messageStore.receivedMessages" 
           :key="room.id" 
           class="dm-item"
-          :class="{ 'active': String(getPartnerId(selectedRoom)) === String(getPartnerId(room)) }"
+          :class="{ 'active': selectedRoom && (selectedRoom.id === room.id) }"
           @click="selectRoom(room)"
         >
           <div class="item-avatar">
@@ -489,7 +526,7 @@ const vClickOutside = {
             <div class="menu-container" v-click-outside="() => showMenu = false">
               <button class="icon-btn" @click="showMenu = !showMenu">ⓘ</button>
               <div v-if="showMenu" class="dropdown-menu">
-                <button v-if="getPartnerId(selectedRoom)" @click="handleDeleteChat" class="menu-item delete">대화방 삭제</button>
+                <button @click="handleDeleteChat" class="menu-item delete">대화방 삭제</button>
                 <button v-if="getPartnerId(selectedRoom)" @click="handleBlock" class="menu-item block">사용자 차단</button>
               </div>
             </div>

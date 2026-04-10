@@ -150,8 +150,8 @@
       v-if="userPublicId && showMessageModal"
       :show="showMessageModal" 
       :receiver-public-id="userPublicId"
- 
       :receiver-nickname="nickname"
+      :is-withdrawn="authorActive === false"
       @close="showMessageModal = false"
       @success="onMessageSuccess"
     />
@@ -257,6 +257,7 @@ const props = defineProps({
   equippedTier: { type: Number, default: null }, // [시니어 조치] 장착 중인 티어 스타일
   equippedEffect: { type: String, default: null }, // 장착 중인 특수 효과 코드
   authorEquippedEffect: { type: String, default: null }, // [시니어 대응] 백엔드 DTO 필드명 호환용
+  authorActive: { type: Boolean, default: true }, // [시니어 조치] 작성자 활성 상태 (탈퇴 여부) 추가
   ownedEffectCodes: { type: Array, default: () => [] }, // 사용자가 소유한 이펙트 목록 (user_effects 테이블)
   isEllipsis: { type: Boolean, default: false } // [시니어 조치] 모바일에서 선택적으로 말줄임 적용
 })
