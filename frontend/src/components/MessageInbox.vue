@@ -67,16 +67,23 @@ onUnmounted(() => {
   if (activeStatusInterval) clearInterval(activeStatusInterval)
 })
 
+const myId = String(authStore.user?.publicId)
+
+const isMe = (userPublicId) => {
+  if (!myId || !userPublicId) return false
+  return String(myId) === String(userPublicId)
+}
+
 const getPartnerId = (room) => {
   if (!room) return null
-  const myId = String(authStore.user?.id)
+  const myPublicId = String(authStore.user?.publicId)
   
-  // [시니어 조치] 시스템 메시지여도 sender나 receiverId 정보가 있으면 이를 파트너 ID로 활용하여 기존 방 유지
-  const senderId = room.sender ? String(room.sender.id) : (room.senderId ? String(room.senderId) : null)
-  const receiverId = room.receiver ? String(room.receiver.id) : (room.receiverId ? String(room.receiverId) : null)
+  // [시니어 조치] 공개 ID 기반으로 상대방 식별 (보안 강화)
+  const senderId = room.sender?.publicId ? String(room.sender.publicId) : null
+  const receiverId = room.receiverPublicId ? String(room.receiverPublicId) : null
 
-  if (senderId && senderId !== myId) return senderId
-  if (receiverId && receiverId !== myId) return receiverId
+  if (senderId && senderId !== myPublicId) return senderId
+  if (receiverId && receiverId !== myPublicId) return receiverId
   
   return null
 }
@@ -323,16 +330,16 @@ const blockedMessage = computed(() => {
 })
 
 const handleUnblock = async (user) => {
-  const userId = user.id || user; // u.id 객체와 단순 ID 모두 대응
+  const userPublicId = user.publicId || user; // [시니어 조치] publicId 사용
   let msg = '차단을 해제하시겠습니까?';
   if (user.isSystemBlock) {
     msg = '⚠️ 잠깐! 이 사용자는 과거 심각한 운영 정책 위반으로 인해 시스템에서 자동차단한 대상입니다.\n\n차단을 해제하면 상대방이 다시 메시지를 보낼 수 있게 됩니다. 정말 해제하시겠습니까?';
   }
 
   if (await uiStore.showConfirm(msg, '차단 해제')) {
-    const success = await messageStore.unblockUser(userId)
+    const success = await messageStore.unblockUser(userPublicId)
     if (success) {
-      blockedUsers.value = blockedUsers.value.filter(u => u.id !== userId)
+      blockedUsers.value = blockedUsers.value.filter(u => u.publicId !== userPublicId)
       await uiStore.showAlert('차단이 해제되었습니다.', '해제 완료')
     }
   }
@@ -437,7 +444,7 @@ const vClickOutside = {
             <span v-if="room.isSystem && !room.sender && !room.receiverId" class="system-icon">📢</span>
             <div v-else class="user-avatar-wrap">
               <div class="user-avatar-small">
-                {{ (String(room.sender?.id) === String(authStore.user?.id) ? room.receiverNickname : room.sender?.nickname)?.[0] }}
+                {{ (isMe(room.sender?.publicId) ? room.receiverNickname : room.sender?.nickname)?.[0] }}
               </div>
               <div v-if="!room.isSystem" class="online-indicator-dot" :class="{ 'is-online': room.isPartnerOnline }"></div>
             </div>
@@ -446,7 +453,7 @@ const vClickOutside = {
             <div class="item-top">
               <div class="item-name-group">
                 <span class="item-name">
-                  {{ (room.isSystem && !room.sender && !room.receiverId) ? '시스템' : (String(room.sender?.id) === String(authStore.user?.id) ? room.receiverNickname : room.sender?.nickname) }}
+                  {{ (room.isSystem && !room.sender && !room.receiverId) ? '시스템' : (isMe(room.sender?.publicId) ? room.receiverNickname : room.sender?.nickname) }}
                 </span>
                 <div v-if="room.unreadCount > 0" class="unread-badge-circle">{{ room.unreadCount }}</div>
               </div>
@@ -469,10 +476,10 @@ const vClickOutside = {
           <div class="partner-meta">
             <button class="mobile-back-btn" @click="goBackToList">←</button>
             <div class="avatar-circle">
-              {{ (selectedRoom.isSystem && !selectedRoom.sender ? 'S' : (String(selectedRoom.sender?.id) === String(authStore.user?.id) ? selectedRoom.receiverNickname : selectedRoom.sender?.nickname)?.[0]) }}
+              {{ (selectedRoom.isSystem && !selectedRoom.sender ? 'S' : (isMe(selectedRoom.sender?.publicId) ? selectedRoom.receiverNickname : selectedRoom.sender?.nickname)?.[0]) }}
             </div>
             <div class="name-box">
-              <span class="partner-name">{{ selectedRoom.isSystem && !selectedRoom.sender ? '시스템 메시지' : (String(selectedRoom.sender?.id) === String(authStore.user?.id) ? selectedRoom.receiverNickname : selectedRoom.sender?.nickname) }}</span>
+              <span class="partner-name">{{ selectedRoom.isSystem && !selectedRoom.sender ? '시스템 메시지' : (isMe(selectedRoom.sender?.publicId) ? selectedRoom.receiverNickname : selectedRoom.sender?.nickname) }}</span>
               <span class="partner-status" :class="{ 'is-offline': !selectedRoom.isPartnerOnline }" v-if="!selectedRoom.isSystem || selectedRoom.sender">
                 {{ selectedRoom.isPartnerOnline ? '활동 중' : '오프라인' }}
               </span>
@@ -507,10 +514,10 @@ const vClickOutside = {
               <div class="deleted-bubble">메시지가 삭제 되었습니다.</div>
             </div>
 
-            <div v-else class="msg-row" :class="{ 'msg-me': String(msg.sender?.id) === String(authStore.user?.id) }">
+            <div v-else class="msg-row" :class="{ 'msg-me': isMe(msg.sender?.publicId) }">
               <div class="msg-bubble-wrap">
                 <div class="msg-bubble-group">
-                  <div v-if="String(msg.sender?.id) === String(authStore.user?.id)" class="msg-side-meta">
+                  <div v-if="isMe(msg.sender?.publicId)" class="msg-side-meta">
                     <span class="msg-time-inline">{{ formatTimeOnly(msg.createdAt) }}</span>
                     <!-- 제한된 방이 아닐 때만 수정/삭제 노출 -->
                     <div v-if="!isRoomRestricted" class="msg-side-actions">

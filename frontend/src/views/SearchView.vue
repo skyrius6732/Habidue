@@ -307,7 +307,7 @@ watch(() => route.query.q, () => fetchSearchResults())
                 <div class="meta-row info-row">
                   <div class="author-group">
                     <AnimatedNickname
-                      :user-id="item.post.authorId"
+                      :user-public-id="item.post.authorPublicId"
                       :nickname="item.post.authorName"
                       :level="item.post.authorLevel || 1"
                       :exp="item.post.authorExp || 0"

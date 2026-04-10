@@ -15,6 +15,7 @@ public class MessageResponseDto {
     private SenderInfo sender;
     
     private Long receiverId;
+    private String receiverPublicId; // [시니어 조치] 수신자 공개 ID 추가
     private String receiverNickname;
 
     private String content;
@@ -68,6 +69,7 @@ public class MessageResponseDto {
     @NoArgsConstructor
     public static class SenderInfo {
         private Long id;
+        private String publicId; // [시니어 조치] 송신자 공개 ID 추가
         private String nickname;
     }
 
@@ -101,7 +103,7 @@ public class MessageResponseDto {
             isSenderWithdrawn = message.getSender().getStatus() == com.habidue.app.domain.user.UserStatus.WITHDRAWN;
             String nickname = isSenderWithdrawn ? "(탈퇴한 사용자)" : 
                              (message.getSender().getNickname() != null ? message.getSender().getNickname() : message.getSender().getUsername());
-            senderInfo = new SenderInfo(message.getSender().getId(), nickname);
+            senderInfo = new SenderInfo(message.getSender().getId(), message.getSender().getPublicId(), nickname);
         }
 
         String receiverNickname = null;
@@ -130,6 +132,7 @@ public class MessageResponseDto {
                 .id(message.getId())
                 .sender(senderInfo)
                 .receiverId(message.getReceiver() != null ? message.getReceiver().getId() : null)
+                .receiverPublicId(message.getReceiver() != null ? message.getReceiver().getPublicId() : null)
                 .receiverNickname(receiverNickname)
                 .content(message.getContent())
                 .isRead(message.isRead())

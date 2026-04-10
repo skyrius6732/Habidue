@@ -16,6 +16,7 @@ public class CommentResponseDto {
     private Long id;
     private String content;
     private Long authorId;
+    private String authorPublicId; // [시니어 조치] 작성자 공개 ID 추가
     private String authorName;
     private int authorLevel;
     private long authorExp;
@@ -63,6 +64,7 @@ public class CommentResponseDto {
                 .id(comment.getId())
                 .content(finalContent)
                 .authorId(comment.getAuthor().getId())
+                .authorPublicId(comment.getAuthor().getPublicId()) // [시니어 조치] 매핑 추가
                 .authorName(displayName)
                 .authorActive(isAuthorActive)
                 .authorLevel(comment.getAuthor().getLevel())

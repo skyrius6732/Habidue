@@ -224,6 +224,7 @@ public class MessageService {
             Map<String, Object> map = new java.util.HashMap<>();
             User blocked = b.getBlocked();
             map.put("id", blocked.getId());
+            map.put("publicId", blocked.getPublicId()); // [시니어 조치] 공개 ID 추가
             map.put("nickname", blocked.getNickname() != null ? blocked.getNickname() : blocked.getUsername());
             map.put("reason", b.getReason());
             map.put("isSystemBlock", b.isSystemBlock());

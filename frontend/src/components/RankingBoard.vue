@@ -130,7 +130,7 @@ onUnmounted(() => {
                 <div class="medal-circle">🏆</div>
                 <div class="user-avatar-wrap">
                   <AnimatedNickname 
-                    :user-id="topRankers[1].userId" 
+                    :user-public-id="topRankers[1].userPublicId" 
                     :nickname="topRankers[1].nickname" 
                     :level="topRankers[1].level" 
                     :exp="topRankers[1].exp" 
@@ -156,7 +156,7 @@ onUnmounted(() => {
                 <div class="medal-circle gold">👑</div>
                 <div class="user-avatar-wrap main">
                   <AnimatedNickname 
-                    :user-id="topRankers[0].userId" 
+                    :user-public-id="topRankers[0].userPublicId" 
                     :nickname="topRankers[0].nickname" 
                     :level="topRankers[0].level" 
                     :exp="topRankers[0].exp" 
@@ -182,7 +182,7 @@ onUnmounted(() => {
                 <div class="medal-circle">🏆</div>
                 <div class="user-avatar-wrap">
                   <AnimatedNickname 
-                    :user-id="topRankers[2].userId" 
+                    :user-public-id="topRankers[2].userPublicId" 
                     :nickname="topRankers[2].nickname" 
                     :level="topRankers[2].level" 
                     :exp="topRankers[2].exp" 
@@ -215,7 +215,7 @@ onUnmounted(() => {
           </div>
           <div class="m-user-info">
             <AnimatedNickname 
-              :user-id="ranker.userId" 
+              :user-public-id="ranker.userPublicId" 
               :nickname="ranker.nickname" 
               :level="ranker.level" 
               :exp="ranker.exp" 
@@ -244,7 +244,7 @@ onUnmounted(() => {
           </div>
           <div class="user-cell">
             <AnimatedNickname 
-              :user-id="ranker.userId" 
+              :user-public-id="ranker.userPublicId" 
               :nickname="ranker.nickname" 
               :level="ranker.level" 
               :exp="ranker.exp" 

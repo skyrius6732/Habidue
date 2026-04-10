@@ -184,7 +184,7 @@ public class RankingService {
         for (int i = 0; i < currentRankers.getContent().size(); i++) {
             ExpHistoryRepository.RankerProjection p = currentRankers.getContent().get(i);
             result.add(RankerResponseDto.builder()
-                    .userId(p.getUserId())
+                    .userPublicId(p.getPublicId())
                     .nickname(p.getNickname())
                     .level(p.getLevel())
                     .exp(p.getTotalExp())
@@ -210,20 +210,21 @@ public class RankingService {
     private List<RankerResponseDto> hydrateRankerProfiles(List<RankerResponseDto> baseRankers) {
         if (baseRankers == null || baseRankers.isEmpty()) return baseRankers;
 
-        List<Long> userIds = baseRankers.stream().map(RankerResponseDto::getUserId).collect(Collectors.toList());
-        java.util.Map<Long, User> userMap = userRepository.findAllById(userIds).stream()
-                .collect(Collectors.toMap(User::getId, u -> u));
+        List<String> publicIds = baseRankers.stream().map(RankerResponseDto::getUserPublicId).collect(Collectors.toList());
+        java.util.Map<String, User> userMap = userRepository.findAllByPublicIdIn(publicIds).stream()
+                .collect(Collectors.toMap(User::getPublicId, u -> u));
 
         java.util.Map<String, com.habidue.app.domain.badge.BadgeLevelRule> ruleMap = badgeLevelRuleRepository.findAll().stream()
                 .collect(Collectors.toMap(r -> r.getBadgeType() + "_" + r.getLevel(), r -> r, (r1, r2) -> r1));
         java.util.Map<Long, com.habidue.app.domain.badge.Badge> badgeMasterMap = badgeRepository.findAll().stream()
                 .collect(Collectors.toMap(com.habidue.app.domain.badge.Badge::getId, b -> b));
         java.util.Map<String, Integer> userBadgeLevelMap = new java.util.HashMap<>();
-        userBadgeRepository.findAllByUserIds(userIds)
+        List<Long> internalUserIds = userMap.values().stream().map(User::getId).collect(Collectors.toList());
+        userBadgeRepository.findAllByUserIds(internalUserIds)
                 .forEach(ub -> userBadgeLevelMap.put(ub.getUser().getId() + "_" + ub.getBadge().getId(), ub.getLevel()));
 
         for (RankerResponseDto dto : baseRankers) {
-            User user = userMap.get(dto.getUserId());
+            User user = userMap.get(dto.getUserPublicId());
             if (user != null) {
                 dto.setNickname(user.getNickname() != null ? user.getNickname() : user.getUsername());
                 dto.setLevel(user.getLevel());

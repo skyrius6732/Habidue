@@ -144,36 +144,41 @@ public class UserController {
     /**
      * [시니어 조치] 유저 특수 효과(날개 등) 장착/변경
      */
-    @PatchMapping("/{id}/effect")
+    @PatchMapping("/{publicId}/effect")
     @Secured({"ROLE_USER", "ROLE_ADMIN"})
     public ResponseEntity<ApiResponse<UserResponseDto>> updateEffect(
-            @PathVariable Long id,
+            @PathVariable String publicId,
             @RequestParam(required = false) String effectCode) {
         
+        User targetUser = userRepository.findByPublicId(publicId)
+            .orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다."));
+
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
         User currentUser = userRepository.findByUsername(auth.getName()).orElseThrow();
         
         // 본인 또는 관리자만 수정 가능
-        if (!currentUser.getId().equals(id) && !currentUser.getRole().name().equals("ROLE_ADMIN")) {
+        if (!currentUser.getId().equals(targetUser.getId()) && !currentUser.getRole().name().equals("ROLE_ADMIN")) {
             return ApiResponse.error(HttpStatus.FORBIDDEN, "권한이 없습니다.", "Forbidden");
         }
         
-        User updatedUser = userService.updateEquippedEffect(id, effectCode);
+        User updatedUser = userService.updateEquippedEffect(targetUser.getId(), effectCode);
         return ApiResponse.success(new UserResponseDto(updatedUser));
     }
 
     /**
      * [시니어 조치] 단일 사용자를 베타테스터로 설정 (관리자만)
      */
-    @PatchMapping("/admin/{id}/beta-tester")
+    @PatchMapping("/admin/{userId}/beta-tester")
     @Secured("ROLE_ADMIN")
     public ResponseEntity<ApiResponse<UserResponseDto>> setBetaTester(
-            @PathVariable Long id,
+            @PathVariable Long userId,
             @RequestParam boolean enabled) {
-        userEffectService.setBetaTester(id, enabled);
-        User user = userRepository.findById(id)
+        
+        User targetUser = userRepository.findById(userId)
             .orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다."));
-        return ApiResponse.success(new UserResponseDto(user));
+
+        userEffectService.setBetaTester(targetUser.getId(), enabled);
+        return ApiResponse.success(new UserResponseDto(targetUser));
     }
 
     /**
@@ -218,6 +223,9 @@ public class UserController {
             @RequestParam String effectCode,
             @RequestParam(defaultValue = "EVENT") String source) {
 
+        User targetUser = userRepository.findById(userId)
+            .orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다."));
+
         try {
             com.habidue.app.domain.user.UserEffect.EffectSource effectSource =
                 com.habidue.app.domain.user.UserEffect.EffectSource.valueOf(source.toUpperCase());
@@ -226,6 +234,7 @@ public class UserController {
 
             java.util.Map<String, Object> result = new java.util.HashMap<>();
             result.put("userId", userId);
+            result.put("publicId", targetUser.getPublicId());
             result.put("effectCode", effectCode);
             result.put("source", source);
             result.put("message", "이펙트 지급 완료");

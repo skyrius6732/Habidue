@@ -30,6 +30,9 @@ public class User {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @Column(unique = true, length = 50)
+    private String publicId; // [시니어 조치] 외부 노출용 공개 ID (u_난수 형태)
+
     @Column(nullable = false, unique = true)
     private String username;
 
@@ -136,6 +139,14 @@ public class User {
     @UpdateTimestamp
     @Column(nullable = false)
     private LocalDateTime updatedAt;
+
+    // [시니어 조치] 영속화 전 공개 ID 자동 생성 로직
+    @PrePersist
+    public void generatePublicId() {
+        if (this.publicId == null) {
+            this.publicId = "u_" + java.util.UUID.randomUUID().toString().replace("-", "").substring(0, 10);
+        }
+    }
 
     // [시니어 조치] 계정 탈퇴 및 익명화 로직
     public void withdraw() {

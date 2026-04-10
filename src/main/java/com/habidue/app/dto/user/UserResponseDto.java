@@ -13,6 +13,7 @@ import java.util.List;
 @Builder
 public class UserResponseDto {
     private Long id;
+    private String publicId; // [시니어 조치] 외부 노출용 공개 ID 추가
     private String username;
     private String nickname;
     private String email;
@@ -49,6 +50,7 @@ public class UserResponseDto {
 
     public UserResponseDto(User user, boolean isOnline) {
         this.id = user.getId();
+        this.publicId = user.getPublicId(); // [시니어 조치] 매핑 추가
         this.username = user.getUsername();
         this.nickname = user.getNickname();
         this.email = user.getEmail();

@@ -65,7 +65,7 @@
                     <div class="dash-user-details">
                       <div class="dash-nickname-group">
                         <AnimatedNickname
-                          :user-id="userProfile.id"
+                          :user-public-id="userProfile.publicId"
                           :nickname="userProfile.nickname || userProfile.username"
                           :level="userProfile.level"
                           :exp="userProfile.totalExp"
@@ -564,7 +564,7 @@
                 <div class="preview-box">
                   <div class="preview-content">
                     <AnimatedNickname
-                      :user-id="userProfile?.id"
+                      :user-public-id="userProfile?.publicId"
                       :nickname="userProfile?.nickname || userProfile?.username || 'HabiDue'"
                       :level="userProfile?.level"
                       :exp="userProfile?.totalExp"
@@ -931,7 +931,7 @@ const updateEquippedEffect = async (effectId) => {
 
   isUpdatingEffect.value = true
   try {
-    const res = await axios.patch(`/api/users/${userProfile.value.id}/effect`, null, { params: { effectCode: effectId } })
+    const res = await axios.patch(`/api/users/${userProfile.value.publicId}/effect`, null, { params: { effectCode: effectId } })
     userProfile.value.equippedEffect = effectId
     if (authStore.user) {
       authStore.user.equippedEffect = effectId

@@ -12,6 +12,8 @@ import java.util.Optional;
 
 @Repository
 public interface UserRepository extends JpaRepository<User, Long> {
+    Optional<User> findByPublicId(String publicId);
+    List<User> findAllByPublicIdIn(java.util.Collection<String> publicIds);
     Optional<User> findByUsername(String username);
     
     // [시니어 조치] 재가입 방지(7일) 로직을 위해 탈퇴한 유저도 이메일/소셜ID로 조회 가능해야 함

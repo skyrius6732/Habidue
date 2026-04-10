@@ -57,7 +57,7 @@
           <div class="meta-row info-row">
             <div class="author-group">
               <AnimatedNickname
-                :user-id="post.authorId"
+                :user-public-id="post.authorPublicId"
                 :nickname="post.authorName"
                 :level="post.authorLevel || 1"
                 :exp="post.authorExp || 0"
@@ -117,7 +117,7 @@ const props = defineProps({
     const authStore = useAuthStore()
 
     const isAdmin = computed(() => authStore.user?.role === 'ADMIN')
-    const isAuthor = (authorId) => authStore.user?.id && Number(authorId) === Number(authStore.user.id)
+    const isAuthor = (authorPublicId) => authStore.user?.publicId && String(authorPublicId) === String(authStore.user.publicId)
 
     const emptyStateInfo = computed(() => {
   const configs = {

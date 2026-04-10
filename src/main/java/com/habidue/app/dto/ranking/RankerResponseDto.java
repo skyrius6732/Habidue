@@ -12,7 +12,7 @@ import lombok.Setter;
 @NoArgsConstructor
 @AllArgsConstructor
 public class RankerResponseDto {
-    private Long userId;
+    private String userPublicId; // [시니어 조치] 숫자 ID 대신 공개 ID 노출
     private String nickname;
     private int level;
     private long exp; // 기간 내 획득 EXP (또는 전체 EXP)

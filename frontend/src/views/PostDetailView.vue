@@ -83,7 +83,7 @@
               <div class="post-meta-info">
                 <div class="author-block">
                   <AnimatedNickname
-                    :user-id="post.authorId"
+                    :user-public-id="post.authorPublicId"
                     :nickname="post.authorName"
                     :level="post.authorLevel || 1"
                     :exp="post.authorExp || 0"
@@ -173,7 +173,7 @@
                   <div class="c-body">
                     <div class="c-header">
                       <AnimatedNickname
-                        :user-id="comment.authorId"
+                        :user-public-id="comment.authorPublicId"
                         :nickname="comment.authorName || '익명'"
                         :level="comment.authorLevel || 1"
                         :exp="comment.authorExp || 0"
@@ -198,7 +198,7 @@
                         <button class="btn-c-more" @click.stop="toggleCommentMenu(comment.id)">···</button>
                         <Transition name="pop">
                           <div v-if="activeCommentMenuId === comment.id" class="c-dropdown-compact" v-click-outside="() => activeCommentMenuId = null">
-                            <template v-if="isMyComment(comment.authorId) && !isBoardClosed">
+                            <template v-if="isMyComment(comment.authorPublicId) && !isBoardClosed">
                               <template v-if="comment.status === 'ACTIVE'">
                                 <button class="dropdown-item-mini" @click="startEditComment(comment)">수정</button>
                                 <button class="dropdown-item-mini text-danger" @click="handleDeleteComment(comment.id)">삭제</button>
@@ -207,7 +207,7 @@
                                 <div class="dropdown-notice-mini">조치된 댓글</div>
                               </template>
                             </template>
-                            <template v-else-if="!isMyComment(comment.authorId)">
+                            <template v-else-if="!isMyComment(comment.authorPublicId)">
                               <button class="dropdown-item-mini text-danger" @click="openReportModal('COMMENT', comment.id, comment.status)">신고</button>
                             </template>
                           </div>
@@ -255,7 +255,7 @@
                     <div class="c-body">
                       <div class="c-header">
                         <AnimatedNickname
-                          :user-id="reply.authorId"
+                          :user-public-id="reply.authorPublicId"
                           :nickname="reply.authorName || '익명'"
                           :level="reply.authorLevel || 1"
                           :exp="reply.authorExp || 0"
@@ -280,7 +280,7 @@
                         <button class="btn-c-more" @click.stop="toggleCommentMenu(reply.id)">···</button>
                         <Transition name="pop">
                           <div v-if="activeCommentMenuId === reply.id" class="c-dropdown-compact" v-click-outside="() => activeCommentMenuId = null">
-                            <template v-if="isMyComment(reply.authorId) && !isBoardClosed">
+                            <template v-if="isMyComment(reply.authorPublicId) && !isBoardClosed">
                               <template v-if="reply.status === 'ACTIVE'">
                                 <button class="dropdown-item-mini" @click="startEditComment(reply)">수정</button>
                                 <button class="dropdown-item-mini text-danger" @click="handleDeleteComment(reply.id)">삭제</button>
@@ -289,7 +289,7 @@
                                 <div class="dropdown-notice-mini">조치된 댓글</div>
                               </template>
                             </template>
-                            <template v-else-if="!isMyComment(reply.authorId)">
+                            <template v-else-if="!isMyComment(reply.authorPublicId)">
                               <button class="dropdown-item-mini text-danger" @click="openReportModal('COMMENT', reply.id, reply.status)">신고</button>
                             </template>
                           </div>
@@ -450,7 +450,7 @@ const boardTypeLabel = computed(() => {
   return labels[post.value.type] || '커뮤니티'
 })
 
-const isAuthor = computed(() => post.value && authStore.user?.id && Number(post.value.authorId) === Number(authStore.user.id))
+const isAuthor = computed(() => post.value && authStore.user?.publicId && post.value.authorPublicId === authStore.user.publicId)
 const isAdmin = computed(() => authStore.user?.role === 'ADMIN')
 const canShare = computed(() => !!navigator.share)
 
@@ -472,9 +472,9 @@ const handleRestoreComment = async (commentId) => {
   } catch (e) { await uiStore.showAlert('댓글 복구 실패') }
 }
 
-const isMyComment = (commentAuthorId) => {
-  if (!authStore.user?.id || !commentAuthorId) return false;
-  return Number(commentAuthorId) === Number(authStore.user.id);
+const isMyComment = (commentAuthorPublicId) => {
+  if (!authStore.user?.publicId || !commentAuthorPublicId) return false;
+  return String(commentAuthorPublicId) === String(authStore.user.publicId);
 }
 
 const currentStatsDisplay = computed(() => {
@@ -835,7 +835,7 @@ const handleToggleCommentLike = async (comment) => {
     await uiStore.showAlert('탈퇴한 사용자의 댓글에는 좋아요를 누를 수 없습니다.', '안내')
     return
   }
-  if (isMyComment(comment.authorId)) { await uiStore.showAlert('본인의 댓글에는 좋아요를 누를 수 없습니다.', '알림'); return }
+  if (isMyComment(comment.authorPublicId)) { await uiStore.showAlert('본인의 댓글에는 좋아요를 누를 수 없습니다.', '알림'); return }
   try {
     await axios.post(`/api/comments/${comment.id}/like`)
     comment.liked = !comment.liked

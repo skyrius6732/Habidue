@@ -33,11 +33,11 @@ export const useMessageStore = defineStore('message', () => {
     } catch (e) { return dailyStatus.value }
   }
 
-  const fetchConversation = async (partnerId) => {
+  const fetchConversation = async (partnerPublicId) => {
     if (isLoading.value) return currentConversation.value
     isLoading.value = true
     try {
-      const res = await axios.get(`/api/messages/conversation/${partnerId}`)
+      const res = await axios.get(`/api/messages/conversation/${partnerPublicId}`)
       currentConversation.value = res.data.data
       return currentConversation.value
     } catch (e) {
@@ -52,8 +52,8 @@ export const useMessageStore = defineStore('message', () => {
     unreadCount.value = receivedMessages.value.filter(m => m.unreadCount > 0).length
   }
 
-  const sendMessage = async (receiverId, content, files = []) => {
-    if (!receiverId) return { success: false, message: '수신자 정보가 없습니다.' }
+  const sendMessage = async (receiverPublicId, content, files = []) => {
+    if (!receiverPublicId) return { success: false, message: '수신자 정보가 없습니다.' }
     
     try {
       const formData = new FormData()
@@ -65,7 +65,7 @@ export const useMessageStore = defineStore('message', () => {
         })
       }
 
-      const res = await axios.post(`/api/messages/${receiverId}`, formData, {
+      const res = await axios.post(`/api/messages/${receiverPublicId}`, formData, {
         headers: {
           'Content-Type': 'multipart/form-data'
         },
@@ -94,13 +94,13 @@ export const useMessageStore = defineStore('message', () => {
     } catch (e) {}
   }
 
-  const markRoomAsRead = async (partnerId) => {
+  const markRoomAsRead = async (partnerPublicId) => {
     try {
-      await axios.patch(`/api/messages/conversation/${partnerId}/read`)
+      await axios.patch(`/api/messages/conversation/${partnerPublicId}/read`)
       // 로컬 목록에서도 안읽음 숫자 초기화
       const room = receivedMessages.value.find(m => {
-        const pId = (m.sender && m.sender.id === partnerId) || (m.receiverId === partnerId);
-        return pId;
+        const pPublicId = (m.sender && m.sender.publicId === partnerPublicId) || (m.receiverPublicId === partnerPublicId);
+        return pPublicId;
       });
       if (room) {
         room.unreadCount = 0;
@@ -123,14 +123,14 @@ export const useMessageStore = defineStore('message', () => {
     }
   }
 
-  const blockUser = async (userId) => {
-    try { await axios.post(`/api/messages/block/${userId}`); return true } catch (e) { return false }
+  const blockUser = async (userPublicId) => {
+    try { await axios.post(`/api/messages/block/${userPublicId}`); return true } catch (e) { return false }
   }
 
   // 차단 해제
-  const unblockUser = async (userId) => {
+  const unblockUser = async (userPublicId) => {
     try {
-      await axios.delete(`/api/messages/block/${userId}`)
+      await axios.delete(`/api/messages/block/${userPublicId}`)
       return true
     } catch (e) {
       console.error('차단 해제 실패:', e)
@@ -149,8 +149,8 @@ export const useMessageStore = defineStore('message', () => {
     }
   }
 
-  const deleteConversation = async (partnerId) => {
-    try { await axios.delete(`/api/messages/conversation/${partnerId}`); return true } catch (e) { return false }
+  const deleteConversation = async (partnerPublicId) => {
+    try { await axios.delete(`/api/messages/conversation/${partnerPublicId}`); return true } catch (e) { return false }
   }
 
   // 개별 메시지 삭제

@@ -2,6 +2,7 @@ package com.habidue.app.controller.api;
 
 import com.habidue.app.domain.message.Message;
 import com.habidue.app.domain.user.User;
+import com.habidue.app.repository.user.UserRepository;
 import com.habidue.app.dto.ApiResponse;
 import com.habidue.app.dto.message.MessageRequestDto;
 import com.habidue.app.service.message.MessageService;
@@ -31,6 +32,7 @@ public class MessageController {
 
     private final MessageService messageService;
     private final UserService userService;
+    private final UserRepository userRepository; // [시니어 조치] 공개 ID 조회를 위해 추가
     private final com.habidue.app.service.board.BoardReportService boardReportService;
     private final UserBlockRepository userBlockRepository;
 
@@ -39,16 +41,26 @@ public class MessageController {
         return userService.getUserById(principal.getId());
     }
 
-    @PostMapping({"", "/{receiverId}"})
+    @PostMapping({"", "/{receiverPublicId}"})
     public ResponseEntity<ApiResponse<Void>> sendMessage(
             @AuthenticationPrincipal UserPrincipal userPrincipal,
-            @PathVariable(value = "receiverId", required = false) Long receiverId,
+            @PathVariable(value = "receiverPublicId", required = false) String receiverPublicId,
             @ModelAttribute MessageRequestDto requestDto,
             HttpServletRequest request) {
         
-        if (receiverId == null) {
+        Long receiverId = null;
+        if (receiverPublicId != null && !receiverPublicId.isEmpty()) {
+            receiverId = userRepository.findByPublicId(receiverPublicId)
+                    .map(User::getId)
+                    .orElseThrow(() -> new IllegalArgumentException("수신자 정보를 찾을 수 없습니다."));
+        } else {
             String paramId = request.getParameter("receiverId");
-            if (paramId != null && !paramId.isEmpty()) receiverId = Long.valueOf(paramId);
+            if (paramId != null && !paramId.isEmpty()) {
+                // [시니어 조치] 파라미터로 넘어온 경우도 publicId로 취급하여 조회
+                receiverId = userRepository.findByPublicId(paramId)
+                        .map(User::getId)
+                        .orElseThrow(() -> new IllegalArgumentException("수신자 정보를 찾을 수 없습니다."));
+            }
         }
 
         if (receiverId == null) throw new IllegalArgumentException("수신자 정보를 확인할 수 없습니다.");
@@ -91,13 +103,17 @@ public class MessageController {
         }));
     }
 
-    @GetMapping("/conversation/{partnerId}")
+    @GetMapping("/conversation/{partnerPublicId}")
     public ResponseEntity<ApiResponse<java.util.List<com.habidue.app.dto.message.MessageResponseDto>>> getConversation(
             @AuthenticationPrincipal UserPrincipal userPrincipal,
-            @PathVariable Long partnerId) {
+            @PathVariable String partnerPublicId) {
+        
+        User partner = userRepository.findByPublicId(partnerPublicId)
+                .orElseThrow(() -> new IllegalArgumentException("대화 상대 정보를 찾을 수 없습니다."));
+        Long partnerId = partner.getId();
+
         User user = getAuthenticatedUser(userPrincipal);
         userService.updateUserOnlineStatus(user.getId());
-        User partner = userService.getUserById(partnerId);
         
         java.util.List<Message> conversation = messageService.getConversation(user, partnerId);
         boolean isPartnerOnline = userService.isUserOnline(partnerId);
@@ -111,11 +127,13 @@ public class MessageController {
                 .collect(java.util.stream.Collectors.toList()));
     }
 
-    @PatchMapping("/conversation/{partnerId}/read")
+    @PatchMapping("/conversation/{partnerPublicId}/read")
     public ResponseEntity<ApiResponse<Void>> markConversationAsRead(
             @AuthenticationPrincipal UserPrincipal userPrincipal,
-            @PathVariable Long partnerId) {
-        messageService.markConversationAsRead(getAuthenticatedUser(userPrincipal), partnerId);
+            @PathVariable String partnerPublicId) {
+        User partner = userRepository.findByPublicId(partnerPublicId)
+                .orElseThrow(() -> new IllegalArgumentException("대화 상대 정보를 찾을 수 없습니다."));
+        messageService.markConversationAsRead(getAuthenticatedUser(userPrincipal), partner.getId());
         return ApiResponse.success(null);
     }
 
@@ -126,11 +144,13 @@ public class MessageController {
         return ApiResponse.success(null);
     }
 
-    @DeleteMapping("/conversation/{partnerId}")
+    @DeleteMapping("/conversation/{partnerPublicId}")
     public ResponseEntity<ApiResponse<Void>> deleteConversation(
             @AuthenticationPrincipal UserPrincipal userPrincipal,
-            @PathVariable Long partnerId) {
-        messageService.deleteConversation(getAuthenticatedUser(userPrincipal), partnerId);
+            @PathVariable String partnerPublicId) {
+        User partner = userRepository.findByPublicId(partnerPublicId)
+                .orElseThrow(() -> new IllegalArgumentException("대화 상대 정보를 찾을 수 없습니다."));
+        messageService.deleteConversation(getAuthenticatedUser(userPrincipal), partner.getId());
         return ApiResponse.success(null);
     }
 
@@ -176,19 +196,23 @@ public class MessageController {
         return ApiResponse.success(null);
     }
 
-    @PostMapping("/block/{blockedId}")
+    @PostMapping("/block/{blockedPublicId}")
     public ResponseEntity<ApiResponse<Void>> blockUser(
             @AuthenticationPrincipal UserPrincipal userPrincipal,
-            @PathVariable Long blockedId) {
-        messageService.blockUser(getAuthenticatedUser(userPrincipal), blockedId);
+            @PathVariable String blockedPublicId) {
+        User blockedUser = userRepository.findByPublicId(blockedPublicId)
+                .orElseThrow(() -> new IllegalArgumentException("사용자 정보를 찾을 수 없습니다."));
+        messageService.blockUser(getAuthenticatedUser(userPrincipal), blockedUser.getId());
         return ApiResponse.success(null);
     }
 
-    @DeleteMapping("/block/{blockedId}")
+    @DeleteMapping("/block/{blockedPublicId}")
     public ResponseEntity<ApiResponse<Void>> unblockUser(
             @AuthenticationPrincipal UserPrincipal userPrincipal,
-            @PathVariable Long blockedId) {
-        messageService.unblockUser(getAuthenticatedUser(userPrincipal), blockedId);
+            @PathVariable String blockedPublicId) {
+        User blockedUser = userRepository.findByPublicId(blockedPublicId)
+                .orElseThrow(() -> new IllegalArgumentException("사용자 정보를 찾을 수 없습니다."));
+        messageService.unblockUser(getAuthenticatedUser(userPrincipal), blockedUser.getId());
         return ApiResponse.success(null);
     }
 

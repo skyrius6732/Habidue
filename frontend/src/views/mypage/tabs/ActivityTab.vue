@@ -25,7 +25,7 @@
               <div class="dash-nickname-group">
                 <AnimatedNickname 
                   :nickname="userProfile.nickname || userProfile.username" 
-                  :user-id="userProfile.id"
+                  :user-public-id="userProfile.publicId"
                   :level="userProfile.level"
                   :equipped-effect-code="userProfile.equippedEffectCode"
                   :show-level-effects="userProfile.showLevelEffects"

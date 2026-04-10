@@ -103,7 +103,7 @@
           </div>
         </div>
 
-        <div class="tooltip-actions stagger-item" v-if="userId && !isMe">
+        <div class="tooltip-actions stagger-item" v-if="userPublicId && !isMe">
           <button class="msg-send-btn" @click.stop="openMessageModal">
             <span>💌 쪽지 보내기</span>
           </button>
@@ -147,9 +147,10 @@
 
     <!-- 쪽지 발송 모달 -->
     <MessageSendModal 
-      v-if="userId && showMessageModal"
+      v-if="userPublicId && showMessageModal"
       :show="showMessageModal" 
-      :receiver-id="userId" 
+      :receiver-public-id="userPublicId"
+ 
       :receiver-nickname="nickname"
       @close="showMessageModal = false"
       @success="onMessageSuccess"
@@ -241,7 +242,7 @@ const wingLayers = computed(() => {
 
 const props = defineProps({
   nickname: { type: String, required: true },
-  userId: { type: [Number, String], default: null },
+  userPublicId: { type: String, default: null },
   level: { type: Number, default: 1 },
   exp: { type: Number, default: 0 },
   badges: { type: Array, default: () => [] },
@@ -353,7 +354,7 @@ const animateOut = () => {
 }
 
 const isMe = computed(() => {
-  return authStore.user && props.userId && String(authStore.user.id) === String(props.userId)
+  return authStore.user && props.userPublicId && String(authStore.user.publicId) === String(props.userPublicId)
 })
 
 const isAdmin = computed(() => authStore.user?.role === 'ROLE_ADMIN')
@@ -462,7 +463,7 @@ const handleDragEnd = () => {
 }
 
 const openMessageModal = () => {
-  if (!props.userId) {
+  if (!props.userPublicId) {
     uiStore.showAlert('탈퇴한 사용자에게는 쪽지를 보낼 수 없습니다.', '안내');
     return;
   }
@@ -496,7 +497,7 @@ const updateEffect = (effectId, event) => {
   debounceTimer = setTimeout(async () => {
     isUpdatingEffect.value = true
     try {
-      await axios.patch(`/api/users/${authStore.user.id}/effect`, null, { params: { effectCode: effectId } })
+      await axios.patch(`/api/users/${authStore.user.publicId}/effect`, null, { params: { effectCode: effectId } })
     } catch (e) {
       uiStore.showAlert('효과 저장 실패', '안내')
     } finally {

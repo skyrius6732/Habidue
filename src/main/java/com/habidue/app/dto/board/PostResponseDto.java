@@ -18,6 +18,7 @@ public class PostResponseDto {
     private String title;
     private String content;
     private Long authorId;
+    private String authorPublicId; // [시니어 조치] 작성자 공개 ID 추가
     private String authorName; // 닉네임
     private int authorLevel; // [시니어 조치] 작성자 레벨
     private long authorExp; // [시니어 조치] 작성자 경험치
@@ -66,6 +67,7 @@ public class PostResponseDto {
                 .title(post.getTitle())
                 .content(post.getContent())
                 .authorId(post.getAuthor().getId())
+                .authorPublicId(post.getAuthor().getPublicId()) // [시니어 조치] 매핑 추가
                 .authorName(displayName)
                 .authorActive(isActive)
                 .authorLevel(post.getAuthor().getLevel())

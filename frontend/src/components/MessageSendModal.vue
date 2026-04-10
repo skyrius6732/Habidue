@@ -6,7 +6,7 @@ import { useUiStore } from '@/stores/ui'
 
 const props = defineProps({
   show: Boolean,
-  receiverId: [Number, String],
+  receiverPublicId: [Number, String], // [시니어 조치] 공개 ID로 명칭 통일
   receiverNickname: String
 })
 
@@ -31,7 +31,7 @@ const isKarmaLow = computed(() => {
 })
 
 const isReceiverWithdrawn = computed(() => {
-  return !props.receiverId || props.receiverNickname === '(탈퇴한 사용자)'
+  return !props.receiverPublicId || props.receiverNickname === '(탈퇴한 사용자)'
 })
 
 onMounted(async () => {
@@ -80,7 +80,7 @@ const handleSend = async () => {
     return
   }
 
-  if (!props.receiverId) {
+  if (!props.receiverPublicId) {
     errorMessage.value = '수신자 정보를 찾을 수 없습니다. 다시 시도해 주세요.'
     return
   }
@@ -89,7 +89,7 @@ const handleSend = async () => {
   errorMessage.value = ''
   
   // 백엔드에서 String으로 받으므로 그대로 전달
-  const result = await messageStore.sendMessage(props.receiverId, content.value, selectedFiles.value)
+  const result = await messageStore.sendMessage(props.receiverPublicId, content.value, selectedFiles.value)
   
   if (result.success) {
     content.value = ''
