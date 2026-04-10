@@ -10,15 +10,18 @@
 
     <!-- 2. 검색 및 필터 바 -->
     <div class="filter-bar">
-      <div class="search-wrapper">
+      <form class="search-wrapper" @submit.prevent="handleFilterChange">
         <span class="search-icon">🔍</span>
         <input 
           v-model="currentFilter.keyword" 
+          type="search"
+          enterkeyhint="search"
           :placeholder="getPlaceholder"
           class="admin-search-input"
-          @keyup.enter="handleFilterChange"
+          @keydown.enter="handleFilterChange"
         />
-      </div>
+        <button type="submit" class="mobile-search-btn">검색</button>
+      </form>
       <div class="filter-group">
         <select v-if="currentTab === 'reports'" v-model="reportTargetFilter" class="admin-select" @change="handleFilterChange">
           <option value="ALL">모든 신고대상</option>
@@ -692,9 +695,25 @@ onMounted(() => { if (route.query.userId) postsState.value.userId = route.query.
 .count-info { font-size: 0.85rem; font-weight: 700; color: var(--text-secondary); }
 
 .filter-bar { display: flex; justify-content: space-between; align-items: center; gap: 15px; flex-wrap: wrap; margin-bottom: 12px; }
-.search-wrapper { flex: 1; min-width: 250px; position: relative; }
-.search-icon { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); opacity: 0.5; }
-.admin-search-input { width: 100%; padding: 10px 10px 10px 35px; border-radius: 8px; border: 1px solid var(--border-color); background: var(--header-bg); color: var(--text-primary); outline: none; }
+.search-wrapper { flex: 1; min-width: 250px; position: relative; display: flex; gap: 8px; }
+.search-icon { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); opacity: 0.5; z-index: 1; }
+.admin-search-input { flex: 1; padding: 10px 10px 10px 35px; border-radius: 8px; border: 1px solid var(--border-color); background: var(--header-bg); color: var(--text-primary); outline: none; min-width: 0; }
+.mobile-search-btn {
+  padding: 0 15px;
+  background: var(--link-color);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-weight: 700;
+  font-size: 0.85rem;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.2s;
+}
+.mobile-search-btn:active { transform: scale(0.95); opacity: 0.9; }
+@media (min-width: 768px) {
+  .mobile-search-btn { display: none; } /* PC에서는 깔끔하게 숨김 (엔터로 충분) */
+}
 .filter-group { display: flex; gap: 10px; align-items: center; }
 .admin-select { padding: 8px 12px; border-radius: 8px; border: 1px solid var(--border-color); background: var(--header-bg); color: var(--text-primary); cursor: pointer; }
 .btn-clear-user { padding: 6px 12px; background: #34495e; color: white; border-radius: 6px; font-size: 0.75rem; border: none; cursor: pointer; }
