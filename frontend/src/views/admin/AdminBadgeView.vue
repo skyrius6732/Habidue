@@ -77,7 +77,7 @@ const specialEffects = [
 const updateEffect = async (effectId) => {
   if (!userProfile.value) return
   try {
-    await axios.patch(`/api/users/${userProfile.value.id}/effect`, null, { params: { effectCode: effectId } })
+    await axios.patch(`/api/users/${userProfile.value.publicId}/effect`, null, { params: { effectCode: effectId } })
     userProfile.value.equippedEffect = effectId
     // alert 제거: 즉시 반영되어 시각적 피드백 제공
   } catch (e) {
