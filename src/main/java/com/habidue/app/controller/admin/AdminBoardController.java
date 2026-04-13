@@ -3,10 +3,10 @@ package com.habidue.app.controller.admin;
 import com.habidue.app.domain.board.ReportStatus;
 import com.habidue.app.domain.board.ReportTargetType;
 import com.habidue.app.dto.ApiResponse;
+import com.habidue.app.dto.admin.AdminCommentResponseDto;
+import com.habidue.app.dto.admin.AdminPostResponseDto;
 import com.habidue.app.dto.admin.ConversationReportGroupDto;
 import com.habidue.app.dto.admin.ReportAdminResponseDto;
-import com.habidue.app.dto.board.CommentResponseDto;
-import com.habidue.app.dto.board.PostResponseDto;
 import com.habidue.app.service.board.AdminBoardService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -32,7 +32,7 @@ public class AdminBoardController {
      * 게시글 관리 목록 조회
      */
     @GetMapping("/posts")
-    public ResponseEntity<ApiResponse<Page<PostResponseDto>>> getPosts(
+    public ResponseEntity<ApiResponse<Page<AdminPostResponseDto>>> getPosts(
             @RequestParam(required = false) Long userId,
             @RequestParam(required = false) Long postId,
             @RequestParam(required = false) String keyword,
@@ -74,7 +74,7 @@ public class AdminBoardController {
      * 댓글 관리 목록 조회
      */
     @GetMapping("/comments")
-    public ResponseEntity<ApiResponse<Page<CommentResponseDto>>> getComments(
+    public ResponseEntity<ApiResponse<Page<AdminCommentResponseDto>>> getComments(
             @RequestParam(required = false) Long userId,
             @RequestParam(required = false) Long commentId,
             @RequestParam(required = false) String keyword,

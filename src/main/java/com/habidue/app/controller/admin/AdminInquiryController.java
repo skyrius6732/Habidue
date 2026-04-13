@@ -4,8 +4,8 @@ import com.habidue.app.config.oauth.UserPrincipal;
 import com.habidue.app.domain.inquiry.InquiryStatus;
 import com.habidue.app.domain.user.User;
 import com.habidue.app.dto.ApiResponse;
+import com.habidue.app.dto.admin.AdminInquiryResponseDto;
 import com.habidue.app.dto.inquiry.InquiryAnswerRequestDto;
-import com.habidue.app.dto.inquiry.InquiryResponseDto;
 import com.habidue.app.repository.user.UserRepository;
 import com.habidue.app.service.inquiry.InquiryService;
 import lombok.RequiredArgsConstructor;
@@ -26,7 +26,7 @@ public class AdminInquiryController {
     private final UserRepository userRepository;
 
     @GetMapping
-    public ResponseEntity<ApiResponse<Page<InquiryResponseDto>>> getAllInquiries(@RequestParam(required = false) InquiryStatus status,
+    public ResponseEntity<ApiResponse<Page<AdminInquiryResponseDto>>> getAllInquiries(@RequestParam(required = false) InquiryStatus status,
                                                                                  @RequestParam(required = false) String keyword,
                                                                                  Pageable pageable) {
         return ApiResponse.success(inquiryService.getAllInquiries(status, keyword, pageable));

@@ -4,7 +4,7 @@ import com.habidue.app.config.oauth.UserPrincipal;
 import com.habidue.app.domain.user.Role;
 import com.habidue.app.domain.user.User;
 import com.habidue.app.dto.ApiResponse;
-import com.habidue.app.dto.user.UserResponseDto;
+import com.habidue.app.dto.admin.AdminUserResponseDto;
 import com.habidue.app.repository.user.UserRepository;
 import com.habidue.app.service.user.KarmaService;
 import com.habidue.app.service.user.UserService;
@@ -32,9 +32,9 @@ public class UserAdminController {
      * 전체 사용자 목록 조회 (관리자 전용)
      */
     @GetMapping
-    public ResponseEntity<ApiResponse<List<UserResponseDto>>> getAllUsers() {
-        List<UserResponseDto> users = userService.getAllUsers().stream()
-                .map(user -> new UserResponseDto(user, userService.isUserOnline(user.getId())))
+    public ResponseEntity<ApiResponse<List<AdminUserResponseDto>>> getAllUsers() {
+        List<AdminUserResponseDto> users = userService.getAllUsers().stream()
+                .map(user -> AdminUserResponseDto.from(user, userService.isUserOnline(user.getId())))
                 .collect(Collectors.toList());
         return ApiResponse.success(users);
     }
@@ -43,30 +43,30 @@ public class UserAdminController {
      * 사용자 역할(Role) 변경 (관리자 전용)
      */
     @PatchMapping("/{userId}/role")
-    public ResponseEntity<ApiResponse<UserResponseDto>> updateUserRole(
+    public ResponseEntity<ApiResponse<AdminUserResponseDto>> updateUserRole(
             @PathVariable Long userId,
             @RequestParam com.habidue.app.domain.user.Role role) {
         User updatedUser = userService.updateUserRole(userId, role);
-        return ApiResponse.success(new UserResponseDto(updatedUser));
+        return ApiResponse.success(AdminUserResponseDto.from(updatedUser, userService.isUserOnline(userId)));
     }
 
     /**
      * 사용자 상태(Status) 변경 (차단/해제 등)
      */
     @PatchMapping("/{userId}/status")
-    public ResponseEntity<ApiResponse<UserResponseDto>> updateUserStatus(
+    public ResponseEntity<ApiResponse<AdminUserResponseDto>> updateUserStatus(
             @PathVariable Long userId,
             @RequestParam com.habidue.app.domain.user.UserStatus status,
             @RequestParam(required = false) String reason) {
         User updatedUser = userService.updateUserStatus(userId, status, reason);
-        return ApiResponse.success(new UserResponseDto(updatedUser));
+        return ApiResponse.success(AdminUserResponseDto.from(updatedUser, userService.isUserOnline(userId)));
     }
 
     /**
      * [시니어 조치] 사용자 카르마 점수 수동 조정
      */
     @PatchMapping("/{userId}/karma")
-    public ResponseEntity<ApiResponse<UserResponseDto>> updateUserKarma(
+    public ResponseEntity<ApiResponse<AdminUserResponseDto>> updateUserKarma(
             @PathVariable Long userId,
             @RequestParam double points,
             @RequestParam(required = false) com.habidue.app.domain.user.KarmaReason reason,
@@ -81,7 +81,7 @@ public class UserAdminController {
         
         User updatedUser = userRepository.findById(userId)
                 .orElseThrow(() -> new NoSuchElementException("사용자를 찾을 수 없습니다."));
-        return ApiResponse.success(new UserResponseDto(updatedUser, userService.isUserOnline(userId)));
+        return ApiResponse.success(AdminUserResponseDto.from(updatedUser, userService.isUserOnline(userId)));
     }
 
     /**
@@ -113,7 +113,7 @@ public class UserAdminController {
      * [시니어 조치] 사용자 활동 제한 즉시 해제
      */
     @DeleteMapping("/{userId}/restriction")
-    public ResponseEntity<ApiResponse<UserResponseDto>> liftUserRestriction(
+    public ResponseEntity<ApiResponse<AdminUserResponseDto>> liftUserRestriction(
             @PathVariable Long userId,
             @AuthenticationPrincipal UserPrincipal currentUser) {
         User admin = userRepository.findById(currentUser.getId())
@@ -123,6 +123,6 @@ public class UserAdminController {
         
         User updatedUser = userRepository.findById(userId)
                 .orElseThrow(() -> new NoSuchElementException("사용자를 찾을 수 없습니다."));
-        return ApiResponse.success(new UserResponseDto(updatedUser, userService.isUserOnline(userId)));
+        return ApiResponse.success(AdminUserResponseDto.from(updatedUser, userService.isUserOnline(userId)));
     }
 }

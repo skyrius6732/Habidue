@@ -3,7 +3,7 @@ package com.habidue.app.controller.admin;
 import com.habidue.app.domain.message.Message;
 import com.habidue.app.domain.user.User;
 import com.habidue.app.dto.ApiResponse;
-import com.habidue.app.dto.message.MessageResponseDto;
+import com.habidue.app.dto.admin.AdminMessageResponseDto;
 import com.habidue.app.service.message.GeminiMessageAnalyzer;
 import com.habidue.app.service.message.MessageService;
 import com.habidue.app.repository.board.ReportRepository;
@@ -39,9 +39,9 @@ public class AdminMessageController {
                 .orElseThrow(() -> new NoSuchElementException("메시지를 찾을 수 없습니다."));
 
         List<Message> logList = messageRepository.findConversationWithPartner(reportedMsg.getSender(), reportedMsg.getReceiver());
-        List<MessageResponseDto> messagesDto = logList.stream()
+        List<AdminMessageResponseDto> messagesDto = logList.stream()
                 .sorted(java.util.Comparator.comparing(Message::getCreatedAt)) // [시니어 조치] 시간순 정렬 추가
-                .map(m -> MessageResponseDto.from(m, null, false))
+                .map(AdminMessageResponseDto::from)
                 .collect(Collectors.toList());
 
         boolean isMutualReport = reportRepository.existsActiveReportByConversation(
@@ -54,7 +54,6 @@ public class AdminMessageController {
         response.put("messages", messagesDto);
         response.put("isMutualReport", isMutualReport);
         
-        // [시니어 조치] DB에 이미 분석 결과가 저장되어 있다면 함께 반환 (캐싱)
         if (reportedMsg.getAiAnalysis() != null && !reportedMsg.getAiAnalysis().isEmpty()) {
             try {
                 com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
@@ -73,12 +72,11 @@ public class AdminMessageController {
      * 신고된 메시지 AI 정밀 분석 및 DB 영구 저장
      */
     @PostMapping("/{messageId}/ai-analyze")
-    @Transactional // [중요] DB 저장을 위해 트랜잭션 보장
+    @Transactional 
     public ResponseEntity<ApiResponse<Map<String, Object>>> aiAnalyzeMessage(@PathVariable Long messageId) {
         Message target = messageRepository.findById(messageId)
                 .orElseThrow(() -> new NoSuchElementException("메시지를 찾을 수 없습니다."));
 
-        // 이미 분석 결과가 있다면 Gemini 호출 없이 반환 (중복 호출 방지)
         if (target.getAiAnalysis() != null && !target.getAiAnalysis().isEmpty()) {
             try {
                 com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
@@ -87,23 +85,18 @@ public class AdminMessageController {
             } catch (Exception e) {}
         }
 
-        // 2. 실제 AI 분석 수행 (신고자 정보 포함)
         User reporterUser = reportRepository.findAllByTargetIdAndTargetType(messageId, com.habidue.app.domain.board.ReportTargetType.MESSAGE)
                 .stream().findFirst().map(com.habidue.app.domain.board.Report::getReporter).orElse(null);
 
         List<Message> conversation = messageRepository.findConversationWithPartner(target.getSender(), target.getReceiver());
         Map<String, Object> analysisResult = geminiMessageAnalyzer.analyzeContext(conversation, messageId, reporterUser);
         
-        // 분석 성공 시 DB에 즉시 업데이트
         if (!analysisResult.containsKey("error")) {
             try {
-                // [시니어 조치] 저장 로직을 별도의 명확한 예외 처리로 분리
-                // 만약 여기서 Truncation 에러가 나더라도, 분석 결과 반환은 가능하게 함
                 saveAnalysisResult(target, analysisResult);
                 log.info("💾 AI 분석 결과를 DB에 영구 저장했습니다. (ID: #{})", messageId);
             } catch (Exception e) {
-                log.error("⚠️ AI 결과 DB 저장 실패 (데이터가 너무 길 수 있음): {}", e.getMessage());
-                // 여기서 예외를 던지지 않고 무시하여 분석 결과는 화면에 나오게 함
+                log.error("⚠️ AI 결과 DB 저장 실패: {}", e.getMessage());
             }
         }
         
@@ -116,6 +109,6 @@ public class AdminMessageController {
         Double score = Double.valueOf(result.getOrDefault("score", 0.0).toString());
         
         target.updateAiResult(score, jsonResult);
-        messageRepository.saveAndFlush(target); // 즉시 커밋 시도
+        messageRepository.saveAndFlush(target);
     }
 }

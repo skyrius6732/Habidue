@@ -90,6 +90,8 @@ public class User {
 
     private LocalDateTime withdrawalAt; // 탈퇴 일시
 
+    private LocalDateTime lastLoginAt; // [시니어 조치] 마지막 로그인 시점 기록
+
     // [시니어 조치] 활동 신뢰도 및 페널티 시스템 필드
     @Builder.Default
     @Column(nullable = false, columnDefinition = "int default 1000")

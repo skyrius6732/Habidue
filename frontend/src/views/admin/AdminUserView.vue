@@ -80,6 +80,13 @@
                 <div class="readonly-text">{{ user.email }} ({{ formatDate(user.createdAt) }})</div>
               </div>
 
+              <div class="edit-field">
+                <label>마지막 로그인 시점</label>
+                <div class="readonly-text" :class="{ 'is-recent': isRecent(user.lastLoginAt) }">
+                  {{ user.lastLoginAt ? formatDate(user.lastLoginAt) : '기록 없음' }}
+                </div>
+              </div>
+
               <!-- [시니어] 카르마 및 제재 관리 -->
               <div class="penalty-admin-section">
                 <div class="admin-row">
@@ -316,6 +323,14 @@ const isRestricted = (user) => {
   return new Date(user.restrictedUntil) > new Date()
 }
 
+const isRecent = (dateStr) => {
+  if (!dateStr) return false
+  const lastLogin = new Date(dateStr)
+  const now = new Date()
+  const diffHours = (now - lastLogin) / (1000 * 60 * 60)
+  return diffHours < 24 // 24시간 이내 접속 시 강조
+}
+
 const getKarmaClass = (point) => {
   if (point >= 800) return 'safe'
   if (point >= 500) return 'warning'
@@ -390,6 +405,7 @@ onMounted(() => {
 .edit-field { display: flex; flex-direction: column; gap: 2px; }
 .edit-field label { font-size: 0.6rem; font-weight: 700; color: var(--text-secondary); }
 .readonly-text { font-size: 0.7rem; color: var(--text-primary); font-weight: 600; padding: 2px 0; word-break: break-all; }
+.readonly-text.is-recent { color: #2ecc71; }
 .edit-select { height: 32px; padding: 0 8px; border: 1px solid var(--border-color); border-radius: 6px; font-size: 0.75rem; background: var(--header-bg); color: var(--text-primary); outline: none; }
 .btn-activity { background: none; border: 1px solid var(--link-color); color: var(--link-color); padding: 6px; border-radius: 6px; font-size: 0.7rem; cursor: pointer; font-weight: 700; margin-top: 2px; transition: all 0.2s; }
 .btn-activity:hover { background: var(--link-color); color: white; }

@@ -125,6 +125,10 @@ public class CustomOAuth2UserService extends DefaultOAuth2UserService {
             log.info("[OAuth2] 신규 사용자 가입 완료 - ID: {}, Username: {}", user.getId(), user.getUsername());
         }
 
+        // [시니어 조치] 마지막 로그인 시점 기록 (기존/신규 유저 공통)
+        user.setLastLoginAt(java.time.LocalDateTime.now());
+        userRepository.save(user);
+
         return UserPrincipal.create(user, attributes);
     }
 }

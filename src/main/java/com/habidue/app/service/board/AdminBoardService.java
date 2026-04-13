@@ -5,8 +5,8 @@ import com.habidue.app.domain.board.*;
 import com.habidue.app.domain.notification.NotificationType;
 import com.habidue.app.domain.user.KarmaReason;
 import com.habidue.app.domain.user.User;
-import com.habidue.app.dto.board.CommentResponseDto;
-import com.habidue.app.dto.board.PostResponseDto;
+import com.habidue.app.dto.admin.AdminCommentResponseDto;
+import com.habidue.app.dto.admin.AdminPostResponseDto;
 import com.habidue.app.dto.admin.ReportAdminResponseDto;
 import com.habidue.app.dto.admin.ConversationReportGroupDto;
 import com.habidue.app.repository.board.CommentRepository;
@@ -42,12 +42,12 @@ public class AdminBoardService {
     private final MessageRepository messageRepository;
 
     @Transactional(readOnly = true)
-    public Page<PostResponseDto> getAdminPosts(Long userId, Long postId, String keyword, String status, Pageable pageable) {
+    public Page<AdminPostResponseDto> getAdminPosts(Long userId, Long postId, String keyword, String status, Pageable pageable) {
         if (userId != null) {
-            return postRepository.findPostsByAuthor(userId, keyword, status, pageable).map(PostResponseDto::from);
+            return postRepository.findPostsByAuthor(userId, keyword, status, pageable).map(AdminPostResponseDto::from);
         }
         return postRepository.findPosts(null, null, null, null, keyword, status, null, null, pageable, null, postId, true)
-                .map(PostResponseDto::from);
+                .map(AdminPostResponseDto::from);
     }
 
     @Transactional
@@ -86,9 +86,9 @@ public class AdminBoardService {
     }
 
     @Transactional(readOnly = true)
-    public Page<CommentResponseDto> getAdminComments(Long userId, Long commentId, String keyword, String status, Pageable pageable) {
+    public Page<AdminCommentResponseDto> getAdminComments(Long userId, Long commentId, String keyword, String status, Pageable pageable) {
         return commentRepository.findComments(userId, commentId, keyword, status, pageable).map(comment -> {
-            CommentResponseDto dto = CommentResponseDto.from(comment, true);
+            AdminCommentResponseDto dto = AdminCommentResponseDto.from(comment, true);
             dto.setChildren(new java.util.ArrayList<>());
             return dto;
         });

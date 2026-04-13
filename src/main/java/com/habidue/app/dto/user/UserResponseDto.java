@@ -1,6 +1,7 @@
 package com.habidue.app.dto.user;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.habidue.app.domain.user.User;
 import lombok.*;
@@ -26,6 +27,7 @@ public class UserResponseDto {
     private boolean emailReportEnabled;
     private String reportEmail;
     private boolean reportEmailVerified;
+    private LocalDateTime lastLoginAt; // [시니어 조치] 마지막 로그인 시점
     private LocalDateTime createdAt;
     
     // [시니어 조치] 레벨링 시스템 정보
@@ -63,6 +65,7 @@ public class UserResponseDto {
         this.emailReportEnabled = user.isEmailReportEnabled();
         this.reportEmail = user.getReportEmail();
         this.reportEmailVerified = user.isReportEmailVerified();
+        this.lastLoginAt = user.getLastLoginAt(); // [시니어 조치] 매핑 추가
         this.createdAt = user.getCreatedAt();
         
         // 레벨 시스템 매핑

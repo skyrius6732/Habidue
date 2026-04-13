@@ -1,87 +1,84 @@
-package com.habidue.app.dto.board;
+package com.habidue.app.dto.admin;
 
-import com.fasterxml.jackson.annotation.JsonIgnore;
-import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.habidue.app.domain.board.Post;
 import com.habidue.app.domain.board.PostType;
 import lombok.*;
-
 import java.time.LocalDateTime;
 import java.util.List;
 
+/**
+ * 관리자 전용 게시글 응답 DTO (ID 포함)
+ */
 @Getter
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class PostResponseDto {
+public class AdminPostResponseDto {
     private Long id;
     private String title;
     private String content;
-
-    @JsonIgnore
-    private Long authorId;
-    private String authorPublicId; // [시니어 조치] 작성자 공개 ID 추가
-    private String authorName; // 닉네임
-    private int authorLevel; // [시니어 조치] 작성자 레벨
-    private long authorExp; // [시니어 조치] 작성자 경험치
-    private String authorEquippedBadgeName; // [시니어 조치] 장착 중인 대표 배지 명칭
-    private boolean showLevelEffects; // [시니어 조치] 작성자 효과 표시 설정
-    private boolean showEquippedEffect; // [시니어 조치] 작성자 이펙트 효과 설정
-    private Integer authorEquippedTier; // [시니어 조치] 작성자 장착 티어 스타일
-    private String authorEquippedEffect; // [시니어 조치] 작성자 특수 효과 코드
-    private int authorKarmaPoint; // [시니어 조치] 작성자 카르마 점수 추가
+    private Long authorId; // 관리자용이므로 작성자 PK 포함
+    private String authorPublicId;
+    private String authorName;
+    private int authorLevel;
+    private long authorExp;
+    private String authorEquippedBadgeName;
+    private boolean showLevelEffects;
+    private boolean showEquippedEffect;
+    private Integer authorEquippedTier;
+    private String authorEquippedEffect;
+    private int authorKarmaPoint;
     private Long noticeId;
     private String noticeTitle;
-    private String noticeStatus; // [시니어 조치] 공고 마감 상태 전달
+    private String noticeStatus;
     
     @JsonProperty("isRevived")
-    private boolean isRevived; // [시니어 조치] 공고 소통방 재활성화 여부
+    private boolean isRevived;
 
     @JsonProperty("isDormant")
-    private boolean isDormant; // [시니어 조치] 휴면(보관중) 상태 여부
+    private boolean isDormant;
     
     private PostType type;
     private String category;
-    private String subCategory; // [시니어 조치] 누락된 소메뉴 위치 필드 복구
+    private String subCategory;
     private String regionTag;
     private String status;
     private List<String> imageUrls;
-    private List<com.habidue.app.dto.tag.TagResponseDto> tags; // 태그 리스트 추가
+    private List<com.habidue.app.dto.tag.TagResponseDto> tags;
     private Integer viewCount;
     private Integer commentCount;
     private Integer likeCount;
     private boolean isLiked;
-    private List<com.habidue.app.dto.badge.BadgeResponseDto> authorBadges; // 작성자 획득 배지 리스트
-    private Long prevId; // 이전글 ID
-    private Long nextId; // 다음글 ID
-    private boolean authorActive; // [시니어 조치] 작성자 탈퇴 여부 판단용
+    private List<com.habidue.app.dto.badge.BadgeResponseDto> authorBadges;
+    private Long prevId;
+    private Long nextId;
+    private boolean authorActive;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 
-    public static PostResponseDto from(Post post) {
+    public static AdminPostResponseDto from(Post post) {
         boolean isActive = post.getAuthor().getStatus() == com.habidue.app.domain.user.UserStatus.ACTIVE;
         String displayName = isActive 
                 ? (post.getAuthor().getNickname() != null ? post.getAuthor().getNickname() : post.getAuthor().getUsername())
                 : "(탈퇴한 사용자)";
 
-        return PostResponseDto.builder()
+        return AdminPostResponseDto.builder()
                 .id(post.getId())
                 .title(post.getTitle())
                 .content(post.getContent())
                 .authorId(post.getAuthor().getId())
-                .authorPublicId(post.getAuthor().getPublicId()) // [시니어 조치] 매핑 추가
+                .authorPublicId(post.getAuthor().getPublicId())
                 .authorName(displayName)
                 .authorActive(isActive)
                 .authorLevel(post.getAuthor().getLevel())
                 .authorExp(post.getAuthor().getTotalExp())
                 .showLevelEffects(post.getAuthor().isShowLevelEffects())
-                .showEquippedEffect(post.getAuthor().isShowEquippedEffect()) // [시니어 조치] 이펙트 표시 여부 매핑
+                .showEquippedEffect(post.getAuthor().isShowEquippedEffect())
                 .authorEquippedTier(post.getAuthor().getEquippedTier())
                 .authorEquippedEffect(post.getAuthor().getEquippedEffect())
-                .authorKarmaPoint(post.getAuthor().getKarmaPoint()) // [시니어] 카르마 매핑
-                .authorEquippedBadgeName(null) // 매퍼에서 후처리 필요 (Service 단에서 처리 권장)
+                .authorKarmaPoint(post.getAuthor().getKarmaPoint())
                 .noticeId(post.getNotice() != null ? post.getNotice().getId() : null)
                 .noticeTitle(post.getNotice() != null ? post.getNotice().getTitle() : null)
                 .noticeStatus(post.getNotice() != null ? post.getNotice().getStatus().name() : null)
@@ -93,7 +90,7 @@ public class PostResponseDto {
                            .isBefore(java.time.LocalDateTime.now().minusDays(7)))
                 .type(post.getType())
                 .category(post.getCategory())
-                .subCategory(post.getSubCategory()) // [시니어 조치] 엔티티에서 값 추출
+                .subCategory(post.getSubCategory())
                 .regionTag(post.getRegionTag())
                 .status(post.getStatus())
                 .imageUrls(post.getImages() != null ? post.getImages().stream().map(com.habidue.app.domain.board.PostImage::getImageUrl).collect(java.util.stream.Collectors.toList()) : new java.util.ArrayList<>())

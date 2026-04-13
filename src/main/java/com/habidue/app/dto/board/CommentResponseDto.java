@@ -1,6 +1,7 @@
 package com.habidue.app.dto.board;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.habidue.app.domain.board.Comment;
 import lombok.*;
 
