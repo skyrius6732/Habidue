@@ -1,5 +1,6 @@
 package com.habidue.app.dto.board;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.habidue.app.domain.board.Comment;
 import lombok.*;
 
@@ -15,6 +16,8 @@ import java.util.stream.Collectors;
 public class CommentResponseDto {
     private Long id;
     private String content;
+
+    @JsonIgnore
     private Long authorId;
     private String authorPublicId; // [시니어 조치] 작성자 공개 ID 추가
     private String authorName;

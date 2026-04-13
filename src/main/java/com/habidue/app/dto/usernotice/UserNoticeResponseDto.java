@@ -1,5 +1,6 @@
 package com.habidue.app.dto.usernotice;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.habidue.app.domain.usernotice.UserNotice;
 import com.habidue.app.dto.tag.TagResponseDto;
@@ -12,6 +13,8 @@ import java.util.stream.Collectors;
 @Getter
 public class UserNoticeResponseDto {
     private Long id;
+    
+    @JsonIgnore
     private Long userId;
     private Long noticeId;
     private String noticeTitle;

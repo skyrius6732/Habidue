@@ -1,5 +1,6 @@
 package com.habidue.app.dto.message;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.habidue.app.domain.message.Message;
 import lombok.*;
@@ -14,6 +15,7 @@ public class MessageResponseDto {
     private Long id;
     private SenderInfo sender;
     
+    @JsonIgnore
     private Long receiverId;
     private String receiverPublicId; // [시니어 조치] 수신자 공개 ID 추가
     private String receiverNickname;
@@ -47,6 +49,7 @@ public class MessageResponseDto {
     @JsonProperty("isPartnerWithdrawn")
     private boolean isPartnerWithdrawn; // [시니어 조치] 상대방이 탈퇴했는지 여부
 
+    @JsonIgnore
     private Long visibleToUserId;
     private Long relatedTargetId;
 
@@ -68,6 +71,7 @@ public class MessageResponseDto {
     @AllArgsConstructor
     @NoArgsConstructor
     public static class SenderInfo {
+        @JsonIgnore
         private Long id;
         private String publicId; // [시니어 조치] 송신자 공개 ID 추가
         private String nickname;

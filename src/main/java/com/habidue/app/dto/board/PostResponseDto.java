@@ -1,5 +1,6 @@
 package com.habidue.app.dto.board;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.habidue.app.domain.board.Post;
 import com.habidue.app.domain.board.PostType;
@@ -17,6 +18,8 @@ public class PostResponseDto {
     private Long id;
     private String title;
     private String content;
+
+    @JsonIgnore
     private Long authorId;
     private String authorPublicId; // [시니어 조치] 작성자 공개 ID 추가
     private String authorName; // 닉네임

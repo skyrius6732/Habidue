@@ -1,5 +1,6 @@
 package com.habidue.app.dto.notification;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.habidue.app.domain.notification.Notification;
 import com.habidue.app.domain.notification.NotificationType;
 import lombok.Builder;
@@ -14,6 +15,8 @@ public class NotificationResponseDto {
     private NotificationType type;
     private String icon;
     private String content;
+
+    @JsonIgnore
     private Long relatedTargetId;
     private Long postId; // [시니어 조치] 추가
     

@@ -1,5 +1,6 @@
 package com.habidue.app.dto.user;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.habidue.app.domain.user.User;
 import lombok.*;
@@ -12,6 +13,7 @@ import java.util.List;
 @AllArgsConstructor
 @Builder
 public class UserResponseDto {
+    @JsonIgnore
     private Long id;
     private String publicId; // [시니어 조치] 외부 노출용 공개 ID 추가
     private String username;
