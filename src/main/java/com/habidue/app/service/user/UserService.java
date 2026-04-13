@@ -52,6 +52,7 @@ public class UserService {
     private final com.habidue.app.repository.user.KarmaHistoryRepository karmaHistoryRepository;
     private final com.habidue.app.repository.notice.NoticeWakeUpRepository noticeWakeUpRepository;
     private final UserEffectService userEffectService;
+    private final com.habidue.app.repository.user.UserArchiveRepository userArchiveRepository; // [시니어 조치] 추가
 
     private static final String BADGE_RULES_CACHE_KEY = "badge:rules:all";
 
@@ -276,6 +277,9 @@ public class UserService {
                 .orElseThrow(() -> new NoSuchElementException("탈퇴를 진행할 사용자를 찾을 수 없습니다."));
 
         log.info("Starting withdrawal process for user: {} (ID: {})", user.getUsername(), user.getId());
+
+        // [시니어 조치] 증거 보존을 위한 선제적 아카이브 저장 (식별 정보 소실 방지)
+        userArchiveRepository.save(com.habidue.app.domain.user.UserArchive.from(user));
 
         // 1. CascadeType.ALL 및 orphanRemoval 컬렉션 비우기
         user.getUserNotices().clear();
