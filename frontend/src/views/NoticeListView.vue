@@ -33,14 +33,16 @@
           <div class="search-input-wrapper">
             <span class="search-icon-inside">🔍</span>
             <input 
-              type="text"
+              type="search"
               v-model="searchKeyword" 
+              @keydown.enter.prevent="handleSearch"
               @keyup.enter="handleSearch" 
               @click.stop 
               placeholder="공고 검색 (예: 행복주택, 지역명)" 
               class="input-field-search-v2" 
               autocomplete="off"
               spellcheck="false"
+              enterkeyhint="search"
             />
             <button v-if="searchKeyword" class="btn-clear-search-v2" @click.stop="clearSearch">×</button>
           </div>
