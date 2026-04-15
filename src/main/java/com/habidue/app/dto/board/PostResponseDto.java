@@ -1,7 +1,6 @@
 package com.habidue.app.dto.board;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
-import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.habidue.app.domain.board.Post;
 import com.habidue.app.domain.board.PostType;
@@ -60,6 +59,11 @@ public class PostResponseDto {
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 
+    // --- 물물교환 전용 필드 ---
+    private String wantedItem;
+    private com.habidue.app.domain.barter.ItemCondition itemCondition;
+    private com.habidue.app.domain.barter.BarterStatus barterStatus;
+
     public static PostResponseDto from(Post post) {
         boolean isActive = post.getAuthor().getStatus() == com.habidue.app.domain.user.UserStatus.ACTIVE;
         String displayName = isActive 
@@ -103,6 +107,9 @@ public class PostResponseDto {
                 .likeCount(post.getLikeCount())
                 .createdAt(post.getCreatedAt())
                 .updatedAt(post.getUpdatedAt())
+                .wantedItem(post.getWantedItem())
+                .itemCondition(post.getItemCondition())
+                .barterStatus(post.getBarterStatus())
                 .build();
     }
 }

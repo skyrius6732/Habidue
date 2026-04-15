@@ -54,18 +54,22 @@
           <!-- 1. 주제 선택 영역 -->
           <div class="category-section">
             <div class="section-label">
-              소통글 주제 선택 
+              <span v-if="post.type === 'BARTER'">게시판 선택 <span style="color: #ef4444;">*</span></span>
+              <span v-else>소통글 주제 선택</span>
               <span v-if="editMode" class="lock-text">(수정 중 변경 불가 🔒)</span>
+            </div>
+            <div v-if="post.type === 'BARTER' && (!post.subCategory || post.subCategory === 'ALL')" class="barter-required-notice">
+              📌 게시판을 선택해주세요 (가전/디지털, 가구/인테리어 등)
             </div>
 
             <div class="category-chips" :class="[noticeInfo?.source, { 'edit-locked-mode': editMode }]">
-              <button 
-                v-for="cat in currentCategories" 
-                :key="cat.value" 
-                class="chip" 
-                :class="{ 
-                  active: post.category === cat.value,
-                  dimmed: editMode && post.category !== cat.value 
+              <button
+                v-for="cat in currentCategories"
+                :key="cat.value"
+                class="chip"
+                :class="{
+                  active: post.type === 'BARTER' ? post.subCategory === cat.value : post.category === cat.value,
+                  dimmed: editMode && (post.type === 'BARTER' ? post.subCategory !== cat.value : post.category !== cat.value)
                 }"
                 :disabled="editMode"
                 @click="selectCategory(cat)"
@@ -104,6 +108,27 @@
               placeholder="함께 정보를 나누고 따뜻한 응원의 메시지를 남겨주세요." 
               class="comment-textarea"
             ></textarea>
+          </div>
+
+          <!-- [물물교환 전용 입력 영역] -->
+          <div v-if="post.type === 'BARTER'" class="barter-input-area">
+            <div class="barter-input-group">
+              <div class="section-label">📦 물건 상태</div>
+              <div class="condition-selector">
+                <button v-for="(cfg, key) in ITEM_CONDITION" :key="key"
+                        class="cond-btn" :class="{ active: post.itemCondition === key }"
+                        @click="post.itemCondition = key">
+                  {{ cfg.label }}
+                </button>
+              </div>
+            </div>
+            <div class="barter-input-group">
+              <div class="section-label">🔄 희망 교환 물건</div>
+              <input v-model="post.wantedItem" type="text"
+                     placeholder="예: 소형 가전, 도서 등 (미입력 시 자유 교환)"
+                     maxlength="150"
+                     class="input-wanted-item" />
+            </div>
           </div>
 
           <!-- 4. 사진 첨부 -->
@@ -153,6 +178,7 @@ import { useUiStore } from '@/stores/ui'
 import axios from '@/plugins/axios'
 import PageHeader from '@/components/PageHeader.vue'
 import CommunitySidebar from '@/components/CommunitySidebar.vue'
+import { ITEM_CONDITION } from '@/constants/postConstants'
 
 const route = useRoute()
 const router = useRouter()
@@ -253,9 +279,33 @@ const guidanceMap = {
   FREE: { title: '☕ 자유 수다', desc: '일상적인 이야기나 가벼운 인사를 나누는 따뜻한 소통 공간입니다.', template: '' }
 }
 
-const post = ref({ title: '', content: '', category: '', subCategory: null, type: 'GENERAL', noticeId: null, regionTag: '' })
+const post = ref({ 
+  title: '', 
+  content: '', 
+  category: '', 
+  subCategory: route.query.sub || null, 
+  type: route.query.menu || 'GENERAL', 
+  noticeId: null, 
+  regionTag: '',
+  wantedItem: '',
+  itemCondition: 'LIKE_NEW'
+})
 
 const getCategoriesBySub = (type, sub) => {
+  if (type === 'BARTER') {
+    const allCategories = [
+      { label: '📺 가전/디지털', value: 'ELECTRONICS', sub: 'ALL' },
+      { label: '🪑 가구/인테리어', value: 'FURNITURE', sub: 'ALL' },
+      { label: '👕 의류/잡화', value: 'CLOTHING', sub: 'ALL' },
+      { label: '🧸 취미/게임', value: 'HOBBY', sub: 'ALL' },
+      { label: '📦 기타', value: 'OTHER', sub: 'ALL' }
+    ]
+    // 특정 게시판에서 들어온 경우 해당 게시판만 표시
+    if (sub && sub !== 'ALL') {
+      return allCategories.filter(cat => cat.value === sub)
+    }
+    return allCategories
+  }
   if (!sub) return []
   const subIcons = { MOVING: '🚚', CLEANING: '🧼', INTERIOR: '🛋️' }
   if (type === 'NOTICE') return [{ label: '📢 공고문의', value: 'INQUIRY', sub: 'ALL' }, { label: '📝 서류준비', value: 'PREPARE', sub: 'ALL' }, { label: '🏠 현장사진', value: 'PHOTO', sub: 'ALL' }, { label: '📊 경쟁률', value: 'COMPETE', sub: 'ALL' }]
@@ -278,13 +328,22 @@ const getCategoriesBySub = (type, sub) => {
 const getSubLabel = (sub) => {
   if (!sub) return '';
   if (sub === 'ALL') return '전체';
-  const subLabels = { 
-    SEOUL: '서울', METRO: '경기/인천', CHUNGCHEONG_GANGWON: '충청/강원/세종', 
-    GYEONGSANG: '경상/부산/대구', JEOLLA_JEJU: '전라/광주/제주', 
-    LH: 'LH 소통', SH: 'SH 소통', PRIVATE_RENTAL: '민간임대 소통', INSTITUTE: '기관소통', 
-    INTERVIEW: '당첨자 인터뷰', TIPS: '서류/청약 팁', MOVE_IN: '입주/사전점검', 
+  const subLabels = {
+    // 지역별 소통
+    SEOUL: '서울', METRO: '경기/인천', CHUNGCHEONG_GANGWON: '충청/강원/세종',
+    GYEONGSANG: '경상/부산/대구', JEOLLA_JEJU: '전라/광주/제주',
+    LH: 'LH 소통', SH: 'SH 소통', PRIVATE_RENTAL: '민간임대 소통', INSTITUTE: '기관소통',
+    // 당첨후기
+    INTERVIEW: '당첨자 인터뷰', TIPS: '서류/청약 팁', MOVE_IN: '입주/사전점검',
+    // 파트너스
     MOVING: '이사', CLEANING: '청소', INTERIOR: '인테리어',
-    MY: '관심'
+    MY: '관심',
+    // 물물교환
+    ELECTRONICS: '📺 가전/디지털',
+    FURNITURE: '🪑 가구/인테리어',
+    CLOTHING: '👕 의류/잡화',
+    HOBBY: '🧸 취미/게임',
+    OTHER: '📦 기타'
   }
   return subLabels[sub] || sub
 }
@@ -292,7 +351,7 @@ const getSubLabel = (sub) => {
 const currentCategories = computed(() => getCategoriesBySub(post.value.type, post.value.subCategory || route.query.sub))
 
 const boardTypeLabel = computed(() => {
-  const typeLabels = { GENERAL: '통합광장', NOTICE: '공고소통방', REVIEW: '당첨후기', PARTNER: '파트너스' }
+  const typeLabels = { GENERAL: '통합광장', NOTICE: '공고소통방', REVIEW: '당첨후기', PARTNER: '파트너스', BARTER: '물물교환' }
   return typeLabels[post.value.type] || '소통글'
 })
 const currentGuidance = computed(() => guidanceMap[post.value.category] || (post.value.category === 'FREE' ? guidanceMap.FREE : null))
@@ -307,8 +366,14 @@ onMounted(async () => {
     post.value.type = route.query.type || 'GENERAL'
     post.value.subCategory = route.query.sub || 'ALL'
     post.value.noticeId = route.query.noticeId || null
-    const categories = getCategoriesBySub(post.value.type, post.value.subCategory)
-    if (categories.length > 0) post.value.category = categories[0].value
+
+    // BARTER 타입: category='BARTER', subCategory=세부카테고리
+    if (post.value.type === 'BARTER') {
+      post.value.category = 'BARTER'
+    } else {
+      const categories = getCategoriesBySub(post.value.type, post.value.subCategory)
+      if (categories.length > 0) post.value.category = categories[0].value
+    }
     updateRegionTag(post.value.subCategory)
   }
   await Promise.all([fetchUserTags(), fetchNoticeInfo()])
@@ -332,7 +397,9 @@ const fetchPostForEdit = async (id) => {
     post.value.content = data.content;
     post.value.noticeId = data.noticeId;
     post.value.regionTag = data.regionTag;
-    
+    post.value.itemCondition = data.itemCondition;
+    post.value.wantedItem = data.wantedItem;
+
     if (data.imageUrls) imagePreviews.value = [...data.imageUrls];
     if (data.tags) {
       selectedTagIds.value = data.tags.map(t => t.tagId || t.id);
@@ -342,23 +409,30 @@ const fetchPostForEdit = async (id) => {
   }
 };
 
-const handleSubChange = (sub) => { 
-  if (!editMode.value) { 
-    post.value.subCategory = sub; 
-    updateRegionTag(sub); 
-    const categories = getCategoriesBySub(post.value.type, sub); 
-    if (categories.length > 0) post.value.category = categories[0].value; 
-  } 
+const handleSubChange = (sub) => {
+  if (!editMode.value) {
+    post.value.subCategory = sub;
+    updateRegionTag(sub);
+    if (post.value.type !== 'BARTER') {
+      const categories = getCategoriesBySub(post.value.type, sub);
+      if (categories.length > 0) post.value.category = categories[0].value;
+    }
+  }
 };
 
-const selectCategory = (cat) => { 
-  if (!editMode.value) { 
-    post.value.category = cat.value; 
-    if (cat.sub) { 
-      post.value.subCategory = cat.sub; 
-      updateRegionTag(cat.sub); 
-    } 
-  } 
+const selectCategory = (cat) => {
+  if (!editMode.value) {
+    if (post.value.type === 'BARTER') {
+      post.value.category = 'BARTER';
+      post.value.subCategory = cat.value;
+    } else {
+      post.value.category = cat.value;
+      if (cat.sub) {
+        post.value.subCategory = cat.sub;
+        updateRegionTag(cat.sub);
+      }
+    }
+  }
 };
 
 const applyTemplate = async () => { 
@@ -409,16 +483,19 @@ const submitPost = async () => {
       }
     }
     
-    const payload = { 
-      title: post.value.title, 
-      content: post.value.content, 
+    const payload = {
+      title: post.value.title,
+      content: post.value.content,
       category: post.value.category,
-      subCategory: post.value.subCategory || 'ALL', 
+      subCategory: post.value.subCategory || 'ALL',
       type: post.value.type,
-      noticeId: post.value.noticeId, 
+      noticeId: post.value.noticeId,
       imageUrls: finalImageUrls, // [중요] 기존 + 신규가 모두 포함된 전체 리스트
       tagIds: [...selectedTagIds.value],
-      regionTag: post.value.regionTag
+      regionTag: post.value.regionTag,
+      // [물물교환 전용 필드]
+      itemCondition: post.value.itemCondition,
+      wantedItem: post.value.wantedItem || null
     };
 
     console.log('[DEBUG] Submit Payload:', payload); // 로컬 테스트 시 페이로드 확인용
@@ -484,7 +561,18 @@ const handleListBack = () => {
   router.back();
 };
 
-const isFormValid = computed(() => post.value.title?.trim() && post.value.content?.trim() && post.value.category)
+const isFormValid = computed(() => {
+  const hasTitle = post.value.title?.trim();
+  const hasContent = post.value.content?.trim();
+  const hasCategory = post.value.category;
+
+  // BARTER 타입: subCategory 필수 선택 (ALL 제외)
+  if (post.value.type === 'BARTER') {
+    return hasTitle && hasContent && hasCategory && post.value.subCategory && post.value.subCategory !== 'ALL';
+  }
+
+  return hasTitle && hasContent && hasCategory;
+})
 const isMobile = ref(window.innerWidth <= 992)
 const handleResize = () => { isMobile.value = window.innerWidth <= 992 }
 onMounted(() => window.addEventListener('resize', handleResize))
@@ -584,4 +672,114 @@ onUnmounted(() => window.removeEventListener('resize', handleResize))
 }
 
 @media (max-width: 768px) { .g-list-horizontal { flex-direction: column; gap: 8px; } }
+
+/* [물물교환 전용 스타일] */
+.barter-input-area {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  padding: 24px;
+  background: var(--hover-bg);
+  border-radius: 16px;
+  margin-top: 10px;
+  margin-bottom: 30px;
+  border: 1px solid var(--border-color);
+}
+
+.barter-input-group {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.condition-selector {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.cond-btn {
+  padding: 10px 20px;
+  border-radius: 12px;
+  border: 1.5px solid var(--border-color);
+  background: var(--card-bg);
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.cond-btn:hover {
+  border-color: var(--link-color);
+  color: var(--link-color);
+}
+
+.cond-btn.active {
+  background: var(--link-color);
+  color: white;
+  border-color: var(--link-color);
+  box-shadow: 0 4px 12px rgba(0, 149, 246, 0.2);
+}
+
+.input-wanted-item {
+  width: 100%;
+  padding: 14px;
+  border-radius: 12px;
+  border: 1.5px solid var(--border-color);
+  background: var(--card-bg);
+  color: var(--text-primary);
+  font-size: 1rem;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.input-wanted-item:focus {
+  border-color: var(--link-color);
+}
+
+.barter-required-notice {
+  background: rgba(239, 68, 68, 0.08);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  border-radius: 8px;
+  padding: 10px 12px;
+  font-size: 0.85rem;
+  color: #ef4444;
+  font-weight: 600;
+  margin-bottom: 10px;
+}
+
+@media (max-width: 768px) {
+  .barter-input-area { padding: 16px; gap: 20px; }
+  .cond-btn { padding: 8px 16px; font-size: 0.85rem; }
+
+  /* 모바일 category-chips 가로스크롤 */
+  .category-chips {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    overflow-y: hidden;
+    -webkit-overflow-scrolling: touch;
+    scroll-behavior: smooth;
+    padding-bottom: 12px;
+    padding-left: 0;
+    padding-right: 0;
+  }
+
+  .category-chips::-webkit-scrollbar {
+    height: 4px;
+  }
+
+  .category-chips::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .category-chips::-webkit-scrollbar-thumb {
+    background: var(--border-color);
+    border-radius: 2px;
+  }
+
+  .chip {
+    flex-shrink: 0;
+  }
+}
 </style>

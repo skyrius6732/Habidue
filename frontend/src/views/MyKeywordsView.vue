@@ -28,6 +28,7 @@
             쪽지함
             <span v-if="messageStore.unreadCount > 0" class="sidebar-unread-badge">{{ messageStore.unreadCount }}</span>
           </div>
+          <div class="sidebar-item" :class="{ active: activeTab === 'barter' }" @click="setActiveTab('barter')">물물교환 내역</div>
           <div class="sidebar-item" :class="{ active: activeTab === 'notifications' }" @click="setActiveTab('notifications')">알림 설정</div>
           <div class="sidebar-item" :class="{ active: activeTab === 'account' }" @click="setActiveTab('account')">계정 정보</div>
         </div>
@@ -39,6 +40,15 @@
             <p class="section-desc">다른 사용자나 시스템으로부터 받은 소중한 메시지입니다.</p>
             <div class="message-inbox-wrapper">
               <MessageInbox />
+            </div>
+          </div>
+
+          <!-- 0-1. 물물교환 내역 탭 -->
+          <div v-if="activeTab === 'barter'" class="barter-tab-content">
+            <h2 class="section-title">🔄 물물교환 내역</h2>
+            <p class="section-desc">진행 중이거나 완료된 물물교환 내역을 확인하세요.</p>
+            <div class="barter-history-wrapper">
+              <BarterTab />
             </div>
           </div>
 
@@ -822,6 +832,7 @@ import { useNotificationStore } from '@/stores/notification'
 import { useUiStore } from '@/stores/ui'
 import ActivityTab from './mypage/tabs/ActivityTab.vue'
 import MyPostsTab from './mypage/tabs/MyPostsTab.vue'
+import BarterTab from './mypage/tabs/BarterTab.vue'
 
 const authStore = useAuthStore()
 const badgeStore = useBadgeStore()

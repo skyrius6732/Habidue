@@ -8,6 +8,7 @@ import lombok.*;
 import java.time.LocalDateTime;
 
 @Getter
+@Setter
 @Builder
 @AllArgsConstructor
 @NoArgsConstructor
@@ -52,6 +53,7 @@ public class MessageResponseDto {
     @JsonIgnore
     private Long visibleToUserId;
     private Long relatedTargetId;
+    private Long tradeProposalId; // [하이브리드] 거래 제안 ID (쪽지 필터링용)
 
     @JsonProperty("isReported")
     private boolean isReported;
@@ -150,6 +152,7 @@ public class MessageResponseDto {
                 .isPartnerWithdrawn(partnerWithdrawn)
                 .visibleToUserId(message.getVisibleToUserId())
                 .relatedTargetId(message.getRelatedTargetId())
+                .tradeProposalId(message.getTradeProposalId())
                 .isReported(message.isReported())
                 .createdAt(message.getCreatedAt())
                 .readAt(message.getReadAt())

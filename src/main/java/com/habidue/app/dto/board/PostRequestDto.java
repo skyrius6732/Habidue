@@ -36,4 +36,8 @@ public class PostRequestDto {
     private List<String> imageUrls; // 이미지 URL 목록
 
     private Long noticeId; // 공고 전용 게시판일 경우 필수
+
+    // --- 물물교환 전용 필드 ---
+    private String wantedItem;
+    private com.habidue.app.domain.barter.ItemCondition itemCondition;
 }

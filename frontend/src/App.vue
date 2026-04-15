@@ -110,6 +110,13 @@ const handleNotiClick = async (noti) => {
     })
   } else if (noti.type === 'MESSAGE') {
     router.push({ path: '/keywords', query: { tab: 'messages', t: Date.now() } })
+  } else if (noti.type === 'BARTER_PROPOSAL' || noti.type === 'PROPOSAL_ACCEPTED' || noti.type === 'PROPOSAL_REJECTED' || noti.type === 'TRADE_CONDITION_PROPOSED' || noti.type === 'TRADE_CONDITION_ACCEPTED' || noti.type === 'TRADE_CONDITION_COUNTER' || noti.type === 'BARTER_COMPLETED' || noti.type === 'TRADE_CANCELLED') {
+    // 물물교환 관련 알림 - 이미 바터 탭에 있으면 직접 상태 업데이트, 아니면 라우팅
+    if (route.path === '/keywords' && route.query.tab === 'barter') {
+      notificationStore.setPendingExpandProposal(noti.relatedTargetId)
+    } else {
+      router.push({ path: '/keywords', query: { tab: 'barter', expandProposal: noti.relatedTargetId } })
+    }
   } else if (noti.type === 'NOTICE_KEYWORD' || noti.type === 'NOTICE_DEADLINE' || noti.type === 'NOTICE_STATUS_CHANGE') {
     // [시니어 조치] 공고 관련 알림 클릭 시 상세 모달 자동 오픈을 위해 openId 전달
     // 키워드 검색창 자동 입력을 위해 keyword도 함께 전달

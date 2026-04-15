@@ -15,7 +15,8 @@ export const useNotificationStore = defineStore('notification', {
     pollingTimer: null,
     currentPage: 0,
     hasMore: true,
-    isLoadingMore: false
+    isLoadingMore: false,
+    pendingExpandProposalId: null
   }),
 
   actions: {
@@ -261,6 +262,14 @@ export const useNotificationStore = defineStore('notification', {
         clearTimeout(this.reconnectTimer)
         this.reconnectTimer = null
       }
+    },
+
+    setPendingExpandProposal(proposalId) {
+      this.pendingExpandProposalId = proposalId
+    },
+
+    clearPendingExpandProposal() {
+      this.pendingExpandProposalId = null
     }
   }
 })

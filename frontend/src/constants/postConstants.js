@@ -33,7 +33,37 @@ export const CATEGORY_MAP = {
     { label: '📝 견적공유', value: 'ESTIMATE' },
     { label: '✅ 체크리스트', value: 'CHECKLIST' },
     { label: '☕ 자유수다', value: 'FREE' }
+  ],
+  // 5. 물물교환 (BARTER)
+  BARTER: [
+    { label: '📺 가전/디지털', value: 'ELECTRONICS' },
+    { label: '🪑 가구/인테리어', value: 'FURNITURE' },
+    { label: '👕 의류/잡화', value: 'CLOTHING' },
+    { label: '🧸 취미/게임', value: 'HOBBY' },
+    { label: '📦 기타', value: 'OTHER' }
   ]
+};
+
+export const ITEM_CONDITION = {
+  NEW: { label: '새것', color: '#10b981' },
+  LIKE_NEW: { label: '거의 새것', color: '#3b82f6' },
+  USED: { label: '사용감 있음', color: '#f59e0b' },
+  WORN: { label: '흔적 많음', color: '#ef4444' }
+};
+
+export const BARTER_STATUS = {
+  TRADING: { label: '교환 가능', color: '#3b82f6' },
+  RESERVED: { label: '예약 중', color: '#f59e0b' },
+  COMPLETED: { label: '교환 완료', color: '#6b7280' }
+};
+
+export const PROPOSAL_STATUS = {
+  PROPOSED: { label: '제안됨', color: '#3b82f6' },
+  NEGOTIATING: { label: '협의중', color: '#8b5cf6' },
+  ACCEPTED: { label: '수락됨', color: '#10b981' },
+  REJECTED: { label: '거절됨', color: '#ef4444' },
+  CANCELLED: { label: '취소됨', color: '#6b7280' },
+  COMPLETED: { label: '완료됨', color: '#10b981' }
 };
 
 /**

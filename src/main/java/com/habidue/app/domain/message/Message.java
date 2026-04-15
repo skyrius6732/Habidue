@@ -59,6 +59,8 @@ public class Message {
 
     private Long relatedTargetId; // [시니어 조치] 시스템 메시지와 연관된 원본 메시지 ID (이동용)
 
+    private Long tradeProposalId; // [하이브리드] 거래 제안 관련 질문일 경우 제안 ID
+
     private LocalDateTime readAt;
 
     @Builder.Default

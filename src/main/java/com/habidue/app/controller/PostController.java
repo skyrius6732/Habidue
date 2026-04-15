@@ -24,6 +24,16 @@ public class PostController {
 
     private final PostService postService;
 
+    // 내 게시글 목록 조회 (타입별 필터 지원)
+    @GetMapping("/my")
+    @Secured("ROLE_USER")
+    public ResponseEntity<ApiResponse<Page<PostResponseDto>>> getMyPosts(
+            @RequestParam(required = false) PostType type,
+            @PageableDefault(size = 20) Pageable pageable,
+            @AuthenticationPrincipal UserPrincipal currentUser) {
+        return ApiResponse.success(postService.getMyPostsByType(currentUser.getId(), type, pageable));
+    }
+
     // 게시글 목록 조회 (통합 광장, 공고 전용, 후기 등 필터 지원)
     @GetMapping
     public ResponseEntity<ApiResponse<Page<PostResponseDto>>> getPosts(
@@ -36,7 +46,7 @@ public class PostController {
             @RequestParam(required = false) String tagName,
             @AuthenticationPrincipal UserPrincipal currentUser,
             @PageableDefault(size = 20) Pageable pageable) {
-        
+
         return ApiResponse.success(postService.getPosts(type, noticeId, category, subCategory, keyword, regionTag, tagName, currentUser, pageable));
     }
 

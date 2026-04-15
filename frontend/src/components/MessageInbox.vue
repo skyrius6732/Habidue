@@ -1,6 +1,6 @@
 <script setup>
 import { onMounted, onUnmounted, ref, watch, nextTick, computed } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import axios from '@/plugins/axios'
 import { useMessageStore } from '@/stores/message'
 import { useAuthStore } from '@/stores/auth'
@@ -9,6 +9,7 @@ import { format, isToday, isSameDay } from 'date-fns'
 import { ko } from 'date-fns/locale'
 
 const route = useRoute()
+const router = useRouter()
 const messageStore = useMessageStore()
 const authStore = useAuthStore()
 const uiStore = useUiStore()
@@ -33,6 +34,19 @@ const editingMessage = ref(null)
 
 const currentMobileView = ref('LIST')
 
+// [하이브리드] 물물교환 내역 이동
+const goToTradeProposal = () => {
+  if (!selectedRoom.value?.tradeProposalId) return
+  // keywords의 barter 탭으로 이동하고 해당 제안 아코디언 펼침 + 포커싱
+  router.push({
+    path: '/keywords',
+    query: { tab: 'barter', expandProposal: selectedRoom.value.tradeProposalId }
+  })
+}
+
+// [하이브리드] 거래 관련 필터
+const filterType = ref('all') // 'all', 'general', 'trade'
+
 // [시니어 조치] 데이터 로드 로직 통합
 const loadInitialData = async () => {
   try {
@@ -55,7 +69,23 @@ watch(() => route.query, (newQuery) => {
 
 onMounted(async () => {
   await loadInitialData()
-  
+
+  // [하이브리드] 물물교환에서 특정 대화를 자동으로 열기
+  const focusCounterparty = sessionStorage.getItem('focusCounterparty')
+  if (focusCounterparty) {
+    sessionStorage.removeItem('focusCounterparty')
+    nextTick(() => {
+      // receivedMessages에서 해당 partnerId와의 방 찾기
+      const targetRoom = messageStore.receivedMessages.find(room => {
+        const partnerId = getPartnerId(room)
+        return partnerId === focusCounterparty
+      })
+      if (targetRoom) {
+        selectRoom(targetRoom)
+      }
+    })
+  }
+
   activeStatusInterval = setInterval(async () => {
     try {
       await axios.post('/api/messages/active')
@@ -137,6 +167,16 @@ const scrollToMessage = (msgId) => {
     }
   })
 }
+
+// [하이브리드] 필터된 메시지 리스트 (거래 관련/일반 쪽지 구분)
+// isSystem으로 구분: 거래 제안은 isSystem=true, 일반 쪽지는 isSystem=false
+const filteredMessages = computed(() => {
+  const messages = messageStore.receivedMessages || []
+  if (filterType.value === 'all') return messages
+  if (filterType.value === 'general') return messages.filter(m => !m.tradeProposalId)
+  if (filterType.value === 'trade') return messages.filter(m => !!m.tradeProposalId)
+  return messages
+})
 
 // [시니어 조치] 대화방의 발송 제한 여부 계산 (가장 최신 시스템 메시지 기준)
 const isRoomRestricted = computed(() => {
@@ -460,18 +500,37 @@ const vClickOutside = {
         </div>
       </div>
       
+      <!-- [하이브리드] 필터 탭 -->
+      <div v-if="messageStore.receivedMessages.length > 0" class="filter-tabs">
+        <button
+          :class="['filter-tab', { active: filterType === 'all' }]"
+          @click="filterType = 'all'">
+          전체
+        </button>
+        <button
+          :class="['filter-tab', { active: filterType === 'general' }]"
+          @click="filterType = 'general'">
+          💬 일반
+        </button>
+        <button
+          :class="['filter-tab', { active: filterType === 'trade' }]"
+          @click="filterType = 'trade'">
+          🤝 거래
+        </button>
+      </div>
+
       <div v-if="messageStore.isLoading && messageStore.receivedMessages.length === 0" class="loading-state">
         <div class="spinner"></div>
       </div>
-      
-      <div v-else-if="messageStore.receivedMessages.length === 0" class="empty-list-sidebar">
+
+      <div v-else-if="filteredMessages.length === 0" class="empty-list-sidebar">
         <div class="empty-icon-mini">📩</div>
         <p>메시지가 없습니다.</p>
       </div>
-      
+
       <div v-else class="dm-list thin-scrollbar">
-        <div 
-          v-for="room in messageStore.receivedMessages" 
+        <div
+          v-for="room in filteredMessages" 
           :key="room.id" 
           class="dm-item"
           :class="{ 'active': selectedRoom && (selectedRoom.id === room.id) }"
@@ -592,6 +651,13 @@ const vClickOutside = {
           </div>
         </div>
 
+        <!-- [하이브리드] 거래 관련 메시지의 경우 물물교환 내역으로 이동 링크 표시 -->
+        <div v-if="selectedRoom?.tradeProposalId" class="trade-nav-bar">
+          <button @click="goToTradeProposal" class="trade-nav-link">
+            → 물물교환 내역으로 이동
+          </button>
+        </div>
+
         <!-- 하단 입력 영역 (1:1 대화방인 경우 항상 표시, 영구 제한/차단 시 비활성화) -->
         <div class="input-container" v-if="getPartnerId(selectedRoom) || isPartnerWithdrawn">
           <!-- [시니어 조치] 차단/제한 상태 또는 상대방 탈퇴 시 안내 문구 표시 -->
@@ -693,6 +759,17 @@ const vClickOutside = {
 .karma-value { font-size: 0.75rem; font-weight: 900; color: #a855f7; }
 .manage-block-btn { background: none; border: none; font-size: 1.2rem; cursor: pointer; opacity: 0.6; transition: 0.2s; padding: 5px; }
 .manage-block-btn:hover { opacity: 1; transform: scale(1.1); }
+
+/* [하이브리드] 필터 탭 */
+.filter-tabs { display: flex; gap: 8px; padding: 12px 16px; border-bottom: 1px solid var(--border-color); background: var(--bg-primary); }
+.filter-tab { padding: 6px 12px; border-radius: 20px; border: 1px solid var(--border-color); background: var(--card-bg); font-size: 0.8rem; font-weight: 700; cursor: pointer; transition: all 0.2s; color: var(--text-secondary); }
+.filter-tab:hover { border-color: var(--link-color); color: var(--text-primary); }
+.filter-tab.active { background: var(--link-color); color: white; border-color: var(--link-color); }
+
+/* [하이브리드] 거래 네비게이션 바 */
+.trade-nav-bar { padding: 12px 20px; background: transparent; text-align: right; border-top: 1px solid var(--border-color); }
+.trade-nav-link { background: none; border: none; color: var(--link-color); font-weight: 700; font-size: 0.9rem; cursor: pointer; text-decoration: none; transition: all 0.2s; padding: 0; }
+.trade-nav-link:hover { opacity: 0.7; }
 
 .dm-list { flex: 1; overflow-y: auto; }
 .dm-item { padding: 16px 20px; display: flex; align-items: center; gap: 14px; cursor: pointer; transition: 0.2s; position: relative; }

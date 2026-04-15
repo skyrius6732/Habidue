@@ -217,6 +217,7 @@ const mainMenus = [
   { id: 'GENERAL', name: '통합광장', icon: '🏛️' },
   { id: 'NOTICE', name: '공고소통방', icon: '📢' },
   { id: 'REVIEW', name: '당첨후기', icon: '✨' },
+  { id: 'BARTER', name: '물물교환', icon: '🔄' },
   { id: 'PARTNER', name: '파트너스', icon: '🤝' },
   { id: 'RANKING', name: '활동랭킹', icon: '🎖️' }
 ]
@@ -242,6 +243,14 @@ const subCategories = {
   ],
   PARTNER: [
     { type: 'ITEM', name: '🌐 전체', value: 'ALL' }, { type: 'ITEM', name: '🚚 이사', value: 'MOVING' }, { type: 'ITEM', name: '🧼 청소', value: 'CLEANING' }, { type: 'ITEM', name: '🛋️ 인테리어', value: 'INTERIOR' }
+  ],
+  BARTER: [
+    { type: 'ITEM', name: '🌐 전체', value: 'ALL' },
+    { type: 'ITEM', name: '📺 가전/디지털', value: 'ELECTRONICS' },
+    { type: 'ITEM', name: '🪑 가구/인테리어', value: 'FURNITURE' },
+    { type: 'ITEM', name: '👕 의류/잡화', value: 'CLOTHING' },
+    { type: 'ITEM', name: '🧸 취미/게임', value: 'HOBBY' },
+    { type: 'ITEM', name: '📦 기타', value: 'OTHER' }
   ]
 }
 

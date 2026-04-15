@@ -145,6 +145,11 @@ public class NotificationService { // [시니어 조치] 클래스 레벨 @Trans
             }
         } else if (type == NotificationType.MESSAGE) {
             clickAction = "/keywords?tab=messages";
+        } else if (type == NotificationType.BARTER_PROPOSAL ||
+                   type == NotificationType.TRADE_CONDITION_PROPOSED ||
+                   type == NotificationType.TRADE_CONDITION_ACCEPTED ||
+                   type == NotificationType.TRADE_CONDITION_COUNTER) {
+            clickAction = "/keywords?tab=barter";
         } else {
             clickAction = "/keywords?tab=notifications";
         }

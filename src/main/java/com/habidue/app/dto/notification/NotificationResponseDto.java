@@ -16,8 +16,7 @@ public class NotificationResponseDto {
     private String icon;
     private String content;
 
-    @JsonIgnore
-    private Long relatedTargetId;
+    private Long relatedTargetId;  // ← @JsonIgnore 제거: Frontend에서 사용해야 함
     private Long postId; // [시니어 조치] 추가
     
     @com.fasterxml.jackson.annotation.JsonProperty("isRead")

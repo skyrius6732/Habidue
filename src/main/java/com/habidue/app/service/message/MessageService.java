@@ -58,6 +58,12 @@ public class MessageService {
             throw new IllegalStateException("해당 대화방은 운영원칙 위반으로 인해 메시지 발송이 영구 제한되었습니다.");
         }
 
+        // [차단 체크] 차단된 사용자 관리에 있으면 쪽지 발송 불가
+        if (userBlockRepository.existsByBlockerAndBlocked(sender, receiver) ||
+            userBlockRepository.existsByBlockerAndBlocked(receiver, sender)) {
+            throw new IllegalStateException("상대방에게 차단되어 메시지 발송이 불가합니다.");
+        }
+
         String todayKey = DAILY_MESSAGE_COUNT_KEY + senderId + ":" + LocalDateTime.now().toLocalDate();
         String countStr = redisTemplate.opsForValue().get(todayKey);
         if (countStr != null && Integer.parseInt(countStr) >= MAX_DAILY_MESSAGES) {
@@ -211,6 +217,20 @@ public class MessageService {
     @Transactional(readOnly = true)
     public long countUnreadMessagesWithPartner(User user, User partner) {
         return messageRepository.countUnreadMessagesWithPartner(user, partner);
+    }
+
+    /**
+     * [하이브리드] 대화방의 tradeProposalId 조회
+     * 최신 메시지에 tradeProposalId가 없을 때, 그 대화방의 다른 메시지에서 찾기
+     */
+    @Transactional(readOnly = true)
+    public Long getConversationTradeProposalId(User user, User partner) {
+        List<Message> conversation = messageRepository.findConversationWithPartner(user, partner);
+        return conversation.stream()
+                .filter(m -> m.getTradeProposalId() != null)
+                .map(Message::getTradeProposalId)
+                .findFirst()
+                .orElse(null);
     }
 
     @Transactional
