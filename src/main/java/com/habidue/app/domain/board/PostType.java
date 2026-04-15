@@ -9,7 +9,8 @@ public enum PostType {
     GENERAL("통합광장"),
     NOTICE("공고게시판"),
     REVIEW("당첨후기"),
-    PARTNER("하비 파트너스"); // 이사/청소 등 생활 서비스
+    PARTNER("하비 파트너스"), // 이사/청소 등 생활 서비스
+    BARTER("물물교환");
 
     private final String description;
 }

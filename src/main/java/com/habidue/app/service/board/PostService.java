@@ -96,7 +96,19 @@ public class PostService {
         if (karmaService.isRestricted(author)) throw new IllegalArgumentException("활동 제한 상태입니다.");
         Notice notice = null;
         if (requestDto.getType() == PostType.NOTICE) notice = noticeRepository.findById(requestDto.getNoticeId()).orElseThrow();
-        Post post = Post.builder().title(requestDto.getTitle()).content(requestDto.getContent()).type(requestDto.getType()).category(requestDto.getCategory()).subCategory(requestDto.getSubCategory()).regionTag(requestDto.getRegionTag()).notice(notice).author(author).build();
+        Post post = Post.builder()
+                .title(requestDto.getTitle())
+                .content(requestDto.getContent())
+                .type(requestDto.getType())
+                .category(requestDto.getCategory())
+                .subCategory(requestDto.getSubCategory())
+                .regionTag(requestDto.getRegionTag())
+                .notice(notice)
+                .author(author)
+                .wantedItem(requestDto.getWantedItem())
+                .itemCondition(requestDto.getItemCondition())
+                .barterStatus(com.habidue.app.domain.barter.BarterStatus.TRADING)
+                .build();
         if (requestDto.getImageUrls() != null) {
             for (int i = 0; i < requestDto.getImageUrls().size(); i++) {
                 post.getImages().add(com.habidue.app.domain.board.PostImage.builder().post(post).imageUrl(requestDto.getImageUrls().get(i)).sortOrder(i).build());
@@ -140,6 +152,21 @@ public class PostService {
                 .map(PostResponseDto::from);
     }
 
+    @Transactional(readOnly = true)
+    public Page<PostResponseDto> getMyPostsByType(Long authorId, PostType type, Pageable pageable) {
+        Page<PostResponseDto> myPosts = postRepository.findByAuthorIdAndStatus(authorId, "ACTIVE", pageable)
+                .map(PostResponseDto::from);
+
+        // type 필터 적용 (null이면 모든 타입)
+        if (type != null) {
+            List<PostResponseDto> filtered = myPosts.stream()
+                    .filter(post -> post.getType() == type)
+                    .collect(Collectors.toList());
+            return new org.springframework.data.domain.PageImpl<>(filtered, pageable, filtered.size());
+        }
+        return myPosts;
+    }
+
     @Transactional
     public PostResponseDto updatePost(Long postId, PostRequestDto requestDto, UserPrincipal currentUser) {
         Post post = postRepository.findById(postId).orElseThrow();
@@ -150,6 +177,9 @@ public class PostService {
 
         // [시니어 조치] 엔티티 시그니처 변경에 따른 호출부 보정 (타입 유지)
         post.update(requestDto.getTitle(), requestDto.getContent(), post.getType(), requestDto.getCategory(), requestDto.getSubCategory(), requestDto.getRegionTag());
+        
+        // 물물교환 필드 업데이트
+        post.updateBarter(requestDto.getWantedItem(), requestDto.getItemCondition(), post.getBarterStatus());
 
         // [시니어 조치] 이미지 동기화 (중복 방지, 기존 데이터 보존, 삭제 대응)
         List<String> incomingUrls = requestDto.getImageUrls() != null ? requestDto.getImageUrls() : new java.util.ArrayList<>();

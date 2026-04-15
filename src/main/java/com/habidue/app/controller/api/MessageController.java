@@ -99,12 +99,23 @@ public class MessageController {
             User partner = (m.getSender() != null && m.getSender().getId().equals(user.getId())) ? m.getReceiver() : m.getSender();
             long unreadCount = (partner != null) ? messageService.countUnreadMessagesWithPartner(user, partner) : 0;
             boolean isOnline = (partner != null) && userService.isUserOnline(partner.getId());
-            
+
             // [시니어 조치] 차단 정보 포함 (프론트엔드 리스트 필터링 및 publicId 정합성 확보용)
             boolean blockedByMe = (partner != null) && userBlockRepository.existsByBlockerAndBlocked(user, partner);
             boolean blockedByPartner = (partner != null) && userBlockRepository.existsByBlockerAndBlocked(partner, user);
-            
-            return com.habidue.app.dto.message.MessageResponseDto.from(m, unreadCount, isOnline, blockedByMe, blockedByPartner);
+
+            // [하이브리드] 최신 메시지에 tradeProposalId가 없으면 대화방에서 찾기
+            Long roomTradeProposalId = m.getTradeProposalId();
+            if (roomTradeProposalId == null && partner != null) {
+                roomTradeProposalId = messageService.getConversationTradeProposalId(user, partner);
+            }
+
+            // tradeProposalId를 포함한 MessageResponseDto 생성
+            var dto = com.habidue.app.dto.message.MessageResponseDto.from(m, unreadCount, isOnline, blockedByMe, blockedByPartner);
+            if (roomTradeProposalId != null) {
+                dto.setTradeProposalId(roomTradeProposalId);
+            }
+            return dto;
         }));
     }
 

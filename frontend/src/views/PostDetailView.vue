@@ -77,7 +77,9 @@
 
             <header class="post-header">
               <h1 class="post-title">
-                <span v-if="post?.category" class="post-category-label-detail">{{ getCategoryLabel(post.category) }}</span>
+                <span v-if="post?.category" class="post-category-label-detail">
+                  {{ post?.type === 'BARTER' ? getCategoryLabel(post.subCategory) : getCategoryLabel(post.category) }}
+                </span>
                 {{ post?.title }}
               </h1>
               <div class="post-meta-info">
@@ -118,6 +120,33 @@
               </div>
               <div v-if="post.imageUrls.length > 1" class="slider-pagination">
                 <span v-for="(_, idx) in post.imageUrls" :key="idx" class="p-dot" :class="{ active: currentImgIdx === idx }" @click="goToSlide(idx)"></span>
+              </div>
+            </div>
+
+            <!-- [물물교환 전용 정보] -->
+            <div v-if="post.type === 'BARTER'" class="barter-detail-info">
+              <div class="barter-info-grid">
+                <div class="b-info-box">
+                  <span class="b-label">📦 물건 상태</span>
+                  <span class="b-value" :style="{ color: conditionConfig?.color }">
+                    {{ conditionConfig?.label || '정보 없음' }}
+                  </span>
+                </div>
+                <div class="b-info-box">
+                  <span class="b-label">🔄 희망 교환</span>
+                  <span class="b-value highlight">{{ post.wantedItem || '자유 교환' }}</span>
+                </div>
+              </div>
+              
+              <div class="barter-action-area">
+                <button v-if="post.barterStatus === 'TRADING'"
+                        class="btn-barter-propose"
+                        @click="handleProposalClick">
+                  🤝 이 물건에 교환 제안하기
+                </button>
+                <div v-else class="barter-status-badge-large" :style="{ backgroundColor: statusConfig?.color }">
+                  {{ statusConfig?.label }}
+                </div>
               </div>
             </div>
 
@@ -381,6 +410,14 @@
 
     <Transition name="fade"><div v-if="selectedFullImg" class="image-modal-overlay" @click="selectedFullImg = null"><div class="modal-content" @click.stop><img :src="selectedFullImg" class="modal-img" /><button class="btn-close-img" @click="selectedFullImg = null">✕</button></div></div></Transition>
     <Transition name="fade"><button v-if="showTopBtn && !isMobile" class="btn-scroll-top" @click="scrollToTop"><span class="up-arrow">↑</span></button></Transition>
+
+    <!-- 물물교환 제안 모달 -->
+    <BarterProposalModal 
+      v-if="isProposalModalOpen"
+      :barter-post="post"
+      @close="isProposalModalOpen = false"
+      @success="handleProposalSuccess"
+    />
   </div>
 </template>
 
@@ -393,7 +430,12 @@ import axios from '@/plugins/axios'
 import PageHeader from '@/components/PageHeader.vue'
 import CommunitySidebar from '@/components/CommunitySidebar.vue'
 import AnimatedNickname from '@/components/AnimatedNickname.vue'
-import { getCategoryLabel } from '@/constants/postConstants'
+import BarterProposalModal from '@/components/BarterProposalModal.vue'
+import { 
+  getCategoryLabel, 
+  ITEM_CONDITION, 
+  BARTER_STATUS 
+} from '@/constants/postConstants'
 
 const route = useRoute()
 const router = useRouter()
@@ -409,6 +451,7 @@ const selectedFullImg = ref(null)
 const isMobile = ref(window.innerWidth <= 992)
 const isMoreMenuOpen = ref(false)
 const activeCommentMenuId = ref(null)
+const isProposalModalOpen = ref(false)
 
 const sliderRef = ref(null)
 const currentImgIdx = ref(0)
@@ -447,9 +490,19 @@ const isBoardClosed = computed(() => {
 })
 
 const isPostBlinded = computed(() => post.value?.status === 'BLINDED')
+
+const conditionConfig = computed(() => ITEM_CONDITION[post.value?.itemCondition])
+const statusConfig = computed(() => BARTER_STATUS[post.value?.barterStatus])
+
 const boardTypeLabel = computed(() => {
   if (!post.value?.type) return '커뮤니티'
-  const labels = { 'GENERAL': '통합광장', 'NOTICE': '공고소통방', 'REVIEW': '당첨후기', 'PARTNER': '파트너스' }
+  const labels = { 
+    'GENERAL': '통합광장', 
+    'NOTICE': '공고소통방', 
+    'REVIEW': '당첨후기', 
+    'PARTNER': '파트너스',
+    'BARTER': '물물교환' 
+  }
   return labels[post.value.type] || '커뮤니티'
 })
 
@@ -883,6 +936,20 @@ const handleCreateComment = async (parentId = null, rootParentId = null) => {
   }
 }
 const handleGoBack = () => {
+  // [시니어 조치] 물물교환 내역에서 온 경우 복원 처리
+  const barterState = sessionStorage.getItem('barterTabNavState')
+  if (barterState) {
+    try {
+      const { fromBarterTab } = JSON.parse(barterState)
+      if (fromBarterTab) {
+        router.push({ path: '/keywords', query: { tab: 'barter' } })
+        return
+      }
+    } catch (e) {
+      console.error('바터 탭 상태 복원 오류', e)
+    }
+  }
+
   // [시니어 조치] 마이페이지 '내 활동'에서 온 경우 복원 처리
   const savedState = sessionStorage.getItem('myActivityNavState')
   if (savedState) {
@@ -899,15 +966,39 @@ const handleGoBack = () => {
   }
 
   const noticeId = post.value?.noticeId
-  
+
   // [시니어 조치] URL에 담겨온 모든 맥락(menu, sub, 필터 등)을 그대로 목록으로 복사
-  const query = { 
-    ...route.query, 
-    lastPostId: post.value?.id 
+  const query = {
+    ...route.query,
+    lastPostId: post.value?.id
   }
-  
+
   const path = noticeId ? `/board/${noticeId}` : '/board'
   router.push({ path, query })
+}
+
+const handleProposalClick = async () => {
+  if (post.value && authStore.user && post.value.authorPublicId === authStore.user.publicId) {
+    await uiStore.showAlert('자신의 물건에는 제안할 수 없습니다.', '안내')
+    return
+  }
+  openProposalModal()
+}
+
+const openProposalModal = () => {
+  if (!authStore.user) {
+    if (confirm('로그인이 필요한 서비스입니다. 로그인 하시겠습니까?')) {
+      router.push('/keywords?tab=login')
+    }
+    return
+  }
+  isProposalModalOpen.value = true
+}
+
+const handleProposalSuccess = () => {
+  isProposalModalOpen.value = false
+  uiStore.showAlert('교환 제안을 성공적으로 보냈습니다!', '제안 완료')
+  fetchPostDetail()
 }
 
 // 브라우저 뒤로가기 포함, 페이지 이탈 시 현재 게시글 ID 저장 (BoardView에서 스크롤 복원에 사용)
@@ -1212,5 +1303,80 @@ watch(() => route.params.postId, fetchPostDetail)
   border-radius: 12px;
   position: relative;
   z-index: 10;
+}
+
+/* [물물교환 전용 스타일] */
+.barter-detail-info {
+  background: var(--card-bg);
+  border: 1.5px solid var(--border-color);
+  border-radius: 16px;
+  padding: 20px;
+  margin-bottom: 24px;
+}
+
+.barter-info-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 20px;
+  margin-bottom: 20px;
+}
+
+.b-info-box {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.b-label {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--text-secondary);
+  opacity: 0.8;
+}
+
+.b-value {
+  font-size: 1.1rem;
+  font-weight: 900;
+  color: var(--text-primary);
+}
+
+.b-value.highlight {
+  color: var(--link-color);
+}
+
+.btn-barter-propose {
+  width: 100%;
+  padding: 16px;
+  background: var(--link-color);
+  color: white;
+  border: none;
+  border-radius: 12px;
+  font-size: 1rem;
+  font-weight: 800;
+  cursor: pointer;
+  transition: all 0.2s;
+  box-shadow: 0 4px 15px rgba(0, 149, 246, 0.2);
+}
+
+.btn-barter-propose:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(0, 149, 246, 0.3);
+}
+
+.barter-status-badge-large {
+  width: 100%;
+  padding: 16px;
+  border-radius: 12px;
+  color: white;
+  text-align: center;
+  font-weight: 800;
+  font-size: 1rem;
+}
+
+@media (max-width: 768px) {
+  .barter-detail-info { padding: 15px; }
+  .barter-info-grid { gap: 15px; }
+  .b-value { font-size: 1rem; }
+  .btn-barter-propose { padding: 14px; font-size: 0.95rem; }
 }
 </style>

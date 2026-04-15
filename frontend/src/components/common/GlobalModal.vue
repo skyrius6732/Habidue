@@ -4,6 +4,8 @@ import { watch, onMounted, onUnmounted } from 'vue'
 
 const uiStore = useUiStore()
 
+defineEmits(['close'])
+
 // [시니어 조치] 모달이 열려 있을 때 배경 스크롤 방지
 watch(() => uiStore.modal.isOpen, (val) => {
   if (val) {
@@ -25,24 +27,42 @@ onUnmounted(() => window.removeEventListener('keydown', handleEsc))
 </script>
 
 <template>
-  <Transition name="modal-fade">
+  <!-- [시니어 조치] 커스텀 slot을 받은 경우 -->
+  <Transition name="modal-fade" v-if="$slots.header || $slots.body || $slots.footer">
+    <div class="global-modal-overlay" @click.self="$emit('close')">
+      <div class="global-modal-card custom-modal">
+        <div v-if="$slots.header" class="modal-header">
+          <slot name="header"></slot>
+        </div>
+        <div v-if="$slots.body" class="modal-body">
+          <slot name="body"></slot>
+        </div>
+        <div v-if="$slots.footer" class="modal-footer">
+          <slot name="footer"></slot>
+        </div>
+      </div>
+    </div>
+  </Transition>
+
+  <!-- 시스템 alert/confirm 모달 -->
+  <Transition name="modal-fade" v-else>
     <div v-if="uiStore.modal.isOpen" class="global-modal-overlay" @click.self="uiStore.cancel">
       <div class="global-modal-card">
         <div class="modal-content">
           <h3 v-if="uiStore.modal.title" class="modal-title">{{ uiStore.modal.title }}</h3>
           <p class="modal-message" v-html="uiStore.modal.message.replace(/\n/g, '<br>')"></p>
         </div>
-        
+
         <div class="modal-actions" :class="{ 'has-cancel': uiStore.modal.type === 'confirm' }">
-          <button 
-            v-if="uiStore.modal.type === 'confirm'" 
-            class="modal-btn cancel-btn" 
+          <button
+            v-if="uiStore.modal.type === 'confirm'"
+            class="modal-btn cancel-btn"
             @click="uiStore.cancel"
           >
             {{ uiStore.modal.cancelText }}
           </button>
-          <button 
-            class="modal-btn confirm-btn" 
+          <button
+            class="modal-btn confirm-btn"
             :class="{ 'alert-only': uiStore.modal.type === 'alert' }"
             @click="uiStore.confirm"
           >
@@ -80,6 +100,39 @@ onUnmounted(() => window.removeEventListener('keydown', handleEsc))
   box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
   border: 1px solid var(--border-color);
   animation: modal-pop 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.global-modal-card.custom-modal {
+  max-width: 500px;
+  width: 90%;
+}
+
+.modal-header {
+  padding: 20px 25px;
+  border-bottom: 1px solid var(--border-color);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.modal-header h3 {
+  margin: 0;
+  font-size: 1.1rem;
+  font-weight: 800;
+}
+
+.modal-body {
+  padding: 25px;
+  max-height: 60vh;
+  overflow-y: auto;
+}
+
+.modal-footer {
+  padding: 15px 25px;
+  border-top: 1px solid var(--border-color);
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
 }
 
 @keyframes modal-pop {

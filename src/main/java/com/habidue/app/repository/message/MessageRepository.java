@@ -118,4 +118,13 @@ public interface MessageRepository extends JpaRepository<Message, Long> {
     @org.springframework.data.jpa.repository.Modifying
     @Query("DELETE FROM Message m WHERE m.sender = :sender OR m.receiver = :receiver")
     void deleteBySenderOrReceiver(@Param("sender") User sender, @Param("receiver") User receiver);
+
+    // [하이브리드] 거래 제안 관련 질문/답변 조회
+    @Query("SELECT m FROM Message m " +
+           "LEFT JOIN FETCH m.sender " +
+           "LEFT JOIN FETCH m.receiver " +
+           "WHERE m.tradeProposalId = :proposalId " +
+           "AND m.isDeleted = false " +
+           "ORDER BY m.createdAt ASC")
+    List<Message> findByTradeProposalId(@Param("proposalId") Long proposalId);
 }

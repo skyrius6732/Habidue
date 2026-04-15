@@ -1,5 +1,7 @@
 package com.habidue.app.domain.board;
 
+import com.habidue.app.domain.barter.BarterStatus;
+import com.habidue.app.domain.barter.ItemCondition;
 import com.habidue.app.domain.user.User;
 import com.habidue.app.domain.notice.Notice;
 import jakarta.persistence.*;
@@ -40,7 +42,7 @@ public class Post {
     private Notice notice;
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
+    @Column(nullable = false, length = 20)
     private PostType type;
 
     @Column
@@ -51,6 +53,19 @@ public class Post {
 
     @Column
     private String regionTag; 
+
+    // --- 물물교환 전용 필드 ---
+    @Column
+    private String wantedItem;
+
+    @Enumerated(EnumType.STRING)
+    @Column
+    private ItemCondition itemCondition;
+
+    @Enumerated(EnumType.STRING)
+    @Column
+    private BarterStatus barterStatus;
+    // ------------------------
 
     @Column(nullable = false, length = 20)
     @Builder.Default
@@ -114,6 +129,12 @@ public class Post {
         this.category = category;
         this.subCategory = subCategory;
         this.regionTag = regionTag;
+    }
+
+    public void updateBarter(String wantedItem, ItemCondition itemCondition, BarterStatus barterStatus) {
+        this.wantedItem = wantedItem;
+        this.itemCondition = itemCondition;
+        this.barterStatus = barterStatus;
     }
 
     public void changeStatus(String status) {

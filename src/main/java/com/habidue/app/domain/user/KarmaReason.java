@@ -19,7 +19,10 @@ public enum KarmaReason {
     ADMIN_REVERSAL("관리자 조치 번복 (점수 복구)"),
     POST_DELETED("심각한 위반으로 인한 게시글 삭제"),
     COMMENT_DELETED("심각한 위반으로 인한 댓글 삭제"),
-    MESSAGE_SENT("쪽지 발송 (카르마 소모)");
+    MESSAGE_SENT("쪽지 발송 (카르마 소모)"),
+    BARTER_PROPOSAL("물물교환 제안 (카르마 소모)"),
+    BARTER_COMPLETED("물물교환 거래 성공 (신뢰 상승)"),
+    BARTER_CANCELLED("물물교환 거래 취소 (신뢰 감점)");
 
     private final String description;
 }

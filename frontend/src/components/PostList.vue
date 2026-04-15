@@ -1,13 +1,23 @@
 <template>
-  <div class="post-list-wrapper" :class="[`type-${type.toLowerCase()}`, { 'is-grid': type === 'PARTNER' }]">
+  <div class="post-list-wrapper" :class="[`type-${type.toLowerCase()}`, { 'is-grid': type === 'PARTNER' || type === 'BARTER' }]">
     <!-- 로딩 상태 -->
     <div v-if="loading && posts.length === 0" class="list-loading">
       <div v-for="i in 5" :key="i" class="skeleton-card"></div>
     </div>
 
     <!-- 데이터가 있는 경우 -->
-    <div v-else-if="posts.length > 0" class="posts-container">
-      <div v-for="post in posts" :key="post.id" :id="`post-${post.id}`" class="post-item" @click="viewDetail(post.id)">
+    <div v-else-if="posts.length > 0" class="posts-container" :class="{ 'barter-grid': type === 'BARTER' }">
+      <template v-if="type === 'BARTER'">
+        <BarterCard
+          v-for="post in posts"
+          :key="post.id"
+          :id="`post-${post.id}`"
+          :post="post"
+          @click="viewDetail(post.id)"
+        />
+      </template>
+      <template v-else>
+        <div v-for="post in posts" :key="post.id" :id="`post-${post.id}`" class="post-item" @click="viewDetail(post.id)">
         <div class="post-item-header">
           <div class="post-main">
             <h4 class="post-title">
@@ -77,6 +87,7 @@
           </div>
         </div>
       </div>
+      </template>
 
       <!-- 더보기 버튼 -->
       <div v-if="hasMore" class="load-more-container">
@@ -103,6 +114,7 @@ import { useRouter, useRoute } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { getCategoryLabel } from '@/constants/postConstants'
 import AnimatedNickname from '@/components/AnimatedNickname.vue'
+import BarterCard from '@/components/BarterCard.vue'
 
 const props = defineProps({
     posts: { type: Array, default: () => [] },
@@ -141,6 +153,11 @@ const props = defineProps({
       icon: '🚚', 
       title: '아직 등록된 서비스 정보가 없습니다', 
       desc: '전문가나 업체 정보를 기다리거나, 필요한 서비스를 요청해보세요.' 
+    },
+    BARTER: { 
+      icon: '🔄', 
+      title: '아직 등록된 물건이 없습니다', 
+      desc: '잠자고 있는 물건을 깨워 이웃과 가치 있는 교환을 시작해보세요!' 
     }
   }
   return configs[props.type] || configs.GENERAL
@@ -178,6 +195,25 @@ const formatDate = (dateStr) => {
 <style scoped>
 .post-list-wrapper { width: 100%; }
 .posts-container { display: flex; flex-direction: column; gap: 8px; }
+
+.barter-grid {
+  display: grid;
+  grid-template-columns: repeat(1, 1fr);
+  grid-auto-rows: 1fr; /* 모든 행의 높이를 동일하게 */
+  gap: 16px;
+}
+
+@media (min-width: 768px) {
+  .barter-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (min-width: 992px) {
+  .barter-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
 
 /* [시니어 조치] 공고 소통방 스타일로 전면 통합 */
 .post-item { 

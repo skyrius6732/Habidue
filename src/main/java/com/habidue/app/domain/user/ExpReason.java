@@ -22,7 +22,8 @@ public enum ExpReason {
     LOCATION_REVIEW("장소 리뷰 작성", 40, ExpCategory.REVIEW),
     KNOWLEDGE_PHOTO_BONUS("지식글 사진 보너스", 10, ExpCategory.KNOWLEDGE),
     REVIEW_PHOTO_BONUS("리뷰글 사진 보너스", 10, ExpCategory.REVIEW),
-    SINCERITY_PHOTO_BONUS("일반글 사진 보너스", 10, ExpCategory.SINCERITY);
+    SINCERITY_PHOTO_BONUS("일반글 사진 보너스", 10, ExpCategory.SINCERITY),
+    BARTER_COMPLETED("물물교환 거래 완료", 100, ExpCategory.SINCERITY);
 
     private final String description;
     private final int defaultExp; // 기본 부여 경험치량

@@ -277,19 +277,29 @@ const handleToggleWakeUp = async () => {
 }
 
 const isBoardClosed = computed(() => noticeInfo.value?.isDormant === true)
-
 const mainMenus = [
   { id: 'GENERAL', name: '통합광장', icon: '🏛️' },
   { id: 'NOTICE', name: '공고소통방', icon: '📢' },
   { id: 'REVIEW', name: '당첨후기', icon: '✨' },
+  { id: 'BARTER', name: '물물교환', icon: '🔄' },
   { id: 'PARTNER', name: '파트너스', icon: '🤝' },
   { id: 'RANKING', name: '활동랭킹', icon: '🎖️' }
 ]
-
 const currentMenu = computed(() => mainMenus.find(m => m.id === activeMenu.value))
 const currentMenuTitle = computed(() => noticeId.value ? noticeInfo.value?.title : currentMenu.value?.name)
 const currentMenuIcon = computed(() => noticeId.value ? '📢' : currentMenu.value?.icon)
-const currentMenuBio = computed(() => noticeId.value ? '이 공고에 관심 있는 분들과 대화해보세요.' : 'habiDue 커뮤니티 공간입니다.')
+const currentMenuBio = computed(() => {
+  if (noticeId.value && noticeInfo.value) return noticeInfo.value.title
+  const bios = {
+    GENERAL: '우리 동네 이웃들과 나누는 자유로운 이야기 공간입니다.',
+    NOTICE: '청약 공고별 전용 소통방에서 실시간 정보를 나눠보세요.',
+    REVIEW: '내 집 마련의 기쁨과 생생한 당첨 노하우를 공유합니다.',
+    PARTNER: '이사, 청소, 인테리어 등 믿을 수 있는 업체 정보를 확인하세요.',
+    BARTER: '잠자고 있는 물건을 이웃과 가치 있게 나누는 신뢰 기반 물물교환입니다.',
+    RANKING: '커뮤니티 활동을 통해 명예의 전당에 도전해 보세요!'
+  }
+  return bios[activeMenu.value] || '이웃과 함께 나누는 따뜻한 정보 공간입니다.'
+})
 
 const currentStatsValue = computed(() => {
   if (noticeId.value) return `참여유저 ${noticeInfo.value?.interestCount || 0}`
