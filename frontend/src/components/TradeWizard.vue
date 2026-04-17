@@ -210,6 +210,11 @@
                   <span class="conf-value">{{ formatDateTime(tradeDateTime) }}</span>
                 </div>
               </div>
+              <div class="message-input-group">
+                <label class="message-label">💬 간단한 메시지 (선택)</label>
+                <textarea v-model="message" placeholder="예: 이 조건으로 진행할게요!" class="message-textarea" maxlength="500"></textarea>
+                <span class="char-count">{{ message.length }}/500</span>
+              </div>
               <p class="conf-notice">💡 이 조건으로 변경 제안합니다.</p>
             </div>
           </template>
@@ -286,12 +291,39 @@
               </div>
             </div>
 
-            <!-- DOORSTEP/PARCEL: 발송자/수신자 주소 -->
-            <div v-else>
-              <h4 class="step-title">거래 주소를 입력해 주세요</h4>
+            <!-- DOORSTEP: 물품 놓을 장소 (1개) -->
+            <div v-else-if="method === 'DOORSTEP'">
+              <h4 class="step-title">물품을 놓을 장소를 입력해 주세요</h4>
+
+              <!-- 빠른 선택 -->
+              <div v-if="opponentExistingSchedule || myExistingSchedule" class="quick-select-card">
+                <div class="quick-select-title">빠른 선택</div>
+                <div v-if="opponentExistingSchedule && opponentExistingSchedule.method === 'DOORSTEP'" class="quick-option">
+                  <button @click="location = opponentExistingSchedule.location" class="quick-option-btn">
+                    ○ 상대방: {{ opponentExistingSchedule.location }}
+                  </button>
+                </div>
+                <div v-if="myExistingSchedule && myExistingSchedule.method === 'DOORSTEP'" class="quick-option">
+                  <button @click="location = myExistingSchedule.location" class="quick-option-btn">
+                    ○ 내 기존: {{ myExistingSchedule.location }}
+                  </button>
+                </div>
+              </div>
+
+              <!-- 또는 직접 입력 -->
+              <div v-if="opponentExistingSchedule || myExistingSchedule" class="direct-select-title">또는 직접 입력</div>
+
+              <div class="location-input-group">
+                <input v-model="location" placeholder="예: 서울시 강남구 강남역 2번 출구, 아파트 101동 앞" class="wizard-input" />
+              </div>
+            </div>
+
+            <!-- PARCEL: 배송 주소 (발송지/수신지) -->
+            <div v-else-if="method === 'PARCEL'">
+              <h4 class="step-title">배송 주소를 입력해 주세요</h4>
 
               <!-- 상대방이 제시한 발송지 표시 (읽기만 가능) -->
-              <div v-if="opponentExistingSchedule && (opponentExistingSchedule.method === 'DOORSTEP' || opponentExistingSchedule.method === 'PARCEL')" class="opponent-info-card">
+              <div v-if="opponentExistingSchedule && opponentExistingSchedule.method === 'PARCEL'" class="opponent-info-card">
                 <div class="opponent-info-label">상대방 발송지</div>
                 <div class="opponent-info-value">{{ opponentExistingSchedule.senderAddress }}</div>
               </div>
@@ -299,12 +331,12 @@
               <!-- 빠른 선택 -->
               <div v-if="opponentExistingSchedule || myExistingSchedule" class="quick-select-card">
                 <div class="quick-select-title">빠른 선택</div>
-                <div v-if="opponentExistingSchedule && (opponentExistingSchedule.method === 'DOORSTEP' || opponentExistingSchedule.method === 'PARCEL')" class="quick-option">
+                <div v-if="opponentExistingSchedule && opponentExistingSchedule.method === 'PARCEL'" class="quick-option">
                   <button @click="[senderAddress = opponentExistingSchedule.receiverAddress, receiverAddress = opponentExistingSchedule.senderAddress]" class="quick-option-btn">
                     ○ 상대방 조건 반영
                   </button>
                 </div>
-                <div v-if="myExistingSchedule && (myExistingSchedule.method === 'DOORSTEP' || myExistingSchedule.method === 'PARCEL')" class="quick-option">
+                <div v-if="myExistingSchedule && myExistingSchedule.method === 'PARCEL'" class="quick-option">
                   <button @click="[senderAddress = myExistingSchedule.senderAddress, receiverAddress = myExistingSchedule.receiverAddress]" class="quick-option-btn">
                     ○ 내 기존: {{ myExistingSchedule.senderAddress }}
                   </button>
@@ -383,6 +415,11 @@
                 <span class="conf-value">{{ formatDateTime(tradeDateTime) }}</span>
               </div>
             </div>
+            <div class="message-input-group">
+              <label class="message-label">💬 간단한 메시지 (선택)</label>
+              <textarea v-model="message" placeholder="예: 빨리 거래하고 싶어요!" class="message-textarea" maxlength="500"></textarea>
+              <span class="char-count">{{ message.length }}/500</span>
+            </div>
             <p class="conf-notice">💡 위 조건으로 상대방과 협의를 진행합니다.</p>
           </div>
         </div>
@@ -452,6 +489,7 @@ const location = ref(props.proposal.schedule?.location || '')
 const senderAddress = ref(props.proposal.schedule?.senderAddress || '')
 const receiverAddress = ref(props.proposal.schedule?.receiverAddress || '')
 const tradeDateTime = ref(props.proposal.schedule?.tradeDateTime || '')
+const message = ref('')
 const submitting = ref(false)
 
 // 모드별 상대 조건 파싱
@@ -479,7 +517,7 @@ const isStepValid = computed(() => {
   if (props.mode === 'accept') {
     if (currentStep.value === 2) return !!method.value
     if (currentStep.value === 3) {
-      if (method.value === 'DIRECT') return !!location.value.trim()
+      if (method.value === 'DIRECT' || method.value === 'DOORSTEP') return !!location.value.trim()
       return !!senderAddress.value.trim()
     }
     if (currentStep.value === 4) return !!tradeDateTime.value
@@ -490,7 +528,7 @@ const isStepValid = computed(() => {
   // propose/counter 모드 유효성 검사
   if (currentStep.value === 1) return !!method.value
   if (currentStep.value === 2) {
-    if (method.value === 'DIRECT') return !!location.value.trim()
+    if (method.value === 'DIRECT' || method.value === 'DOORSTEP') return !!location.value.trim()
     return !!senderAddress.value.trim()
   }
   if (currentStep.value === 3) return !!tradeDateTime.value
@@ -509,10 +547,11 @@ const submitSchedule = async () => {
     let endpoint = `/api/barter/proposals/${props.proposal.id}/schedule`
     const payload = {
       method: method.value,
-      location: method.value === 'DIRECT' ? location.value : null,
-      senderAddress: method.value !== 'DIRECT' ? senderAddress.value : null,
-      receiverAddress: method.value !== 'DIRECT' ? receiverAddress.value : null,
-      tradeDateTime: tradeDateTime.value
+      location: (method.value === 'DIRECT' || method.value === 'DOORSTEP') ? location.value : null,
+      senderAddress: method.value === 'PARCEL' ? senderAddress.value : null,
+      receiverAddress: method.value === 'PARCEL' ? receiverAddress.value : null,
+      tradeDateTime: tradeDateTime.value,
+      message: message.value || null
     }
 
     if (props.mode === 'propose') {
@@ -566,7 +605,8 @@ const submitCounter = async () => {
       location: method.value === 'DIRECT' ? location.value : null,
       senderAddress: method.value !== 'DIRECT' ? senderAddress.value : null,
       receiverAddress: method.value !== 'DIRECT' ? receiverAddress.value : null,
-      tradeDateTime: tradeDateTime.value
+      tradeDateTime: tradeDateTime.value,
+      message: message.value || null
     }
 
     const response = await axios.post(`/api/barter/proposals/${props.proposal.id}/schedule/counter`, payload)
@@ -583,7 +623,7 @@ const submitCounter = async () => {
 .blocked-notice { background: #fee; border-left: 4px solid #ef4444; padding: 16px; border-radius: 8px; margin-bottom: 20px; }
 .blocked-notice p { margin: 0; color: #dc2626; font-weight: 700; font-size: 0.95rem; }
 
-.wizard-container { padding: 10px 0; width: 100%; overflow: hidden; }
+.wizard-container { padding: 10px 0; width: 100%; max-width: 420px; margin: 0 auto; overflow: hidden; }
 .wizard-steps { display: flex; justify-content: center; gap: 12px; margin-bottom: 30px; }
 .step-content { overflow: hidden; width: 100%; }
 .step-dot { width: 30px; height: 30px; border-radius: 50%; background: var(--divider-color); color: var(--text-muted); display: flex; align-items: center; justify-content: center; font-size: 0.85rem; font-weight: 800; transition: all 0.3s; }
@@ -618,6 +658,13 @@ const submitCounter = async () => {
 .conf-label { font-size: 0.85rem; color: var(--text-secondary); }
 .conf-value { font-size: 0.95rem; font-weight: 800; color: var(--text-primary); }
 .conf-notice { font-size: 0.8rem; color: var(--text-muted); margin-top: 16px; }
+
+/* 메시지 입력 */
+.message-input-group { width: 100%; margin-top: 20px; }
+.message-label { font-size: 0.85rem; font-weight: 700; color: var(--text-primary); display: block; margin-bottom: 8px; }
+.message-textarea { width: 100%; padding: 12px; border-radius: 8px; border: 1.5px solid var(--border-color); background: var(--hover-bg); font-size: 0.9rem; color: var(--text-primary); outline: none; font-family: inherit; resize: vertical; min-height: 80px; }
+.message-textarea:focus { border-color: var(--link-color); }
+.char-count { font-size: 0.75rem; color: var(--text-secondary); margin-top: 4px; display: block; text-align: right; }
 
 /* 상대방 정보 표시 */
 .opponent-info-card { width: 100%; background: rgba(107, 114, 128, 0.1); padding: 12px 16px; border-radius: 8px; margin-bottom: 16px; border: 1px solid rgba(107, 114, 128, 0.2); }

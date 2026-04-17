@@ -113,6 +113,14 @@
           <!-- [물물교환 전용 입력 영역] -->
           <div v-if="post.type === 'BARTER'" class="barter-input-area">
             <div class="barter-input-group">
+              <div class="section-label">📦 내 물건 품명</div>
+              <input v-model="post.itemName" type="text"
+                     placeholder="예: iPhone 15 256GB, 소형 책장 등"
+                     maxlength="150"
+                     class="input-item-name" />
+            </div>
+
+            <div class="barter-input-group">
               <div class="section-label">📦 물건 상태</div>
               <div class="condition-selector">
                 <button v-for="(cfg, key) in ITEM_CONDITION" :key="key"
@@ -122,12 +130,36 @@
                 </button>
               </div>
             </div>
-            <div class="barter-input-group">
-              <div class="section-label">🔄 희망 교환 물건</div>
-              <input v-model="post.wantedItem" type="text"
-                     placeholder="예: 소형 가전, 도서 등 (미입력 시 자유 교환)"
-                     maxlength="150"
-                     class="input-wanted-item" />
+
+            <!-- [새로 추가: 거래 방식, 날짜, 시간] -->
+            <div class="barter-input-row">
+              <div class="barter-input-group">
+                <div class="section-label">🔄 희망 교환 물건</div>
+                <input v-model="post.wantedItem" type="text"
+                       placeholder="예: 소형 가전, 도서 등 (미입력 시 자유 교환)"
+                       maxlength="150"
+                       class="input-wanted-item" />
+              </div>
+              <div class="barter-input-group">
+                <div class="section-label">🚚 거래 방식</div>
+                <select v-model="post.preferredMethod" class="input-select">
+                  <option value="">-- 선택 --</option>
+                  <option value="DIRECT">직거래</option>
+                  <option value="DOORSTEP">문고리 거래</option>
+                  <option value="PARCEL">택배 교환</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="barter-input-row">
+              <div class="barter-input-group">
+                <div class="section-label">📅 선호 날짜</div>
+                <input v-model="post.preferredDate" type="date" class="input-date" />
+              </div>
+              <div class="barter-input-group">
+                <div class="section-label">⏰ 선호 시간</div>
+                <input v-model="post.preferredTime" type="time" class="input-time" />
+              </div>
             </div>
           </div>
 
@@ -146,13 +178,13 @@
             </div>
           </div>
 
-          <!-- 5. 연관 키워드 태그 선택 (Pro Version) -->
-          <div class="tag-selection-section">
+          <!-- 5. 연관 키워드 태그 선택 (Pro Version) - 물물교환 제외 -->
+          <div v-if="post.type !== 'BARTER'" class="tag-selection-section">
             <div class="section-label">연관 키워드 태그 <small>(최대 3개 선택 가능)</small></div>
             <div v-if="userTags && userTags.length > 0" class="tag-chips-wrapper">
-              <button 
-                v-for="tag in userTags" 
-                :key="tag.tagId" 
+              <button
+                v-for="tag in userTags"
+                :key="tag.tagId"
                 class="pro-tag-chip"
                 :class="{ active: selectedTagIds.includes(tag.tagId) }"
                 @click="toggleTag(tag.tagId)"
@@ -279,16 +311,19 @@ const guidanceMap = {
   FREE: { title: '☕ 자유 수다', desc: '일상적인 이야기나 가벼운 인사를 나누는 따뜻한 소통 공간입니다.', template: '' }
 }
 
-const post = ref({ 
-  title: '', 
-  content: '', 
-  category: '', 
-  subCategory: route.query.sub || null, 
-  type: route.query.menu || 'GENERAL', 
-  noticeId: null, 
+const post = ref({
+  title: '',
+  content: '',
+  category: '',
+  subCategory: route.query.sub || null,
+  type: route.query.menu || 'GENERAL',
+  noticeId: null,
   regionTag: '',
   wantedItem: '',
-  itemCondition: 'LIKE_NEW'
+  itemCondition: 'LIKE_NEW',
+  preferredMethod: '',
+  preferredDate: '',
+  preferredTime: ''
 })
 
 const getCategoriesBySub = (type, sub) => {
@@ -363,7 +398,7 @@ onMounted(async () => {
     editMode.value = true
     await fetchPostForEdit(paramId)
   } else {
-    post.value.type = route.query.type || 'GENERAL'
+    post.value.type = route.query.type || route.query.menu || 'GENERAL'
     post.value.subCategory = route.query.sub || 'ALL'
     post.value.noticeId = route.query.noticeId || null
 
@@ -397,8 +432,12 @@ const fetchPostForEdit = async (id) => {
     post.value.content = data.content;
     post.value.noticeId = data.noticeId;
     post.value.regionTag = data.regionTag;
+    post.value.itemName = data.itemName;
     post.value.itemCondition = data.itemCondition;
     post.value.wantedItem = data.wantedItem;
+    post.value.preferredMethod = data.preferredMethod;
+    post.value.preferredDate = data.preferredDate;
+    post.value.preferredTime = data.preferredTime;
 
     if (data.imageUrls) imagePreviews.value = [...data.imageUrls];
     if (data.tags) {
@@ -494,8 +533,12 @@ const submitPost = async () => {
       tagIds: [...selectedTagIds.value],
       regionTag: post.value.regionTag,
       // [물물교환 전용 필드]
+      itemName: post.value.itemName || null,
       itemCondition: post.value.itemCondition,
-      wantedItem: post.value.wantedItem || null
+      wantedItem: post.value.wantedItem || null,
+      preferredMethod: post.value.preferredMethod || null,
+      preferredDate: post.value.preferredDate || null,
+      preferredTime: post.value.preferredTime || null
     };
 
     console.log('[DEBUG] Submit Payload:', payload); // 로컬 테스트 시 페이로드 확인용
@@ -722,7 +765,11 @@ onUnmounted(() => window.removeEventListener('resize', handleResize))
   box-shadow: 0 4px 12px rgba(0, 149, 246, 0.2);
 }
 
-.input-wanted-item {
+.input-item-name,
+.input-wanted-item,
+.input-select,
+.input-date,
+.input-time {
   width: 100%;
   padding: 14px;
   border-radius: 12px;
@@ -734,8 +781,18 @@ onUnmounted(() => window.removeEventListener('resize', handleResize))
   transition: border-color 0.2s;
 }
 
-.input-wanted-item:focus {
+.input-item-name:focus,
+.input-wanted-item:focus,
+.input-select:focus,
+.input-date:focus,
+.input-time:focus {
   border-color: var(--link-color);
+}
+
+.barter-input-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
 }
 
 .barter-required-notice {
@@ -751,7 +808,24 @@ onUnmounted(() => window.removeEventListener('resize', handleResize))
 
 @media (max-width: 768px) {
   .barter-input-area { padding: 16px; gap: 20px; }
-  .cond-btn { padding: 8px 16px; font-size: 0.85rem; }
+  .cond-btn {
+    padding: 8px 12px;
+    font-size: 0.75rem;
+    white-space: nowrap;
+  }
+  .condition-selector {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    padding-bottom: 8px;
+  }
+  .barter-input-row {
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+  }
+  .barter-input-group {
+    gap: 8px;
+  }
 
   /* 모바일 category-chips 가로스크롤 */
   .category-chips {

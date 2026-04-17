@@ -4,8 +4,11 @@ import com.habidue.app.config.oauth.UserPrincipal;
 import com.habidue.app.domain.barter.ProposalStatus;
 import com.habidue.app.dto.barter.TradeProposalRequestDto;
 import com.habidue.app.dto.barter.TradeProposalResponseDto;
+import com.habidue.app.dto.barter.TradeProposalHistoryResponseDto;
 import com.habidue.app.dto.barter.TradeScheduleRequestDto;
+import com.habidue.app.dto.barter.TradeCompletionResponseDto;
 import com.habidue.app.service.barter.BarterService;
+import com.habidue.app.repository.barter.TradeProposalHistoryRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -20,19 +23,28 @@ import java.util.stream.Collectors;
 public class BarterController {
 
     private final BarterService barterService;
+    private final TradeProposalHistoryRepository historyRepository;
 
     @PostMapping("/proposals")
     public ResponseEntity<TradeProposalResponseDto> proposeTrade(
             @RequestBody TradeProposalRequestDto requestDto,
             @AuthenticationPrincipal UserPrincipal currentUser) {
         return ResponseEntity.ok(barterService.proposeTrade(currentUser.getId(), requestDto.getBarterPostId(),
-                requestDto.getOfferedPostId(), requestDto.getMessage()));
+                requestDto.getOfferedPostId(), requestDto.getMessage(),
+                requestDto.getProposerMethod(), requestDto.getProposerLocation(),
+                requestDto.getProposerDate(), requestDto.getProposerTime()));
     }
 
     @GetMapping("/proposals")
     public ResponseEntity<List<TradeProposalResponseDto>> getMyProposals(
             @AuthenticationPrincipal UserPrincipal currentUser) {
         return ResponseEntity.ok(barterService.getMyProposals(currentUser.getId()));
+    }
+
+    @GetMapping("/proposals/{proposalId}")
+    public ResponseEntity<TradeProposalResponseDto> getProposal(
+            @PathVariable Long proposalId) {
+        return ResponseEntity.ok(barterService.getProposal(proposalId));
     }
 
     @PostMapping("/proposals/{proposalId}/respond")
@@ -71,14 +83,14 @@ public class BarterController {
     }
 
     @PostMapping("/proposals/{proposalId}/complete")
-    public ResponseEntity<TradeProposalResponseDto> completeTrade(
+    public ResponseEntity<TradeCompletionResponseDto> completeTrade(
             @PathVariable Long proposalId,
             @AuthenticationPrincipal UserPrincipal currentUser) {
         return ResponseEntity.ok(barterService.completeTrade(proposalId, currentUser.getId()));
     }
 
     @PostMapping("/proposals/{proposalId}/cancel")
-    public ResponseEntity<TradeProposalResponseDto> cancelTrade(
+    public ResponseEntity<TradeCompletionResponseDto> cancelTrade(
             @PathVariable Long proposalId,
             @AuthenticationPrincipal UserPrincipal currentUser) {
         return ResponseEntity.ok(barterService.cancelTrade(proposalId, currentUser.getId()));
@@ -97,5 +109,13 @@ public class BarterController {
     public ResponseEntity<java.util.List<com.habidue.app.dto.message.MessageResponseDto>> getProposalQuestions(
             @PathVariable Long proposalId) {
         return ResponseEntity.ok(barterService.getProposalQuestions(proposalId));
+    }
+
+    @GetMapping("/proposals/{proposalId}/history")
+    public ResponseEntity<List<TradeProposalHistoryResponseDto>> getNegotiationHistory(
+            @PathVariable Long proposalId) {
+        return ResponseEntity.ok(historyRepository.findByProposalIdOrderByRound(proposalId).stream()
+                .map(TradeProposalHistoryResponseDto::from)
+                .collect(Collectors.toList()));
     }
 }

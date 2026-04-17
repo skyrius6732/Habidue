@@ -7,8 +7,10 @@ import com.habidue.app.domain.user.ExpReason;
 import com.habidue.app.domain.user.KarmaReason;
 import com.habidue.app.domain.user.User;
 import com.habidue.app.dto.barter.TradeProposalResponseDto;
+import com.habidue.app.dto.barter.TradeCompletionResponseDto;
 import com.habidue.app.dto.barter.TradeScheduleRequestDto;
 import com.habidue.app.repository.barter.TradeProposalRepository;
+import com.habidue.app.repository.barter.TradeProposalHistoryRepository;
 import com.habidue.app.repository.board.PostRepository;
 import com.habidue.app.repository.message.MessageRepository;
 import com.habidue.app.repository.message.UserBlockRepository;
@@ -35,6 +37,7 @@ public class BarterService {
 
     private final PostRepository postRepository;
     private final TradeProposalRepository proposalRepository;
+    private final TradeProposalHistoryRepository historyRepository;
     private final UserRepository userRepository;
     private final KarmaService karmaService;
     private final NotificationService notificationService;
@@ -45,10 +48,29 @@ public class BarterService {
     private final EntityManager entityManager;
 
     /**
+     * LocalDate와 LocalTime String을 LocalDateTime으로 변환
+     */
+    private java.time.LocalDateTime buildTradeDateTime(java.time.LocalDate date, String timeStr) {
+        if (date == null) return null;
+        if (timeStr == null) return date.atStartOfDay();
+        try {
+            java.time.LocalTime time = java.time.LocalTime.parse(timeStr);
+            return java.time.LocalDateTime.of(date, time);
+        } catch (Exception e) {
+            return date.atStartOfDay();
+        }
+    }
+
+    /**
      * 물물교환 제안하기
      * 비용: 카르마 0.1P (1단위) 차감
+     * 옵션: 첫 제안시 선호 조건을 자동 설정하여 TradeWizard 스킵
      */
-    public TradeProposalResponseDto proposeTrade(Long proposerId, Long barterPostId, Long offeredPostId, String message) {
+    public TradeProposalResponseDto proposeTrade(Long proposerId, Long barterPostId, Long offeredPostId, String message,
+                                                   com.habidue.app.domain.barter.TradeMethod proposerMethod,
+                                                   String proposerLocation,
+                                                   java.time.LocalDate proposerDate,
+                                                   java.time.LocalTime proposerTime) {
         User proposer = userRepository.findById(proposerId).orElseThrow();
         Post barterPost = postRepository.findById(barterPostId).orElseThrow();
         Post offeredPost = postRepository.findById(offeredPostId).orElseThrow();
@@ -83,9 +105,44 @@ public class BarterService {
                 .barterPost(barterPost)
                 .offeredPost(offeredPost)
                 .message(message)
+                .status(ProposalStatus.PROPOSED)
+                .negotiationRound(0)
                 .build();
 
         TradeProposal saved = proposalRepository.save(proposal);
+
+        // [양쪽 초기 선호 조건 자동 저장]
+        // Round 1: 제안자의 선호 조건 (offeredPost 기반)
+        String round1Time = null;
+        if (proposerTime != null) {
+            round1Time = proposerTime.toString();
+        } else if (offeredPost.getPreferredTime() != null) {
+            round1Time = offeredPost.getPreferredTime();
+        }
+
+        TradeProposalHistory round1 = TradeProposalHistory.builder()
+                .proposal(saved)
+                .round(1)
+                .setBy("PROPOSER")
+                .method(proposerMethod != null ? proposerMethod : offeredPost.getPreferredMethod())
+                .location(proposerLocation)
+                .tradeDateTime(buildTradeDateTime(proposerDate != null ? proposerDate : offeredPost.getPreferredDate(),
+                        round1Time))
+                .build();
+        historyRepository.save(round1);
+
+        // Round 2: 수신자의 선호 조건 (barterPost 기반)
+        TradeProposalHistory round2 = TradeProposalHistory.builder()
+                .proposal(saved)
+                .round(2)
+                .setBy("RECEIVER")
+                .method(barterPost.getPreferredMethod())
+                .tradeDateTime(buildTradeDateTime(barterPost.getPreferredDate(), barterPost.getPreferredTime()))
+                .build();
+        historyRepository.save(round2);
+
+        saved.setLastScheduleSetBy("PROPOSER");
+        proposalRepository.save(saved);
 
         // 비용 차감 (0.1P)
         karmaService.manualAdjustKarmaRaw(proposerId, -1, KarmaReason.BARTER_PROPOSAL, "물물교환 제안 비용 소모", null, true);
@@ -122,7 +179,13 @@ public class BarterService {
 
         // JOIN FETCH로 다시 조회해서 모든 관계 로드 (세션 내에서 DTO 변환)
         TradeProposal fetchedProposal = proposalRepository.findByIdWithFetch(saved.getId()).orElseThrow();
-        return TradeProposalResponseDto.from(fetchedProposal);
+        TradeProposalResponseDto dto = TradeProposalResponseDto.from(fetchedProposal);
+
+        // [상대방 차단 여부 확인]
+        boolean blockedByPartner = userBlockRepository.existsByBlockerAndBlocked(receiver, proposer);
+        dto.setBlockedByPartner(blockedByPartner);
+
+        return dto;
     }
 
     /**
@@ -146,16 +209,34 @@ public class BarterService {
 
         proposal.setStatus(newStatus);
 
+        // 제안 수락 시 NEGOTIATING으로 변경 (round는 이미 proposeTrade에서 1, 2가 생성됨)
+        if (newStatus == ProposalStatus.ACCEPTED) {
+            proposal.setStatus(ProposalStatus.NEGOTIATING);
+            proposal.setNegotiationRound(1);
+        }
+
         // 제안에 대한 응답 알림
         NotificationType notificationType = newStatus == ProposalStatus.ACCEPTED
                 ? NotificationType.PROPOSAL_ACCEPTED
                 : NotificationType.PROPOSAL_REJECTED;
-        String statusName = newStatus.getDescription();
-        notificationService.send(proposal.getProposer(), notificationType,
-                String.format("📢 '%s' 물건에 대한 제안이 [%s] 되었습니다.", proposal.getBarterPost().getTitle(), statusName),
-                proposal.getId(), null);
+        String statusName = newStatus == ProposalStatus.ACCEPTED ? "협의 중" : newStatus.getDescription();
 
-        if (newStatus == ProposalStatus.ACCEPTED) {
+        // REJECTED인 경우: 거절한 사람의 반대편에게만 알림
+        // ACCEPTED인 경우: 제안자에게 알림
+        if (newStatus == ProposalStatus.REJECTED) {
+            User notificationTarget = proposal.getProposer().getId().equals(userId)
+                    ? proposal.getReceiver()  // 제안자가 거절하면 수신자에게
+                    : proposal.getProposer(); // 수신자가 거절하면 제안자에게
+            notificationService.send(notificationTarget, notificationType,
+                    String.format("📢 '%s' 물건에 대한 제안이 [%s] 되었습니다.", proposal.getBarterPost().getTitle(), statusName),
+                    proposal.getId(), null);
+        } else {
+            notificationService.send(proposal.getProposer(), notificationType,
+                    String.format("📢 '%s' 물건에 대한 제안이 [%s] 되었습니다.", proposal.getBarterPost().getTitle(), statusName),
+                    proposal.getId(), null);
+        }
+
+        if (newStatus == ProposalStatus.ACCEPTED || proposal.getStatus() == ProposalStatus.NEGOTIATING) {
             proposal.getBarterPost().setBarterStatus(BarterStatus.RESERVED);
             proposal.getOfferedPost().setBarterStatus(BarterStatus.RESERVED);
         } else if (newStatus == ProposalStatus.REJECTED) {
@@ -172,9 +253,10 @@ public class BarterService {
      * - 경험치 +100EXP 추가
      * - 양쪽이 모두 누를 때만 최종 완료
      */
-    public TradeProposalResponseDto completeTrade(Long proposalId, Long userId) {
-        // 1. 최신 데이터를 가져옴 (Fetch Join 활용)
-        TradeProposal proposal = proposalRepository.findByIdWithFetch(proposalId).orElseThrow();
+    @Transactional
+    public TradeCompletionResponseDto completeTrade(Long proposalId, Long userId) {
+        // 1. 최신 데이터를 가져옴 (단순 쿼리 - 이미지는 불필요)
+        TradeProposal proposal = proposalRepository.findByIdSimple(proposalId).orElseThrow();
 
         // [시니어 핵심 조치] 영속성 컨텍스트에 캐싱된 데이터가 있을 수 있으므로 DB와 강제 동기화
         // 이를 통해 상대방이 먼저 저장한 완료 시간(CompletedAt)을 확실하게 읽어옴
@@ -240,20 +322,35 @@ public class BarterService {
                     "🎉 물물교환 거래가 완료되었습니다!",
                     proposal.getId(), null);
         } else {
-            // 한쪽만 완료 → 상대방에게 알림
+            // 한쪽만 완료 → 거래 완료한 사람과 상대방에게 각각 알림
+            User completedUser = proposalRepository.findById(proposalId).map(p ->
+                p.getProposer().getId().equals(userId) ? p.getProposer() : p.getReceiver()
+            ).orElseThrow();
             User counterparty = proposal.getProposer().getId().equals(userId) ? proposal.getReceiver() : proposal.getProposer();
+
+            // 거래 완료한 사람(userId)에게: 상대방 물품으로 알림
+            String completedUserMessage = String.format("🎉 '%s' 건에 대해서 거래 완료 처리가 되었습니다.",
+                    proposal.getBarterPost().getTitle());
+            notificationService.send(completedUser, NotificationType.BARTER_COMPLETED,
+                    completedUserMessage,
+                    proposal.getId(), null);
+
+            // 상대방에게: 거래 완료한 사람이 처리했음을 알림
+            String counterpartyMessage = String.format("🎉 상대방이 '%s' 건에 대해서 거래 완료 처리를 하였습니다.",
+                    proposal.getOfferedPost().getTitle());
             notificationService.send(counterparty, NotificationType.BARTER_COMPLETED,
-                    "⏳ 상대방이 거래 완료를 표시했습니다. 거래 완료 처리를 진행해 주세요.",
+                    counterpartyMessage,
                     proposal.getId(), null);
         }
 
-        return TradeProposalResponseDto.from(proposal);
+        return TradeCompletionResponseDto.from(proposal);
     }
 
     /**
      * 거래 취소 (ACCEPTED/NEGOTIATING 상태에서만 가능)
      */
-    public TradeProposalResponseDto cancelTrade(Long proposalId, Long userId) {
+    @Transactional
+    public TradeCompletionResponseDto cancelTrade(Long proposalId, Long userId) {
         TradeProposal proposal = proposalRepository.findById(proposalId).orElseThrow();
 
         // 제안자 또는 수신자만 취소 가능
@@ -273,12 +370,12 @@ public class BarterService {
 
         // 상대방에게 알림
         User counterparty = proposal.getProposer().getId().equals(userId) ? proposal.getReceiver() : proposal.getProposer();
+        Post cancelledItem = proposal.getProposer().getId().equals(userId) ? proposal.getOfferedPost() : proposal.getBarterPost();
         notificationService.send(counterparty, NotificationType.TRADE_CANCELLED,
-                "🚫 상대방이 거래를 취소했습니다.",
+                String.format("📢 '%s' 물건에 대한 거래가 상대방에 의해 취소 되었습니다.", cancelledItem.getTitle()),
                 proposal.getId(), null);
 
-        TradeProposal fetchedProposal = proposalRepository.findByIdWithFetch(proposalId).orElseThrow();
-        return TradeProposalResponseDto.from(fetchedProposal);
+        return TradeCompletionResponseDto.from(proposal);
     }
 
     @Transactional(readOnly = true)
@@ -294,6 +391,36 @@ public class BarterService {
                     return dto;
                 })
                 .collect(Collectors.toList());
+    }
+
+    /**
+     * 개별 proposal 조회
+     */
+    @Transactional(readOnly = true)
+    public com.habidue.app.dto.barter.TradeProposalResponseDto getProposal(Long proposalId) {
+        TradeProposal proposal = proposalRepository.findByIdWithFetch(proposalId).orElseThrow();
+
+        // [변경] Soft delete된 post 확인 및 정보 제한
+        // barterPost 또는 offeredPost가 "ACTIVE" 상태가 아니면 제한된 정보만 반환
+        if ((proposal.getBarterPost() != null && !"ACTIVE".equals(proposal.getBarterPost().getStatus())) ||
+            (proposal.getOfferedPost() != null && !"ACTIVE".equals(proposal.getOfferedPost().getStatus()))) {
+            // 삭제된 게시글은 제목을 "삭제된 게시글"로 표시
+            if (proposal.getBarterPost() != null && !"ACTIVE".equals(proposal.getBarterPost().getStatus())) {
+                proposal.getBarterPost().setTitle("삭제된 게시글");
+            }
+            if (proposal.getOfferedPost() != null && !"ACTIVE".equals(proposal.getOfferedPost().getStatus())) {
+                proposal.getOfferedPost().setTitle("삭제된 게시글");
+            }
+        }
+
+        TradeProposalResponseDto dto = TradeProposalResponseDto.from(proposal);
+
+        // 상대방이 나를 차단했는지 확인
+        boolean blockedByPartner = userBlockRepository.existsByBlockerAndBlocked(proposal.getProposer(), proposal.getReceiver()) ||
+                                   userBlockRepository.existsByBlockerAndBlocked(proposal.getReceiver(), proposal.getProposer());
+        dto.setBlockedByPartner(blockedByPartner);
+
+        return dto;
     }
 
     /**
@@ -358,21 +485,51 @@ public class BarterService {
             throw new IllegalArgumentException("권한이 없습니다.");
         }
 
-        try {
-            String scheduleJson = objectMapper.writeValueAsString(scheduleDto);
+        // 협상 라운드 증가: 현재 저장된 최대 라운드 + 1
+        Integer maxRound = historyRepository.findByProposalIdOrderByRound(proposalId)
+                .stream()
+                .map(TradeProposalHistory::getRound)
+                .max(Integer::compare)
+                .orElse(0);
+        Integer nextRound = maxRound + 1;
+        proposal.setNegotiationRound(nextRound);
 
-            if (proposal.getProposer().getId().equals(userId)) {
-                // 제안자가 제시
-                proposal.setProposerScheduleJson(scheduleJson);
-                proposal.setLastScheduleSetBy("PROPOSER");
-            } else {
-                // 수신자가 제시
-                proposal.setReceiverScheduleJson(scheduleJson);
-                proposal.setLastScheduleSetBy("RECEIVER");
-            }
+        // 제시자 설정
+        String setBy = proposal.getProposer().getId().equals(userId) ? "PROPOSER" : "RECEIVER";
+        proposal.setLastScheduleSetBy(setBy);
 
+        // TradeProposalHistory에 저장 (모든 라운드의 이력 기록)
+        TradeProposalHistory history = TradeProposalHistory.builder()
+                .proposal(proposal)
+                .round(nextRound)
+                .setBy(setBy)
+                .method(scheduleDto.getMethod())
+                .location(scheduleDto.getLocation())
+                .senderAddress(scheduleDto.getSenderAddress())
+                .receiverAddress(scheduleDto.getReceiverAddress())
+                .tradeDateTime(scheduleDto.getTradeDateTime())
+                .message(scheduleDto.getMessage())
+                .build();
+        historyRepository.save(history);
+
+        // 10번째 협상인 경우 자동으로 협상 결렬 처리
+        if (nextRound == 10) {
+            proposal.setStatus(ProposalStatus.CANCELLED);
+            proposal.getBarterPost().setBarterStatus(BarterStatus.TRADING);
+            proposal.getOfferedPost().setBarterStatus(BarterStatus.TRADING);
+            proposalRepository.saveAndFlush(proposal);
+
+            // 양쪽에게 협상 결렬 알림
+            User proposer = proposal.getProposer();
+            User receiver = proposal.getReceiver();
+            notificationService.send(proposer, NotificationType.TRADE_CANCELLED,
+                    String.format("📢 '%s' 물건에 대한 거래가 협상 10회 완료로 자동 취소되었습니다.", proposal.getBarterPost().getTitle()),
+                    proposal.getId(), null);
+            notificationService.send(receiver, NotificationType.TRADE_CANCELLED,
+                    String.format("📢 '%s' 물건에 대한 거래가 협상 10회 완료로 자동 취소되었습니다.", proposal.getOfferedPost().getTitle()),
+                    proposal.getId(), null);
+        } else {
             proposal.setStatus(ProposalStatus.NEGOTIATING);
-            proposal.setNegotiationRound(proposal.getNegotiationRound() != null ? proposal.getNegotiationRound() + 1 : 1);
 
             // 양쪽 물품 상태를 RESERVED로 설정
             proposal.getBarterPost().setBarterStatus(BarterStatus.RESERVED);
@@ -384,12 +541,14 @@ public class BarterService {
                     String.format("⚙️ '%s'님이 거래 조건을 제시했습니다. 확인해주세요.",
                     proposal.getProposer().getId().equals(userId) ? proposal.getProposer().getNickname() : proposal.getReceiver().getNickname()),
                     proposal.getId(), null);
-
-            TradeProposal fetchedProposal = proposalRepository.findByIdWithFetch(proposal.getId()).orElseThrow();
-            return TradeProposalResponseDto.from(fetchedProposal);
-        } catch (Exception e) {
-            throw new RuntimeException("거래 조건 저장 중 오류 발생: " + e.getMessage());
         }
+
+        TradeProposal fetchedProposal = proposalRepository.findByIdWithFetch(proposal.getId()).orElseThrow();
+        TradeProposalResponseDto dto = TradeProposalResponseDto.from(fetchedProposal);
+        User user = userRepository.findById(userId).orElseThrow();
+        User opponent = proposal.getProposer().getId().equals(userId) ? proposal.getReceiver() : proposal.getProposer();
+        dto.setBlockedByPartner(userBlockRepository.existsByBlockerAndBlocked(opponent, user));
+        return dto;
     }
 
     /**
@@ -403,18 +562,18 @@ public class BarterService {
             throw new IllegalArgumentException("권한이 없습니다.");
         }
 
-        // 최신 제시된 조건을 최종 합의로 설정
-        if (proposal.getProposer().getId().equals(userId)) {
-            // 제안자가 수락 (수신자의 조건 또는 제안자의 조건 수락)
-            if (proposal.getReceiverScheduleJson() != null) {
-                proposal.setAgreedScheduleJson(proposal.getReceiverScheduleJson());
-            } else {
-                proposal.setAgreedScheduleJson(proposal.getProposerScheduleJson());
-            }
-        } else {
-            // 수신자가 수락 (제안자의 조건 수락)
-            proposal.setAgreedScheduleJson(proposal.getProposerScheduleJson());
-        }
+        // TradeProposalHistory에서 최신 라운드의 조건을 가져와서 최종 합의로 설정
+        TradeProposalHistory latestHistory = historyRepository.findByProposalIdOrderByRound(proposalId)
+                .stream()
+                .reduce((first, second) -> second)  // 마지막 요소 가져오기
+                .orElseThrow(() -> new IllegalStateException("협상 이력이 없습니다."));
+
+        // final_xxx 필드에 저장
+        proposal.setFinalMethod(latestHistory.getMethod());
+        proposal.setFinalLocation(latestHistory.getLocation());
+        proposal.setFinalSenderAddress(latestHistory.getSenderAddress());
+        proposal.setFinalReceiverAddress(latestHistory.getReceiverAddress());
+        proposal.setFinalTradeDateTime(latestHistory.getTradeDateTime());
 
         proposal.setStatus(ProposalStatus.ACCEPTED);
         proposal.getBarterPost().setBarterStatus(BarterStatus.RESERVED);
@@ -428,7 +587,10 @@ public class BarterService {
                 proposal.getId(), null);
 
         TradeProposal fetchedProposal = proposalRepository.findByIdWithFetch(proposal.getId()).orElseThrow();
-        return TradeProposalResponseDto.from(fetchedProposal);
+        TradeProposalResponseDto dto = TradeProposalResponseDto.from(fetchedProposal);
+        User user = userRepository.findById(userId).orElseThrow();
+        dto.setBlockedByPartner(userBlockRepository.existsByBlockerAndBlocked(counterparty, user));
+        return dto;
     }
 
     /**
@@ -442,40 +604,156 @@ public class BarterService {
             throw new IllegalArgumentException("권한이 없습니다.");
         }
 
+        // 협상 라운드 계산: 현재 저장된 최대 라운드 + 1
+        Integer maxRound = historyRepository.findByProposalIdOrderByRound(proposalId)
+                .stream()
+                .map(TradeProposalHistory::getRound)
+                .max(Integer::compare)
+                .orElse(0);
+
         // 최대 협상 라운드 체크 (최대 10라운드로 제한)
-        if (proposal.getNegotiationRound() != null && proposal.getNegotiationRound() >= 10) {
+        if (maxRound >= 10) {
             throw new IllegalStateException("협상은 최대 10회까지만 가능합니다.");
         }
 
-        try {
-            String scheduleJson = objectMapper.writeValueAsString(scheduleDto);
+        // 협상 라운드 증가
+        Integer nextRound = maxRound + 1;
+        proposal.setNegotiationRound(nextRound);
 
-            if (proposal.getProposer().getId().equals(userId)) {
-                proposal.setProposerScheduleJson(scheduleJson);
-                proposal.setLastScheduleSetBy("PROPOSER");
-            } else {
-                proposal.setReceiverScheduleJson(scheduleJson);
-                proposal.setLastScheduleSetBy("RECEIVER");
-            }
+        // 제시자 설정
+        String setBy = proposal.getProposer().getId().equals(userId) ? "PROPOSER" : "RECEIVER";
+        proposal.setLastScheduleSetBy(setBy);
 
+        // TradeProposalHistory에 저장 (모든 라운드의 이력 기록)
+        TradeProposalHistory history = TradeProposalHistory.builder()
+                .proposal(proposal)
+                .round(nextRound)
+                .setBy(setBy)
+                .method(scheduleDto.getMethod())
+                .location(scheduleDto.getLocation())
+                .senderAddress(scheduleDto.getSenderAddress())
+                .receiverAddress(scheduleDto.getReceiverAddress())
+                .tradeDateTime(scheduleDto.getTradeDateTime())
+                .message(scheduleDto.getMessage())
+                .build();
+        historyRepository.save(history);
+
+        // 상대방 계산
+        User counterparty = proposal.getProposer().getId().equals(userId) ? proposal.getReceiver() : proposal.getProposer();
+
+        // 10번째 협상인 경우 자동으로 협상 결렬 처리
+        if (nextRound == 10) {
+            proposal.setStatus(ProposalStatus.CANCELLED);
+            proposal.getBarterPost().setBarterStatus(BarterStatus.TRADING);
+            proposal.getOfferedPost().setBarterStatus(BarterStatus.TRADING);
+            proposalRepository.saveAndFlush(proposal);
+
+            // 양쪽에게 협상 결렬 알림
+            User proposer = proposal.getProposer();
+            User receiver = proposal.getReceiver();
+            notificationService.send(proposer, NotificationType.TRADE_CANCELLED,
+                    String.format("📢 '%s' 물건에 대한 거래가 협상 10회 완료로 자동 취소되었습니다.", proposal.getBarterPost().getTitle()),
+                    proposal.getId(), null);
+            notificationService.send(receiver, NotificationType.TRADE_CANCELLED,
+                    String.format("📢 '%s' 물건에 대한 거래가 협상 10회 완료로 자동 취소되었습니다.", proposal.getOfferedPost().getTitle()),
+                    proposal.getId(), null);
+        } else {
             proposal.setStatus(ProposalStatus.NEGOTIATING);
-            proposal.setNegotiationRound(proposal.getNegotiationRound() != null ? proposal.getNegotiationRound() + 1 : 1);
 
             // 양쪽 물품 상태를 RESERVED로 설정
             proposal.getBarterPost().setBarterStatus(BarterStatus.RESERVED);
             proposal.getOfferedPost().setBarterStatus(BarterStatus.RESERVED);
 
             // 상대방에게 알림
-            User counterparty = proposal.getProposer().getId().equals(userId) ? proposal.getReceiver() : proposal.getProposer();
             notificationService.send(counterparty, NotificationType.TRADE_CONDITION_COUNTER,
                     String.format("♻️ '%s'님이 거래 조건을 다시 제시했습니다. 확인해주세요.",
                     proposal.getProposer().getId().equals(userId) ? proposal.getProposer().getNickname() : proposal.getReceiver().getNickname()),
                     proposal.getId(), null);
+        }
 
-            TradeProposal fetchedProposal = proposalRepository.findByIdWithFetch(proposal.getId()).orElseThrow();
-            return TradeProposalResponseDto.from(fetchedProposal);
-        } catch (Exception e) {
-            throw new RuntimeException("거래 조건 반박 중 오류 발생: " + e.getMessage());
+        TradeProposal fetchedProposal = proposalRepository.findByIdWithFetch(proposal.getId()).orElseThrow();
+        TradeProposalResponseDto dto = TradeProposalResponseDto.from(fetchedProposal);
+        User user = userRepository.findById(userId).orElseThrow();
+        dto.setBlockedByPartner(userBlockRepository.existsByBlockerAndBlocked(counterparty, user));
+        return dto;
+    }
+
+    /**
+     * 차단 시 진행 중인 물물교환 자동 취소 처리
+     */
+    public void cancelProposalsByBlockedUser(User blocker, User blocked) {
+        // blocker와 blocked 사이의 진행 중인 모든 제안 조회
+        List<TradeProposal> activeProposals = proposalRepository.findAll().stream()
+                .filter(p -> (p.getProposer().getId().equals(blocker.getId()) && p.getReceiver().getId().equals(blocked.getId())) ||
+                             (p.getProposer().getId().equals(blocked.getId()) && p.getReceiver().getId().equals(blocker.getId())))
+                .filter(p -> p.getStatus() == ProposalStatus.PROPOSED ||
+                            p.getStatus() == ProposalStatus.NEGOTIATING ||
+                            p.getStatus() == ProposalStatus.ACCEPTED)
+                .collect(Collectors.toList());
+
+        for (TradeProposal proposal : activeProposals) {
+            proposal.setStatus(ProposalStatus.CANCELLED);
+
+            // 양쪽 물품 상태를 TRADING으로 복구
+            proposal.getBarterPost().setBarterStatus(BarterStatus.TRADING);
+            proposal.getOfferedPost().setBarterStatus(BarterStatus.TRADING);
+
+            proposalRepository.saveAndFlush(proposal);
+
+            // 상대방에게 알림
+            User counterparty = proposal.getProposer().getId().equals(blocker.getId())
+                    ? proposal.getReceiver()
+                    : proposal.getProposer();
+            Post cancelledItem = proposal.getProposer().getId().equals(blocker.getId())
+                    ? proposal.getOfferedPost()
+                    : proposal.getBarterPost();
+
+            notificationService.send(counterparty, NotificationType.TRADE_CANCELLED,
+                    String.format("📢 '%s' 물건에 대한 거래가 상대방 차단으로 인해 취소되었습니다.", cancelledItem.getTitle()),
+                    proposal.getId(), null);
+
+            log.info("[차단 시 자동 취소] proposal={}, blocker={}, blocked={}, barterPost={}, offeredPost={}",
+                    proposal.getId(), blocker.getId(), blocked.getId(),
+                    proposal.getBarterPost().getId(), proposal.getOfferedPost().getId());
+        }
+    }
+
+    /**
+     * 게시글 삭제 시 관련 물물교환 자동 취소 처리
+     */
+    public void cancelProposalsByDeletedPost(Post deletedPost) {
+        // 삭제된 Post와 관련된 모든 활성 거래 조회
+        List<TradeProposal> activeProposals = proposalRepository.findAll().stream()
+                .filter(p -> (p.getBarterPost().getId().equals(deletedPost.getId()) ||
+                             p.getOfferedPost().getId().equals(deletedPost.getId())))
+                .filter(p -> p.getStatus() == ProposalStatus.PROPOSED ||
+                            p.getStatus() == ProposalStatus.NEGOTIATING ||
+                            p.getStatus() == ProposalStatus.ACCEPTED)
+                .collect(Collectors.toList());
+
+        for (TradeProposal proposal : activeProposals) {
+            proposal.setStatus(ProposalStatus.CANCELLED);
+
+            // 양쪽 물품 상태를 TRADING으로 복구
+            proposal.getBarterPost().setBarterStatus(BarterStatus.TRADING);
+            proposal.getOfferedPost().setBarterStatus(BarterStatus.TRADING);
+
+            proposalRepository.saveAndFlush(proposal);
+
+            // 양쪽에게 알림
+            User proposer = proposal.getProposer();
+            User receiver = proposal.getReceiver();
+
+            notificationService.send(proposer, NotificationType.TRADE_CANCELLED,
+                    String.format("📢 '%s' 물건이 삭제되어 거래가 자동 취소되었습니다.", deletedPost.getTitle()),
+                    proposal.getId(), null);
+
+            notificationService.send(receiver, NotificationType.TRADE_CANCELLED,
+                    String.format("📢 '%s' 물건이 삭제되어 거래가 자동 취소되었습니다.", deletedPost.getTitle()),
+                    proposal.getId(), null);
+
+            log.info("[게시글 삭제 시 자동 취소] proposal={}, deletedPostId={}, proposer={}, receiver={}",
+                    proposal.getId(), deletedPost.getId(), proposer.getId(), receiver.getId());
         }
     }
 }

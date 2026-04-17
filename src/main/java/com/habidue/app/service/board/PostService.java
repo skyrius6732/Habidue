@@ -11,6 +11,7 @@ import com.habidue.app.dto.board.PostRequestDto;
 import com.habidue.app.dto.board.PostResponseDto;
 import com.habidue.app.repository.board.PostLikeRepository;
 import com.habidue.app.repository.board.PostRepository;
+import com.habidue.app.repository.board.CommentRepository;
 import com.habidue.app.repository.user.UserRepository;
 import com.habidue.app.repository.badge.UserBadgeRepository;
 import com.habidue.app.repository.notice.NoticeRepository;
@@ -50,6 +51,7 @@ public class PostService {
     private final NoticeRepository noticeRepository;
     private final TagRepository tagRepository;
     private final PostLikeRepository postLikeRepository;
+    private final com.habidue.app.repository.barter.TradeProposalRepository tradeProposalRepository;
     private final UserRepository userRepository;
     private final TagService tagService;
     private final UserActivityStatsRepository userActivityStatsRepository;
@@ -60,6 +62,7 @@ public class PostService {
     private final KarmaService karmaService;
     private final NotificationService notificationService;
     private final com.habidue.app.service.ranking.RankingService rankingService;
+    private final com.habidue.app.service.barter.BarterService barterService;
     private final StringRedisTemplate redisTemplate;
     private final jakarta.persistence.EntityManager entityManager;
 
@@ -105,9 +108,13 @@ public class PostService {
                 .regionTag(requestDto.getRegionTag())
                 .notice(notice)
                 .author(author)
+                .itemName(requestDto.getItemName())
                 .wantedItem(requestDto.getWantedItem())
                 .itemCondition(requestDto.getItemCondition())
                 .barterStatus(com.habidue.app.domain.barter.BarterStatus.TRADING)
+                .preferredMethod(requestDto.getPreferredMethod())
+                .preferredDate(requestDto.getPreferredDate())
+                .preferredTime(requestDto.getPreferredTime())
                 .build();
         if (requestDto.getImageUrls() != null) {
             for (int i = 0; i < requestDto.getImageUrls().size(); i++) {
@@ -179,7 +186,8 @@ public class PostService {
         post.update(requestDto.getTitle(), requestDto.getContent(), post.getType(), requestDto.getCategory(), requestDto.getSubCategory(), requestDto.getRegionTag());
         
         // 물물교환 필드 업데이트
-        post.updateBarter(requestDto.getWantedItem(), requestDto.getItemCondition(), post.getBarterStatus());
+        post.updateBarter(requestDto.getItemName(), requestDto.getWantedItem(), requestDto.getItemCondition(), post.getBarterStatus(),
+                requestDto.getPreferredMethod(), requestDto.getPreferredDate(), requestDto.getPreferredTime());
 
         // [시니어 조치] 이미지 동기화 (중복 방지, 기존 데이터 보존, 삭제 대응)
         List<String> incomingUrls = requestDto.getImageUrls() != null ? requestDto.getImageUrls() : new java.util.ArrayList<>();
@@ -258,6 +266,21 @@ public class PostService {
     @Transactional
     public PostResponseDto getPostDetail(Long postId, UserPrincipal currentUser) {
         Post post = postRepository.findWithAuthorById(postId).orElseThrow();
+
+        // [추가] Soft delete된 게시글 접근 제어
+        if (!"ACTIVE".equals(post.getStatus())) {
+            // 관리자가 아니면 접근 불가
+            boolean isAdmin = currentUser != null &&
+                            userRepository.findById(currentUser.getId())
+                                .map(user -> user.getRole() != null &&
+                                     user.getRole().getKey().equals("ROLE_ADMIN"))
+                                .orElse(false);
+
+            if (!isAdmin) {
+                throw new IllegalArgumentException("삭제된 게시글입니다.");
+            }
+        }
+
         post.getImages().size();
         post.getTags().forEach(pt -> pt.getTag().getName());
         postRepository.incrementViewCount(postId);
@@ -487,7 +510,12 @@ public class PostService {
         // 4. 게시글 보상 회수
         revokePostRewards(post);
 
-        // 5. 하위 활동 연쇄 회수 (ACTIVE 상태인 것만 정밀 타격)
+        // 5. [물물교환] 게시글 삭제 시 관련 거래 자동 취소
+        if (post.getType() == PostType.BARTER) {
+            barterService.cancelProposalsByDeletedPost(post);
+        }
+
+        // 6. 하위 활동 연쇄 회수 (ACTIVE 상태인 것만 정밀 타격)
         if (post.getComments() != null) {
             post.getComments().stream()
                 .filter(c -> "ACTIVE".equals(c.getStatus()))

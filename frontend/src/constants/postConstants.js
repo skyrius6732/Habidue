@@ -86,8 +86,9 @@ export const getCategoryLabel = (value) => {
     'INTERVIEW': '🏆 당첨자 인터뷰',
     'MOVING': '🚚 이사',
     'CLEANING': '🧼 청소',
-    'INTERIOR': '🛋️ 인테리어'
+    'INTERIOR': '🛋️ 인테리어',
+    'BARTER': '🔄 물물교환'
   };
-  
+
   return legacyMap[value] || value; 
 };

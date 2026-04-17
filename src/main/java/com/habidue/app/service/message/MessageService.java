@@ -43,6 +43,7 @@ public class MessageService {
     private final KarmaService karmaService;
     private final StringRedisTemplate redisTemplate;
     private final NotificationService notificationService;
+    private final com.habidue.app.service.barter.BarterService barterService;
 
     private static final String DAILY_MESSAGE_COUNT_KEY = "message:daily:count:";
     private static final int MAX_DAILY_MESSAGES = 20;
@@ -254,6 +255,9 @@ public class MessageService {
         }
         log.info("[blockUser] 차단 레코드 생성");
         userBlockRepository.save(UserBlock.builder().blocker(blocker).blocked(blocked).reason(reason).isSystemBlock(isSystemBlock).build());
+
+        // [물물교환 자동 취소] 차단 시 진행 중인 거래 취소
+        barterService.cancelProposalsByBlockedUser(blocker, blocked);
     }
 
     @Transactional

@@ -37,21 +37,30 @@
         <!-- 아코디언 바디 (펼쳤을 때만 표시) -->
         <div v-if="isExpanded(proposal.id)" class="proposal-body">
         <div class="trade-info-main">
-          <!-- 상대 물건 (제안자: barterPost, 수신자: offeredPost) -->
-          <div class="item-box target">
-            <span class="box-label">상대 물건</span>
-            <div class="item-content" @click="viewPost(getOpponentItem(proposal).id, proposal.id)">
-              <img :src="getOpponentItem(proposal).imageUrls[0]" v-if="getOpponentItem(proposal).imageUrls?.length" class="mini-thumb" />
-              <p class="p-title">{{ getOpponentItem(proposal).title }}</p>
-            </div>
-          </div>
-          <div class="trade-arrow">🔄</div>
           <!-- 나의 물건 (제안자: offeredPost, 수신자: barterPost) -->
           <div class="item-box offer">
-            <span class="box-label">나의 물건</span>
+            <span class="box-label">나의 상품</span>
             <div class="item-content" @click="viewPost(getMyItem(proposal).id, proposal.id)">
-              <img :src="getMyItem(proposal).imageUrls[0]" v-if="getMyItem(proposal).imageUrls?.length" class="mini-thumb" />
-              <p class="p-title">{{ getMyItem(proposal).title }}</p>
+              <div class="p-text-group">
+                <p class="p-title">{{ getMyItem(proposal).itemName || getMyItem(proposal).title }}</p>
+                <p v-if="getMyItem(proposal).itemName" class="p-item-name">{{ getMyItem(proposal).title }}</p>
+              </div>
+              <img v-if="getMyItem(proposal).imageUrls?.length" :src="getMyItem(proposal).imageUrls[0]" class="mini-thumb-right" />
+              <div v-else class="mini-thumb-placeholder">📦</div>
+            </div>
+          </div>
+          <div class="trade-arrow pc-icon">⇄</div>
+          <div class="trade-arrow mobile-icon">⇅</div>
+          <!-- 상대 물건 (제안자: barterPost, 수신자: offeredPost) -->
+          <div class="item-box target">
+            <span class="box-label">상대 상품</span>
+            <div class="item-content" @click="viewPost(getOpponentItem(proposal).id, proposal.id)">
+              <div class="p-text-group">
+                <p class="p-title">{{ getOpponentItem(proposal).itemName || getOpponentItem(proposal).title }}</p>
+                <p v-if="getOpponentItem(proposal).itemName" class="p-item-name">{{ getOpponentItem(proposal).title }}</p>
+              </div>
+              <img v-if="getOpponentItem(proposal).imageUrls?.length" :src="getOpponentItem(proposal).imageUrls[0]" class="mini-thumb-right" />
+              <div v-else class="mini-thumb-placeholder">📦</div>
             </div>
           </div>
         </div>
@@ -60,115 +69,6 @@
           <span class="m-icon">💬</span>
           <p class="m-text">{{ proposal.message }}</p>
         </div>
-
-        <!-- [비교 카드] 협상 조건 나란히 표시 -->
-        <template v-if="(proposal.status === 'ACCEPTED' || proposal.status === 'NEGOTIATING') && getScheduleStatus(proposal) !== 'NO_SCHEDULE'">
-          <!-- 조건 일치 배너 -->
-          <div v-if="isConditionMatched(proposal)" class="condition-matched-banner">
-            ✅ 조건이 일치했어요! 수락 버튼을 눌러 거래를 확정하세요.
-          </div>
-
-          <!-- 협상 비교 카드 -->
-          <div class="negotiation-compare-card">
-            <div class="compare-header">
-              <span class="compare-title">협상 조건</span>
-              <span class="round-info">라운드 {{ proposal.negotiationRound || 1 }}/10</span>
-            </div>
-
-            <div class="compare-content">
-              <!-- 내 조건 -->
-              <div class="condition-side my-condition">
-                <div class="side-label">내 조건</div>
-                <div v-if="parseSchedule(getMyScheduleJson(proposal))" class="condition-fields">
-                  <div class="field-row">
-                    <span class="field-label">방식</span>
-                    <span :class="['field-value', getFieldDiff(parseSchedule(getMyScheduleJson(proposal)), parseSchedule(getOpponentScheduleJson(proposal)), 'method') === 'diff' ? 'diff' : getFieldDiff(parseSchedule(getMyScheduleJson(proposal)), parseSchedule(getOpponentScheduleJson(proposal)), 'method') === 'same' ? 'same' : '']">
-                      {{ getMethodLabel(parseSchedule(getMyScheduleJson(proposal)).method) }}
-                    </span>
-                  </div>
-                  <template v-if="parseSchedule(getMyScheduleJson(proposal)).method === 'DIRECT'">
-                    <div class="field-row">
-                      <span class="field-label">장소</span>
-                      <span :class="['field-value', getFieldDiff(parseSchedule(getMyScheduleJson(proposal)), parseSchedule(getOpponentScheduleJson(proposal)), 'location') === 'diff' ? 'diff' : getFieldDiff(parseSchedule(getMyScheduleJson(proposal)), parseSchedule(getOpponentScheduleJson(proposal)), 'location') === 'same' ? 'same' : '']">
-                        {{ formatAddressField('DIRECT', parseSchedule(getMyScheduleJson(proposal)).location) }}
-                      </span>
-                    </div>
-                  </template>
-                  <template v-else>
-                    <div class="field-row">
-                      <span class="field-label">내주소</span>
-                      <span :class="['field-value', getFieldDiff(parseSchedule(getMyScheduleJson(proposal)), parseSchedule(getOpponentScheduleJson(proposal)), 'senderAddress') === 'diff' ? 'diff' : getFieldDiff(parseSchedule(getMyScheduleJson(proposal)), parseSchedule(getOpponentScheduleJson(proposal)), 'senderAddress') === 'same' ? 'same' : '']">
-                        {{ parseSchedule(getMyScheduleJson(proposal)).senderAddress }}
-                      </span>
-                    </div>
-                    <div class="field-row">
-                      <span class="field-label">상대방주소</span>
-                      <span :class="['field-value', getFieldDiff(parseSchedule(getMyScheduleJson(proposal)), parseSchedule(getOpponentScheduleJson(proposal)), 'receiverAddress') === 'diff' ? 'diff' : getFieldDiff(parseSchedule(getMyScheduleJson(proposal)), parseSchedule(getOpponentScheduleJson(proposal)), 'receiverAddress') === 'same' ? 'same' : '']">
-                        {{ parseSchedule(getMyScheduleJson(proposal)).receiverAddress }}
-                      </span>
-                    </div>
-                  </template>
-                  <div class="field-row">
-                    <span class="field-label">시간</span>
-                    <span :class="['field-value', getFieldDiff(parseSchedule(getMyScheduleJson(proposal)), parseSchedule(getOpponentScheduleJson(proposal)), 'tradeDateTime') === 'diff' ? 'diff' : getFieldDiff(parseSchedule(getMyScheduleJson(proposal)), parseSchedule(getOpponentScheduleJson(proposal)), 'tradeDateTime') === 'same' ? 'same' : '']">
-                      {{ formatDateTimeField(parseSchedule(getMyScheduleJson(proposal)).tradeDateTime) }}
-                    </span>
-                  </div>
-                </div>
-                <div v-else class="condition-empty">
-                  아직 조건을 제시하지 않았습니다
-                </div>
-              </div>
-
-              <!-- vs 구분선 -->
-              <div class="compare-divider">vs</div>
-
-              <!-- 상대방 조건 -->
-              <div class="condition-side opponent-condition">
-                <div class="side-label">상대방 조건</div>
-                <div v-if="parseSchedule(getOpponentScheduleJson(proposal))" class="condition-fields">
-                  <div class="field-row">
-                    <span class="field-label">방식</span>
-                    <span :class="['field-value', getFieldDiff(parseSchedule(getMyScheduleJson(proposal)), parseSchedule(getOpponentScheduleJson(proposal)), 'method') === 'diff' ? 'diff' : getFieldDiff(parseSchedule(getMyScheduleJson(proposal)), parseSchedule(getOpponentScheduleJson(proposal)), 'method') === 'same' ? 'same' : '']">
-                      {{ getMethodLabel(parseSchedule(getOpponentScheduleJson(proposal)).method) }}
-                    </span>
-                  </div>
-                  <template v-if="parseSchedule(getOpponentScheduleJson(proposal)).method === 'DIRECT'">
-                    <div class="field-row">
-                      <span class="field-label">장소</span>
-                      <span :class="['field-value', getFieldDiff(parseSchedule(getMyScheduleJson(proposal)), parseSchedule(getOpponentScheduleJson(proposal)), 'location') === 'diff' ? 'diff' : getFieldDiff(parseSchedule(getMyScheduleJson(proposal)), parseSchedule(getOpponentScheduleJson(proposal)), 'location') === 'same' ? 'same' : '']">
-                        {{ formatAddressField('DIRECT', parseSchedule(getOpponentScheduleJson(proposal)).location) }}
-                      </span>
-                    </div>
-                  </template>
-                  <template v-else>
-                    <div class="field-row">
-                      <span class="field-label">내주소</span>
-                      <span :class="['field-value', getFieldDiff(parseSchedule(getMyScheduleJson(proposal)), parseSchedule(getOpponentScheduleJson(proposal)), 'senderAddress') === 'diff' ? 'diff' : getFieldDiff(parseSchedule(getMyScheduleJson(proposal)), parseSchedule(getOpponentScheduleJson(proposal)), 'senderAddress') === 'same' ? 'same' : '']">
-                        {{ parseSchedule(getOpponentScheduleJson(proposal)).senderAddress }}
-                      </span>
-                    </div>
-                    <div class="field-row">
-                      <span class="field-label">상대방주소</span>
-                      <span :class="['field-value', getFieldDiff(parseSchedule(getMyScheduleJson(proposal)), parseSchedule(getOpponentScheduleJson(proposal)), 'receiverAddress') === 'diff' ? 'diff' : getFieldDiff(parseSchedule(getMyScheduleJson(proposal)), parseSchedule(getOpponentScheduleJson(proposal)), 'receiverAddress') === 'same' ? 'same' : '']">
-                        {{ parseSchedule(getOpponentScheduleJson(proposal)).receiverAddress }}
-                      </span>
-                    </div>
-                  </template>
-                  <div class="field-row">
-                    <span class="field-label">시간</span>
-                    <span :class="['field-value', getFieldDiff(parseSchedule(getMyScheduleJson(proposal)), parseSchedule(getOpponentScheduleJson(proposal)), 'tradeDateTime') === 'diff' ? 'diff' : getFieldDiff(parseSchedule(getMyScheduleJson(proposal)), parseSchedule(getOpponentScheduleJson(proposal)), 'tradeDateTime') === 'same' ? 'same' : '']">
-                      {{ formatDateTimeField(parseSchedule(getOpponentScheduleJson(proposal)).tradeDateTime) }}
-                    </span>
-                  </div>
-                </div>
-                <div v-else class="condition-empty">
-                  아직 조건을 제시하지 않았습니다
-                </div>
-              </div>
-            </div>
-          </div>
-        </template>
 
         <div class="proposal-actions">
           <button class="btn-message" @click.stop="goToMessage(proposal)">✉️쪽지보기</button>
@@ -179,67 +79,10 @@
             <button class="btn-action reject" @click.stop="respond(proposal.id, 'REJECTED')">❌ 제안거절</button>
           </template>
 
-          <!-- Phase 2-4: ACCEPTED/NEGOTIATING 상태 (거래 조건 협의) -->
-          <template v-if="proposal.status === 'ACCEPTED' || proposal.status === 'NEGOTIATING'">
-            <!-- 상태: NO_SCHEDULE (조건 미제시) -->
-            <template v-if="getScheduleStatus(proposal) === 'NO_SCHEDULE'">
-              <div class="schedule-info">
-                <span class="info-text">⚙️ 거래 조건을 설정해 주세요</span>
-              </div>
-              <button class="btn-action wizard" @click.stop="openWizard(proposal)">⚙️ 조건 제시</button>
-            </template>
-
-            <!-- 상태: NEGOTIATING (협의중) - 내 차례 O -->
-            <template v-else-if="getScheduleStatus(proposal) === 'NEGOTIATING' && isMyTurn(proposal)">
-              <div class="schedule-info">
-                <span class="info-text">♻️ 상대방이 조건을 제시했습니다</span>
-              </div>
-              <button
-                class="btn-action accept-schedule"
-                :disabled="!isConditionMatched(proposal)"
-                :title="!isConditionMatched(proposal) ? '조건이 일치해야 수락 가능합니다' : ''"
-                @click.stop="acceptSchedule(proposal.id)"
-              >✅ 거래수락</button>
-              <button
-                class="btn-action counter-schedule"
-                :disabled="(proposal.negotiationRound || 0) >= 10"
-                @click.stop="openWizard(proposal)"
-              >
-                ✏️ 조건 변경
-              </button>
-              <button class="btn-action reject-schedule" @click.stop="respond(proposal.id, 'REJECTED')">❌ 거래거절</button>
-              <span v-if="(proposal.negotiationRound || 0) >= 10" class="round-limit-notice">협상은 최대 10라운드까지만 가능합니다</span>
-            </template>
-
-            <!-- 상태: NEGOTIATING (협의중) - 내 차례 X -->
-            <template v-else-if="getScheduleStatus(proposal) === 'NEGOTIATING' && !isMyTurn(proposal)">
-              <div class="schedule-info">
-                <span class="info-text">⏳ 상대방의 응답을 기다리는 중</span>
-              </div>
-              <button class="btn-action waiting" disabled>⏳ 상대방 확인 중</button>
-            </template>
-
-            <!-- 상태: AGREED (합의완료) -->
-            <template v-else-if="getScheduleStatus(proposal) === 'AGREED'">
-              <div class="schedule-info agreed">
-                <span class="info-text">✅ 거래 조건 확정됨</span>
-              </div>
-              <button
-                v-if="!isTradeCompleted(proposal)"
-                class="btn-action complete"
-                :disabled="isMyTradeCompleted(proposal)"
-                @click.stop="completeTrade(proposal.id)"
-              >
-                {{ isMyTradeCompleted(proposal) ? '⏳ 상대방 확인 중' : '거래 완료' }}
-              </button>
-              <button v-else class="btn-action completed" disabled>✅ 거래 완료됨</button>
-              <button
-                v-if="!isTradeCompleted(proposal)"
-                class="btn-action reject-schedule"
-                @click.stop="cancelTrade(proposal.id)"
-              >❌ 거래 취소</button>
-            </template>
-          </template>
+          <!-- 상세보기 버튼 (PROPOSED 제외, 제안 수락 후부터 표시) -->
+          <button v-if="proposal.status !== 'PROPOSED'" class="btn-detail-view" @click.stop="openDetailModal(proposal)">
+            📋 상세보기
+          </button>
         </div>
         </div>
         <!-- proposal-body 닫음 -->
@@ -250,17 +93,6 @@
       <span class="empty-icon">🔄</span>
       <p>물물교환 내역이 없습니다.</p>
     </div>
-
-    <!-- 거래 위자드 모달 -->
-    <TradeWizard
-      v-if="isWizardOpen"
-      :proposal="selectedProposal"
-      :mode="wizardMode"
-      :my-existing-schedule="getMyScheduleForWizard(selectedProposal)"
-      :opponent-existing-schedule="getOpponentScheduleForWizard(selectedProposal)"
-      @close="isWizardOpen = false"
-      @success="handleWizardSuccess"
-    />
 
     <!-- 거래 제안 상세 모달 -->
     <BarterProposalDetailModal
@@ -298,7 +130,6 @@ import { useUiStore } from '@/stores/ui'
 import { useNotificationStore } from '@/stores/notification'
 import axios from '@/plugins/axios'
 import { PROPOSAL_STATUS } from '@/constants/postConstants'
-import TradeWizard from '@/components/TradeWizard.vue'
 import BarterProposalDetailModal from '@/components/BarterProposalDetailModal.vue'
 import GlobalModal from '@/components/common/GlobalModal.vue'
 
@@ -311,14 +142,11 @@ const route = useRoute()
 const proposals = ref([])
 const loading = ref(true)
 const filterStatus = ref('ALL')
-const expandedProposalIds = ref(new Set()) // 반응성 보장을 위해 Array로 변경
+const expandedProposalIds = ref(new Set())
 
-const isWizardOpen = ref(false)
 const isQuestionModalOpen = ref(false)
 const isDetailModalOpen = ref(false)
-const selectedProposal = ref(null)
 const selectedDetailProposal = ref(null)
-const wizardMode = ref(null)
 const questionContent = ref('')
 
 const receivedProposalsCount = computed(() => proposals.value.filter(p => p.receiverId === authStore.user.id && p.status === 'PROPOSED').length)
@@ -382,7 +210,7 @@ const completeTrade = async (id) => {
   }
 
   const isConfirmed = await uiStore.showConfirm(
-    '물건을 실제로 교환하셨나요?\n\n거래를 완료하면:\n• 경험치 100EXP 획득\n• 뱃지 진행도 1 증가',
+    '물건을 실제로 교환하셨나요?\n\n거래를 완료하면:\n• 경험치 100EXP 획득',
     '거래 완료',
     '완료',
     '취소'
@@ -494,26 +322,43 @@ const isMyTradeCompleted = (proposal) => {
   return isProposer ? !!proposal.proposerCompletedAt : !!proposal.receiverCompletedAt
 }
 
-const openWizard = (proposal) => {
-  const mode = getWizardMode(proposal)
-  selectedProposal.value = proposal
-  wizardMode.value = mode
-  isWizardOpen.value = true
-}
-
-const handleWizardSuccess = () => {
-  isWizardOpen.value = false
-  fetchProposals()
-}
-
-const openDetailModal = (proposal) => {
-  selectedDetailProposal.value = proposal
+const openDetailModal = async (proposal) => {
+  // 아코디언 열 때 해당 proposal의 최신 데이터를 fetch
+  try {
+    const res = await axios.get(`/api/barter/proposals/${proposal.id}`)
+    selectedDetailProposal.value = res.data
+  } catch (e) {
+    // fetch 실패 시 기존 데이터 사용
+    selectedDetailProposal.value = proposal
+  }
   isDetailModalOpen.value = true
 }
 
 const handleDetailModalSuccess = () => {
   isDetailModalOpen.value = false
   fetchProposals()
+}
+
+const getConditionStatusIcon = (proposal) => {
+  const status = getScheduleStatus(proposal)
+  if (status === 'NO_SCHEDULE') return '⚪'
+  if (status === 'AGREED') return '✅'
+
+  // NEGOTIATING 상태
+  if (isMyTurn(proposal)) return '🟡'
+  if (isConditionMatched(proposal)) return '🟢'
+  return '🔴'
+}
+
+const getConditionStatusText = (proposal) => {
+  const status = getScheduleStatus(proposal)
+  if (status === 'NO_SCHEDULE') return '조건 미설정'
+  if (status === 'AGREED') return '합의 완료'
+
+  // NEGOTIATING 상태
+  if (isMyTurn(proposal)) return '협의 중 (내 차례)'
+  if (isConditionMatched(proposal)) return '조건 일치 (수락 가능)'
+  return '조건 협의 중'
 }
 
 const goToMessage = (proposal) => {
@@ -784,10 +629,16 @@ watch(() => notificationStore.pendingExpandProposalId, (newVal) => {
 .trade-info-main { display: flex; align-items: center; gap: 20px; background: var(--hover-bg); padding: 20px; border-radius: 16px; }
 .item-box { flex: 1; display: flex; flex-direction: column; gap: 8px; min-width: 0; }
 .box-label { font-size: 0.7rem; font-weight: 800; color: var(--text-secondary); text-transform: uppercase; }
-.item-content { display: flex; align-items: center; gap: 10px; cursor: pointer; }
+.item-content { display: flex; align-items: center; gap: 10px; cursor: pointer; justify-content: space-between; }
 .mini-thumb { width: 40px; height: 40px; border-radius: 8px; object-fit: cover; flex-shrink: 0; }
+.mini-thumb-right { width: 40px; height: 40px; border-radius: 8px; object-fit: cover; flex-shrink: 0; }
+.mini-thumb-placeholder { width: 40px; height: 40px; border-radius: 8px; background: var(--divider-color); display: flex; align-items: center; justify-content: center; font-size: 1.2rem; flex-shrink: 0; }
+.p-text-group { display: flex; flex-direction: column; gap: 2px; }
 .p-title { font-size: 0.85rem; font-weight: 700; color: var(--text-primary); margin: 0; line-height: 1.4; display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; overflow: hidden; }
+.p-item-name { font-size: 0.75rem; color: var(--text-secondary); margin: 0; line-height: 1.2; display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; overflow: hidden; }
 .trade-arrow { font-size: 1.2rem; opacity: 0.5; flex-shrink: 0; }
+.trade-arrow.pc-icon { display: block; }
+.trade-arrow.mobile-icon { display: none; }
 
 .proposal-message { display: flex; gap: 8px; background: rgba(0, 149, 246, 0.05); padding: 16px; border-radius: 12px; }
 .m-icon { font-size: 0.9rem; }
@@ -841,9 +692,15 @@ watch(() => notificationStore.pendingExpandProposalId, (newVal) => {
   flex-direction: column;
   gap: 24px;
 }
+.condition-status-row { display: flex; align-items: center; gap: 8px; padding: 12px 16px; background: var(--hover-bg); border-radius: 12px; }
+.condition-icon { font-size: 1.2rem; }
+.condition-text { font-size: 0.85rem; font-weight: 700; color: var(--text-primary); }
+
 .proposal-actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; justify-content: flex-end; }
 .btn-message { padding: 10px 14px; border-radius: 10px; font-size: 0.8rem; font-weight: 800; cursor: pointer; transition: all 0.2s; border: 1px solid var(--border-color); background: var(--card-bg); color: var(--text-primary); order: 100; }
 .btn-message:hover { transform: translateY(-2px); box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
+.btn-detail-view { padding: 10px 14px; border-radius: 10px; font-size: 0.8rem; font-weight: 800; cursor: pointer; transition: all 0.2s; border: 1px solid var(--border-color); background: var(--card-bg); color: var(--text-primary); }
+.btn-detail-view:hover { transform: translateY(-2px); box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
 .schedule-info { display: flex; align-items: center; gap: 8px; padding: 8px 12px; background: rgba(59, 130, 246, 0.1); border-radius: 8px; flex-basis: auto; margin-left: auto; }
 .schedule-info.agreed { background: rgba(16, 185, 129, 0.1); }
 .info-text { font-size: 0.8rem; font-weight: 700; color: #3b82f6; }
@@ -885,14 +742,16 @@ watch(() => notificationStore.pendingExpandProposalId, (newVal) => {
   .barter-summary-cards { flex-wrap: wrap; }
   .summary-card { min-width: 100px; }
   .trade-info-main { flex-direction: column; align-items: flex-start; gap: 12px; }
-  .trade-arrow { align-self: center; transform: rotate(90deg); }
+  .trade-arrow.pc-icon { display: none; }
+  .trade-arrow.mobile-icon { display: block; align-self: center; }
   .btn-action { flex: 1; text-align: center; padding: 6px 6px; font-size: 0.6rem; }
   .btn-action.wizard { flex: 1; }
   .btn-action.accept-schedule { flex: 1; }
   .btn-action.counter-schedule { flex: 1; }
   .btn-action.reject-schedule { flex: 1; }
   .btn-action.waiting { flex: 1; }
-  .btn-message { flex: 1; padding: 6px 6px; font-size: 0.6rem; flex-basis: 100%; order: 100; }
+  .btn-message { flex: 1; padding: 6px 6px; font-size: 0.6rem; order: 100; }
+  .btn-detail-view { flex: 1; padding: 6px 6px; font-size: 0.6rem; }
   .schedule-info { padding: 8px 10px; font-size: 0.75rem; flex-basis: 100%; }
   .info-text { font-size: 0.75rem; }
   .compare-content { grid-template-columns: 1fr; gap: 16px; }

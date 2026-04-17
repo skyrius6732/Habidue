@@ -23,7 +23,7 @@
                 <img v-if="item.imageUrls && item.imageUrls.length > 0" :src="item.imageUrls[0]" class="item-thumb" />
                 <div v-else class="item-thumb-placeholder">📦</div>
                 <div class="item-info">
-                  <p class="item-title">{{ item.title }}</p>
+                  <p class="item-title">{{ item.itemName || item.title }}</p>
                   <span class="item-status">{{ getStatusLabel(item.barterStatus) }}</span>
                 </div>
                 <div class="check-mark" v-if="selectedItemId === item.id">✓</div>
@@ -107,11 +107,22 @@ const submitProposal = async () => {
   if (!selectedItemId.value) return
   submitting.value = true
   try {
-    await axios.post('/api/barter/proposals', {
+    const selectedItem = myItems.value.find(item => item.id === selectedItemId.value)
+    const payload = {
       barterPostId: props.barterPost.id,
       offeredPostId: selectedItemId.value,
       message: message.value
-    })
+    }
+
+    // 첫 제안시 선호 조건을 자동 설정 (TradeWizard 스킵)
+    if (selectedItem) {
+      payload.proposerMethod = selectedItem.preferredMethod
+      payload.proposerLocation = selectedItem.preferredLocation
+      payload.proposerDate = selectedItem.preferredDate
+      payload.proposerTime = selectedItem.preferredTime
+    }
+
+    await axios.post('/api/barter/proposals', payload)
     emit('success')
   } catch (e) {
     await uiStore.showAlert(e.response?.data?.message || '제안 보내기에 실패했습니다.', '오류')
@@ -121,7 +132,7 @@ const submitProposal = async () => {
 }
 
 const goToWrite = () => {
-  router.push({ path: '/board/write', query: { menu: 'BARTER' } })
+  router.push({ path: '/board/write', query: { menu: 'BARTER', sub: 'ALL' } })
   emit('close')
 }
 

@@ -56,6 +56,9 @@ public class Post {
 
     // --- 물물교환 전용 필드 ---
     @Column
+    private String itemName;                        // 내 물건 품명 (사용자 작성)
+
+    @Column
     private String wantedItem;
 
     @Enumerated(EnumType.STRING)
@@ -65,6 +68,16 @@ public class Post {
     @Enumerated(EnumType.STRING)
     @Column
     private BarterStatus barterStatus;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "preferred_method")
+    private com.habidue.app.domain.barter.TradeMethod preferredMethod;
+
+    @Column(name = "preferred_date")
+    private java.time.LocalDate preferredDate;
+
+    @Column(name = "preferred_time")
+    private String preferredTime;
     // ------------------------
 
     @Column(nullable = false, length = 20)
@@ -131,10 +144,16 @@ public class Post {
         this.regionTag = regionTag;
     }
 
-    public void updateBarter(String wantedItem, ItemCondition itemCondition, BarterStatus barterStatus) {
+    public void updateBarter(String itemName, String wantedItem, ItemCondition itemCondition, BarterStatus barterStatus,
+                             com.habidue.app.domain.barter.TradeMethod preferredMethod,
+                             java.time.LocalDate preferredDate, String preferredTime) {
+        this.itemName = itemName;
         this.wantedItem = wantedItem;
         this.itemCondition = itemCondition;
         this.barterStatus = barterStatus;
+        this.preferredMethod = preferredMethod;
+        this.preferredDate = preferredDate;
+        this.preferredTime = preferredTime;
     }
 
     public void changeStatus(String status) {

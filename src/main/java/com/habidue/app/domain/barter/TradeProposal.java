@@ -50,16 +50,6 @@ public class TradeProposal {
     @Builder.Default
     private Integer questionCount = 0;
 
-    // [거래 조건 협상용 필드들]
-    @Column(columnDefinition = "LONGTEXT")
-    private String proposerScheduleJson;      // 제안자가 제시한 거래 조건
-
-    @Column(columnDefinition = "LONGTEXT")
-    private String receiverScheduleJson;      // 수신자가 제시한 거래 조건
-
-    @Column(columnDefinition = "LONGTEXT")
-    private String agreedScheduleJson;        // 양쪽이 합의한 최종 조건
-
     // [거래 완료 처리용 필드들]
     @Column(name = "proposer_completed_at", nullable = true)
     private LocalDateTime proposerCompletedAt;  // 제안자가 "거래완료" 누른 시간
@@ -76,6 +66,23 @@ public class TradeProposal {
 
     @Column(length = 20)
     private String lastScheduleSetBy;           // 마지막 조건 설정자 (PROPOSER/RECEIVER)
+
+    // [최종 합의된 거래 조건 - 필드화]
+    @Enumerated(EnumType.STRING)
+    @Column(name = "final_method")
+    private TradeMethod finalMethod;            // 최종 거래 방식
+
+    @Column(length = 255, name = "final_location")
+    private String finalLocation;               // 직거래/문고리: 만날 장소
+
+    @Column(length = 255, name = "final_sender_address")
+    private String finalSenderAddress;          // 택배: 발송자 주소
+
+    @Column(length = 255, name = "final_receiver_address")
+    private String finalReceiverAddress;        // 택배: 수신자 주소
+
+    @Column(name = "final_trade_date_time")
+    private LocalDateTime finalTradeDateTime;   // 거래 시간
 
     @CreationTimestamp
     @Column(nullable = false, updatable = false)
