@@ -16,4 +16,5 @@ public class TradeScheduleRequestDto {
     private String senderAddress;      // DOORSTEP/PARCEL: 발송자 주소
     private String receiverAddress;    // DOORSTEP/PARCEL: 수신자 주소
     private LocalDateTime tradeDateTime;
+    private String message;            // 조건 제시 시 메시지
 }

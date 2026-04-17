@@ -60,9 +60,13 @@ public class PostResponseDto {
     private LocalDateTime updatedAt;
 
     // --- 물물교환 전용 필드 ---
+    private String itemName;                                           // 내 물건 품명
     private String wantedItem;
     private com.habidue.app.domain.barter.ItemCondition itemCondition;
     private com.habidue.app.domain.barter.BarterStatus barterStatus;
+    private com.habidue.app.domain.barter.TradeMethod preferredMethod;
+    private java.time.LocalDate preferredDate;
+    private String preferredTime;
 
     public static PostResponseDto from(Post post) {
         boolean isActive = post.getAuthor().getStatus() == com.habidue.app.domain.user.UserStatus.ACTIVE;
@@ -107,9 +111,13 @@ public class PostResponseDto {
                 .likeCount(post.getLikeCount())
                 .createdAt(post.getCreatedAt())
                 .updatedAt(post.getUpdatedAt())
+                .itemName(post.getItemName())
                 .wantedItem(post.getWantedItem())
                 .itemCondition(post.getItemCondition())
                 .barterStatus(post.getBarterStatus())
+                .preferredMethod(post.getPreferredMethod())
+                .preferredDate(post.getPreferredDate())
+                .preferredTime(post.getPreferredTime())
                 .build();
     }
 }

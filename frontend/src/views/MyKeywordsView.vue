@@ -28,7 +28,7 @@
             쪽지함
             <span v-if="messageStore.unreadCount > 0" class="sidebar-unread-badge">{{ messageStore.unreadCount }}</span>
           </div>
-          <div class="sidebar-item" :class="{ active: activeTab === 'barter' }" @click="setActiveTab('barter')">물물교환 내역</div>
+          <div class="sidebar-item" :class="{ active: activeTab === 'barter' }" @click="setActiveTab('barter')">물물 교환</div>
           <div class="sidebar-item" :class="{ active: activeTab === 'notifications' }" @click="setActiveTab('notifications')">알림 설정</div>
           <div class="sidebar-item" :class="{ active: activeTab === 'account' }" @click="setActiveTab('account')">계정 정보</div>
         </div>

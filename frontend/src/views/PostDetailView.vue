@@ -127,6 +127,10 @@
             <div v-if="post.type === 'BARTER'" class="barter-detail-info">
               <div class="barter-info-grid">
                 <div class="b-info-box">
+                  <span class="b-label">📛 상품명</span>
+                  <span class="b-value">{{ post.itemName || '미등록' }}</span>
+                </div>
+                <div class="b-info-box">
                   <span class="b-label">📦 물건 상태</span>
                   <span class="b-value" :style="{ color: conditionConfig?.color }">
                     {{ conditionConfig?.label || '정보 없음' }}
@@ -135,6 +139,18 @@
                 <div class="b-info-box">
                   <span class="b-label">🔄 희망 교환</span>
                   <span class="b-value highlight">{{ post.wantedItem || '자유 교환' }}</span>
+                </div>
+                <div class="b-info-box">
+                  <span class="b-label">🚚 거래 방식</span>
+                  <span class="b-value highlight">{{ getTradeMethodLabel(post.preferredMethod) || '미정' }}</span>
+                </div>
+                <div class="b-info-box">
+                  <span class="b-label">📅 선호 날짜</span>
+                  <span class="b-value">{{ post.preferredDate ? formatDate(post.preferredDate) : '미정' }}</span>
+                </div>
+                <div class="b-info-box">
+                  <span class="b-label">⏰ 선호 시간</span>
+                  <span class="b-value">{{ formatTime(post.preferredTime) || '미정' }}</span>
                 </div>
               </div>
               
@@ -183,6 +199,23 @@
 
           <!-- 댓글 섹션 -->
           <section id="comment-section" class="comment-section">
+            <!-- [물물교환 전용 배너] -->
+            <div v-if="post?.type === 'BARTER'" class="barter-banner-notice">
+              <div class="banner-content">
+                <div class="banner-icon">📢</div>
+                <div class="marquee-wrapper">
+                  <span class="marquee-text">
+                    💡 상대방 물건 상태와 나의 니즈를 댓글로 자유롭게 나눈 후 거래를 시작하세요! 📝 댓글로 상세히 논의할수록 거래 성공률이 높습니다!&nbsp;&nbsp;&nbsp;
+                    💡 상대방 물건 상태와 나의 니즈를 댓글로 자유롭게 나눈 후 거래를 시작하세요! 📝 댓글로 상세히 논의할수록 거래 성공률이 높습니다!&nbsp;&nbsp;&nbsp;
+                    💡 상대방 물건 상태와 나의 니즈를 댓글로 자유롭게 나눈 후 거래를 시작하세요! 📝 댓글로 상세히 논의할수록 거래 성공률이 높습니다!&nbsp;&nbsp;&nbsp;
+                    💡 상대방 물건 상태와 나의 니즈를 댓글로 자유롭게 나눈 후 거래를 시작하세요! 📝 댓글로 상세히 논의할수록 거래 성공률이 높습니다!&nbsp;&nbsp;&nbsp;
+                    💡 상대방 물건 상태와 나의 니즈를 댓글로 자유롭게 나눈 후 거래를 시작하세요! 📝 댓글로 상세히 논의할수록 거래 성공률이 높습니다!&nbsp;&nbsp;&nbsp;
+                    💡 상대방 물건 상태와 나의 니즈를 댓글로 자유롭게 나눈 후 거래를 시작하세요! 📝 댓글로 상세히 논의할수록 거래 성공률이 높습니다!&nbsp;&nbsp;&nbsp;
+                  </span>
+                </div>
+              </div>
+            </div>
+
             <h3 class="section-title">댓글 <span>{{ totalCommentCount }}</span></h3>
             
             <div class="comment-input-box" :class="(isBoardClosed || isPostBlinded) ? 'closed-notice' : 'main-input'">
@@ -562,6 +595,33 @@ const hasMoreFlattenedReplies = (comment) => {
 
 const loadMoreReplies = (commentId) => { visibleRepliesMap[commentId] = (visibleRepliesMap[commentId] || 3) + 3 }
 const loadMore = () => { visibleCount.value += 3 }
+
+// [새로 추가] 거래 방식 라벨
+const getTradeMethodLabel = (method) => {
+  const labels = {
+    'DIRECT': '직거래',
+    'DOORSTEP': '문고리 거래',
+    'PARCEL': '택배 교환'
+  }
+  return labels[method] || method
+}
+
+// [새로 추가] 날짜 포맷팅
+const formatDate = (dateString) => {
+  if (!dateString) return ''
+  const date = new Date(dateString)
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  return `${year}년 ${month}월 ${day}일`
+}
+
+// [새로 추가] 시간 포맷팅
+const formatTime = (timeString) => {
+  if (!timeString) return ''
+  const [hours, minutes] = timeString.split(':')
+  return `${hours}시 ${minutes}분`
+}
 const fetchPostDetail = async () => {
   const currentId = route.params.postId
   if (!currentId) return
@@ -697,26 +757,34 @@ const handleDeleteComment = async (id) => {
   } 
 }
 
-const handleDeletePost = async () => { 
+const handleDeletePost = async () => {
+  console.log('🗑️ handleDeletePost 호출됨', 'post.value:', post.value?.id)
   if (post.value?.status === 'BLINDED') {
     await uiStore.showAlert('관리자에 의해 차단된 게시글은 삭제할 수 없습니다.');
     return;
   }
-  if (!await uiStore.showConfirm('게시글 삭제 시 획득한 경험치(EXP)와 받은 좋아요에 따른 신뢰 점수(Karma)가 모두 회수됩니다.\n정말 삭제하시겠습니까?', '게시글 삭제')) return; 
-  try { 
-    await axios.delete(`/api/posts/${post.value.id}`); 
-    
+  console.log('✅ BLINDED 체크 통과')
+  const confirmed = await uiStore.showConfirm('게시글 삭제 시 획득한 경험치(EXP)와 받은 좋아요에 따른 신뢰 점수(Karma)가 모두 회수됩니다.\n정말 삭제하시겠습니까?', '게시글 삭제')
+  console.log('사용자 확인:', confirmed)
+  if (!confirmed) return;
+  try {
+    console.log(`🚀 DELETE 요청 시작: /api/posts/${post.value.id}`)
+    const response = await axios.delete(`/api/posts/${post.value.id}`);
+    console.log('✅ DELETE 요청 성공:', response)
+
     // [시니어 조치] 삭제 후 이전 목록 맥락(쿼리 파라미터)을 그대로 들고 이동
     const noticeId = post.value?.noticeId;
     const path = noticeId ? `/board/${noticeId}` : '/board';
-    
-    router.push({ 
-      path: path, 
-      query: { ...route.query } 
+    console.log(`📍 이동할 경로: ${path}`)
+
+    router.push({
+      path: path,
+      query: { ...route.query }
     });
   } catch (e) {
+    console.error('❌ DELETE 요청 실패:', e?.response?.status, e?.response?.data, e?.message)
     await uiStore.showAlert('게시글 삭제에 실패했습니다.')
-  } 
+  }
 }
 
 const goToEdit = async () => {
@@ -1017,7 +1085,36 @@ const handleScroll = () => { showTopBtn.value = window.pageYOffset > 400 }
 const postTypeIcon = computed(() => { if (!post.value) return '💬'; const icons = { GENERAL: '🏛️', NOTICE: '💬', REVIEW: '✨', PARTNER: '🤝' }; return icons[post.value.type] || '💬' })
 const vClickOutside = { mounted(el, binding) { el.clickOutsideEvent = (e) => { if (!(el === e.target || el.contains(e.target))) binding.value() }; document.addEventListener('click', el.clickOutsideEvent) }, unmounted(el) { document.removeEventListener('click', el.clickOutsideEvent) } }
 
-onMounted(() => { fetchPostDetail(); window.addEventListener('scroll', handleScroll); window.addEventListener('keydown', handleKeyDown); window.addEventListener('resize', handleResize) })
+const initMarquee = () => {
+  let marqueePosition = 0
+  const marqueeSpeed = 1 // 느린 속도
+  let animationId = null
+
+  const animate = () => {
+    const marqueeText = document.querySelector('.marquee-text')
+    const marqueeWrapper = document.querySelector('.marquee-wrapper')
+
+    if (!marqueeText || !marqueeWrapper) {
+      animationId = requestAnimationFrame(animate)
+      return
+    }
+
+    marqueePosition -= marqueeSpeed
+
+    // 한 문장만큼 스크롤되면 처음으로 리셋 (seamless loop)
+    const oneSentenceWidth = marqueeText.offsetWidth / 6
+    if (Math.abs(marqueePosition) > oneSentenceWidth) {
+      marqueePosition = 0
+    }
+
+    marqueeText.style.transform = `translateX(${marqueePosition}px)`
+    animationId = requestAnimationFrame(animate)
+  }
+
+  animate()
+}
+
+onMounted(() => { fetchPostDetail(); initMarquee(); window.addEventListener('scroll', handleScroll); window.addEventListener('keydown', handleKeyDown); window.addEventListener('resize', handleResize) })
 onUnmounted(() => { window.removeEventListener('scroll', handleScroll); window.removeEventListener('keydown', handleKeyDown); window.removeEventListener('resize', handleResize) })
 watch(() => route.params.postId, fetchPostDetail)
 </script>
@@ -1316,7 +1413,7 @@ watch(() => route.params.postId, fetchPostDetail)
 
 .barter-info-grid {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
+  grid-template-columns: repeat(3, 1fr);
   gap: 20px;
   margin-bottom: 20px;
 }
@@ -1373,10 +1470,76 @@ watch(() => route.params.postId, fetchPostDetail)
   font-size: 1rem;
 }
 
+/* [물물교환 댓글 배너] */
+.barter-banner-notice {
+  background: linear-gradient(90deg, #fff5f5 0%, #fff 100%);
+  border-left: 4px solid var(--link-color);
+  padding: 8px 14px;
+  border-radius: 8px;
+  margin-bottom: 25px;
+  overflow: hidden;
+}
+
+.banner-content {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 20px;
+}
+
+.banner-icon {
+  font-size: 15px;
+  flex-shrink: 0;
+  line-height: 20px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+}
+
+.marquee-wrapper {
+  overflow: hidden;
+  flex: 1;
+  width: 100%;
+  height: 20px;
+}
+
+.marquee-text {
+  display: inline-block;
+  white-space: nowrap;
+  font-size: 0.8rem;
+  color: #333;
+  font-weight: 600;
+  line-height: 20px;
+  height: 20px;
+}
+
+@keyframes scroll-marquee {
+  0% {
+    transform: translateX(100%);
+  }
+  100% {
+    transform: translateX(-500%);
+  }
+}
+
+.marquee-wrapper:hover .marquee-text {
+  animation-play-state: paused;
+}
+
 @media (max-width: 768px) {
   .barter-detail-info { padding: 15px; }
-  .barter-info-grid { gap: 15px; }
+  .barter-info-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 15px;
+  }
+  .barter-info-grid .b-info-box:nth-child(5),
+  .barter-info-grid .b-info-box:nth-child(6) {
+    grid-column: auto;
+  }
   .b-value { font-size: 1rem; }
   .btn-barter-propose { padding: 14px; font-size: 0.95rem; }
+  .barter-banner-notice { padding: 12px 14px; margin-bottom: 20px; }
+  .marquee-text { font-size: 0.85rem; }
 }
 </style>

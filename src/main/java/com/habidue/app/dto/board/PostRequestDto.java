@@ -38,6 +38,10 @@ public class PostRequestDto {
     private Long noticeId; // 공고 전용 게시판일 경우 필수
 
     // --- 물물교환 전용 필드 ---
+    private String itemName;                                           // 내 물건 품명
     private String wantedItem;
     private com.habidue.app.domain.barter.ItemCondition itemCondition;
+    private com.habidue.app.domain.barter.TradeMethod preferredMethod;
+    private java.time.LocalDate preferredDate;
+    private String preferredTime;
 }
