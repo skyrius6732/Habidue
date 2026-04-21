@@ -21,6 +21,7 @@ const replyFiles = ref([])
 const chatScrollRef = ref(null)
 const isSendingReply = ref(false)
 const showMenu = ref(false)
+const selectedMessageId = ref(null)
 
 // 차단 관리 관련 상태
 const showBlockedListModal = ref(false)
@@ -329,9 +330,10 @@ const handleDeleteMessage = async (msgId) => {
 }
 
 const handleReportMsg = async (msg) => {
-  const reason = prompt('이 메시지를 신고하는 사유를 입력해 주세요:', '부적절한 내용');
+  const reason = await uiStore.showPrompt('이 메시지를 신고하는 사유를 입력해 주세요.', '메시지 신고', '부적절한 내용');
   if (reason === null) return;
-  if (await uiStore.showConfirm('이 메시지를 신고하시겠습니까?', '메시지 신고')) {
+
+  if (await uiStore.showConfirm('이 메시지를 신고하시겠습니까?', '신고 확인')) {
     const result = await messageStore.reportMessage(msg.id, reason)
     if (result.success) await uiStore.showAlert('신고가 정상적으로 접수되었습니다.', '신고 완료')
     else await uiStore.showAlert(result.message, '오류')
@@ -610,7 +612,7 @@ const vClickOutside = {
               <div class="deleted-bubble">메시지가 삭제 되었습니다.</div>
             </div>
 
-            <div v-else class="msg-row" :class="{ 'msg-me': isMe(msg.sender?.publicId) }">
+            <div v-else class="msg-row" :class="{ 'msg-me': isMe(msg.sender?.publicId), 'msg-selected': selectedMessageId === msg.id }" @click="selectedMessageId = msg.id">
               <div class="msg-bubble-wrap">
                 <div class="msg-bubble-group">
                   <div v-if="isMe(msg.sender?.publicId)" class="msg-side-meta">
@@ -638,7 +640,7 @@ const vClickOutside = {
                     </div>
                   </div>
 
-                  <div v-if="String(msg.sender?.id) !== String(authStore.user?.id)" class="msg-side-meta">
+                  <div v-if="!isMe(msg.sender?.publicId)" class="msg-side-meta">
                     <span class="msg-time-inline">{{ formatTimeOnly(msg.createdAt) }}</span>
                     <!-- 제한된 방이 아닐 때만 신고 노출 -->
                     <div v-if="!isRoomRestricted" class="msg-side-actions">
@@ -991,5 +993,10 @@ textarea::-webkit-scrollbar-thumb { background: rgba(168, 85, 247, 0.2); border-
   .user-avatar-small { width: 38px; height: 38px; font-size: 1rem; }
   .msg-text { font-size: 0.8rem; }
   .dm-img-thumb { max-width: 100px; max-height: 100px; }
+
+  /* 모바일에서 메시지 선택 시에만 액션 버튼 표시 */
+  .msg-side-actions { display: none !important; }
+  .msg-selected .msg-side-actions { display: flex !important; }
+  .msg-selected .msg-time-inline { display: none !important; }
 }
 </style>
