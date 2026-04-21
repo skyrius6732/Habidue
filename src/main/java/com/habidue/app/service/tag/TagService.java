@@ -297,10 +297,12 @@ public class TagService {
             for (int i = 0; i < total; i++) {
                 final int index = i;
                 try {
-                    Notice notice = notices.get(index);
+                    Long noticeId = notices.get(index).getId();
                     // [시니어 조치] TransactionTemplate을 사용하여 개별 공고마다 확실한 커밋 보장
                     transactionTemplate.execute(status -> {
-                        autoClassifyAndAddTags(notice, false);
+                        Notice managedNotice = noticeRepository.findById(noticeId)
+                            .orElseThrow(() -> new NoSuchElementException("공고를 찾을 수 없습니다. ID: " + noticeId));
+                        autoClassifyAndAddTags(managedNotice, false);
                         return null;
                     });
                     processedCount.incrementAndGet();
