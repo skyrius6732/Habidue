@@ -465,7 +465,10 @@ public class PostService {
     public void updatePostTypeAndCategory(Long postId, PostType newType, String newCategory, String newSubCategory) {
         Post post = postRepository.findById(postId).orElseThrow();
         User author = post.getAuthor();
-        
+
+        // [시니어 조치] lazy-loaded 필드 초기화 (LazyInitializationException 방지)
+        org.hibernate.Hibernate.initialize(post.getImages());
+
         // 1. 기존 타입/카테고리 혜택 회수
         revokePostRewards(post);
         

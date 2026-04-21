@@ -18,21 +18,21 @@ export const CATEGORY_MAP = {
   ],
   // 3. 당첨후기 (REVIEW)
   REVIEW: [
+    { label: '☕ 자유수다', value: 'FREE' },
     { label: '🏆 내집마련기', value: 'SUCCESS_STORY' },
     { label: '🤫 당첨비결', value: 'SECRET' },
     { label: '📝 서류팁', value: 'DOCUMENT' },
     { label: '💰 자금계획', value: 'LOAN' },
-    { label: '🏠 사전점검', value: 'MOVE_IN' },
-    { label: '🚚 입주후기', value: 'PARTNER_REVIEW' },
-    { label: '💡 일반팁', value: 'TIPS' },
-    { label: '☕ 자유수다', value: 'FREE' }
+    { label: '💡 일반팁', value: 'GENERAL_TIPS' },
+    { label: '🏠 사전점검', value: 'PRE_CHECK' },
+    { label: '🚚 입주후기', value: 'POST_CHECK' }
   ],
   // 4. 파트너스 (PARTNER)
   PARTNER: [
-    { label: '✨ 이용후기', value: 'PARTNER_REVIEW' },
+    { label: '☕ 자유수다', value: 'FREE' },
+    { label: '🚚 이용후기', value: 'PARTNER_REVIEW' },
     { label: '📝 견적공유', value: 'ESTIMATE' },
-    { label: '✅ 체크리스트', value: 'CHECKLIST' },
-    { label: '☕ 자유수다', value: 'FREE' }
+    { label: '✅ 체크리스트', value: 'CHECKLIST' }
   ],
   // 5. 물물교환 (BARTER)
   BARTER: [
