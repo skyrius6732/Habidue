@@ -140,6 +140,17 @@ public class TagService {
             }
         }
 
+        // 4. 기존 상태 SYSTEM 태그 제거 (중복 방지)
+        List<NoticeTag> statusTagsToRemove = noticeTagRepository.findAllByNoticeWithTag(notice).stream()
+                .filter(nt -> nt.getTag().getType() == TagType.SYSTEM &&
+                       Arrays.stream(NoticeStatus.values()).anyMatch(ns -> ns.getDescription().equals(nt.getTag().getName())))
+                .toList();
+        for (NoticeTag nt : statusTagsToRemove) {
+            existingTagIds.remove(nt.getTag().getId());
+            noticeTagRepository.delete(nt);
+        }
+
+        // 5. 새로운 상태 SYSTEM 태그 추가
         Tag systemTag = getOrCreateTag(finalStatus.getDescription(), TagType.SYSTEM);
         if (existingTagIds.add(systemTag.getId())) {
             noticeTagRepository.save(NoticeTag.builder().notice(notice).tag(systemTag).build());
@@ -213,6 +224,11 @@ public class TagService {
             }
         }
 
+        // 기존 상태 SYSTEM 태그 제거 (중복 방지)
+        notice.getNoticeTags().removeIf(nt -> nt.getTag().getType() == TagType.SYSTEM &&
+               Arrays.stream(NoticeStatus.values()).anyMatch(ns -> ns.getDescription().equals(nt.getTag().getName())));
+
+        // 새로운 상태 SYSTEM 태그 추가
         Tag systemTag = getOrCreateTag(finalStatus.getDescription(), TagType.SYSTEM);
         linkNoticeAndTag(notice, systemTag);
         noticeRepository.updateStatus(notice.getId(), finalStatus);
@@ -236,7 +252,7 @@ public class TagService {
         }
     }
 
-    private Tag getOrCreateTag(String name, TagType type) {
+    public Tag getOrCreateTag(String name, TagType type) {
         return tagCache.computeIfAbsent(cacheKey(name, type), k ->
                 tagRepository.findByNameAndType(name, type).orElseGet(() -> {
                     try {
