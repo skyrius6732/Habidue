@@ -6,10 +6,12 @@ export const useUiStore = defineStore('ui', {
       isOpen: false,
       title: '',
       message: '',
-      type: 'alert', // 'alert' | 'confirm'
+      type: 'alert', // 'alert' | 'confirm' | 'prompt'
       confirmText: '확인',
       cancelText: '취소',
       resolvePromise: null, // Promise를 통해 사용자의 선택을 기다림
+      inputValue: '', // prompt 입력값
+      inputPlaceholder: '',
     }
   }),
 
@@ -43,6 +45,28 @@ export const useUiStore = defineStore('ui', {
         type: 'confirm',
         confirmText,
         cancelText,
+        resolvePromise: null,
+        inputValue: '',
+        inputPlaceholder: ''
+      }
+      return new Promise((resolve) => {
+        this.modal.resolvePromise = resolve
+      })
+    },
+
+    /**
+     * [시니어 조치] 텍스트 입력 모달 (Prompt)
+     */
+    showPrompt(message, title = '입력', placeholder = '', confirmText = '확인', cancelText = '취소') {
+      this.modal = {
+        isOpen: true,
+        title,
+        message,
+        type: 'prompt',
+        confirmText,
+        cancelText,
+        inputValue: '',
+        inputPlaceholder: placeholder,
         resolvePromise: null
       }
       return new Promise((resolve) => {
@@ -55,7 +79,9 @@ export const useUiStore = defineStore('ui', {
      */
     confirm() {
       if (this.modal.resolvePromise) {
-        this.modal.resolvePromise(true)
+        // prompt 모달일 때는 입력값 반환, 아니면 true 반환
+        const result = this.modal.type === 'prompt' ? this.modal.inputValue : true
+        this.modal.resolvePromise(result)
       }
       this.closeModal()
     },
@@ -65,7 +91,9 @@ export const useUiStore = defineStore('ui', {
      */
     cancel() {
       if (this.modal.resolvePromise) {
-        this.modal.resolvePromise(false)
+        // prompt 모달일 때는 null 반환, 아니면 false 반환
+        const result = this.modal.type === 'prompt' ? null : false
+        this.modal.resolvePromise(result)
       }
       this.closeModal()
     },

@@ -51,11 +51,22 @@ onUnmounted(() => window.removeEventListener('keydown', handleEsc))
         <div class="modal-content">
           <h3 v-if="uiStore.modal.title" class="modal-title">{{ uiStore.modal.title }}</h3>
           <p class="modal-message" v-html="uiStore.modal.message.replace(/\n/g, '<br>')"></p>
+
+          <!-- prompt 입력 필드 -->
+          <input
+            v-if="uiStore.modal.type === 'prompt'"
+            v-model="uiStore.modal.inputValue"
+            type="text"
+            class="modal-input"
+            :placeholder="uiStore.modal.inputPlaceholder"
+            @keydown.enter="uiStore.confirm"
+            autofocus
+          />
         </div>
 
-        <div class="modal-actions" :class="{ 'has-cancel': uiStore.modal.type === 'confirm' }">
+        <div class="modal-actions" :class="{ 'has-cancel': uiStore.modal.type === 'confirm' || uiStore.modal.type === 'prompt' }">
           <button
-            v-if="uiStore.modal.type === 'confirm'"
+            v-if="uiStore.modal.type === 'confirm' || uiStore.modal.type === 'prompt'"
             class="modal-btn cancel-btn"
             @click="uiStore.cancel"
           >
@@ -157,8 +168,31 @@ onUnmounted(() => window.removeEventListener('keydown', handleEsc))
   font-size: 0.85rem;
   line-height: 1.5;
   color: var(--text-secondary);
-  margin: 0;
+  margin: 0 0 15px;
   font-weight: 500;
+}
+
+.modal-input {
+  width: 100%;
+  padding: 12px 15px;
+  border: 1.5px solid var(--border-color);
+  border-radius: 12px;
+  font-size: 0.9rem;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  outline: none;
+  transition: border-color 0.2s;
+  margin-top: 10px;
+  box-sizing: border-box;
+}
+
+.modal-input:focus {
+  border-color: var(--link-color);
+  box-shadow: 0 0 0 3px rgba(168, 85, 247, 0.1);
+}
+
+.modal-input::placeholder {
+  color: var(--text-muted);
 }
 
 .modal-actions {
