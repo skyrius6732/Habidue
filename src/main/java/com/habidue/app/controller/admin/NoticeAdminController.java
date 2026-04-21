@@ -2,6 +2,9 @@ package com.habidue.app.controller.admin;
 
 import com.habidue.app.domain.notice.Notice;
 import com.habidue.app.domain.notice.NoticeStatus;
+import com.habidue.app.domain.tag.NoticeTag;
+import com.habidue.app.domain.tag.Tag;
+import com.habidue.app.domain.tag.TagType;
 import com.habidue.app.dto.ApiResponse;
 import com.habidue.app.dto.admin.AdminDashboardResponseDto;
 import com.habidue.app.dto.notice.NoticeRequestDto;
@@ -11,12 +14,14 @@ import com.habidue.app.service.notice.NoticeService;
 import com.habidue.app.service.notice.collector.lh.LhNoticeCollectorService;
 import com.habidue.app.service.notice.collector.sh.ShNoticeCrawlerService;
 import com.habidue.app.service.notice.collector.civil.PrivateNoticeCrawlerService;
+import com.habidue.app.service.tag.TagService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.annotation.Secured;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -204,14 +209,26 @@ public class NoticeAdminController {
     }
 
     @PatchMapping("/notices/{id}/status")
+    @Transactional
     public ResponseEntity<ApiResponse<NoticeResponseDto>> updateNoticeStatus(@PathVariable Long id, @RequestParam NoticeStatus status) {
-        // [시니어 조치] 관리자 작업이므로 실시간 랭킹 점수 합산에서 제외 (null 전달)
         Notice notice = noticeService.getNotice(id, null);
+
+        // 1. SYSTEM 타입 태그만 제거 (다른 태그는 유지: 민간임대, 서울시, 연신내 등)
+        notice.getNoticeTags().removeIf(nt -> nt.getTag().getType() == TagType.SYSTEM);
+
+        // 2. 새로운 상태 태그 추가
+        Tag newStatusTag = tagService.getOrCreateTag(status.getDescription(), TagType.SYSTEM);
+        if (notice.getNoticeTags().stream().noneMatch(nt -> nt.getTag().getId().equals(newStatusTag.getId()))) {
+            notice.getNoticeTags().add(NoticeTag.builder()
+                    .notice(notice)
+                    .tag(newStatusTag)
+                    .build());
+        }
+
+        // 3. 상태 저장 (autoClassifyAndAddTags 호출 제거 - 관리자 수동 설정만 적용)
         notice.setStatus(status);
-        
-        // [시니어 조치] 상태 변경 시 태그 재분류 및 알림 발송 (TagService 내부에서 이벤트 발행)
-        tagService.autoClassifyAndAddTags(notice, true);
-        
-        return ApiResponse.success(new NoticeResponseDto(noticeService.save(notice)));
+        noticeService.save(notice);
+
+        return ApiResponse.success(new NoticeResponseDto(noticeService.getNotice(id, null)));
     }
 }
