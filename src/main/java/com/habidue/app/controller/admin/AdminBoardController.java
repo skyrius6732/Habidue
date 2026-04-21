@@ -7,6 +7,7 @@ import com.habidue.app.dto.admin.AdminCommentResponseDto;
 import com.habidue.app.dto.admin.AdminPostResponseDto;
 import com.habidue.app.dto.admin.ConversationReportGroupDto;
 import com.habidue.app.dto.admin.ReportAdminResponseDto;
+import com.habidue.app.dto.board.PostRequestDto;
 import com.habidue.app.service.board.AdminBoardService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -53,20 +54,13 @@ public class AdminBoardController {
     }
 
     /**
-     * 게시글 강제 수정 (카테고리 변경 포함)
+     * 게시글 강제 수정 (카테고리 변경 포함, 물물교환 필드 포함)
      */
     @PatchMapping("/posts/{postId}")
     public ResponseEntity<ApiResponse<Void>> updatePost(
             @PathVariable Long postId,
-            @RequestBody Map<String, String> body) {
-        adminBoardService.updatePost(
-            postId, 
-            body.get("title"), 
-            body.get("content"), 
-            body.get("type"), 
-            body.get("category"), 
-            body.get("subCategory")
-        );
+            @RequestBody PostRequestDto dto) {
+        adminBoardService.updatePost(postId, dto);
         return ApiResponse.success(null);
     }
 

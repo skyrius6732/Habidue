@@ -73,16 +73,35 @@ public class AdminBoardService {
     }
 
     @Transactional
-    public void updatePost(Long postId, String title, String content, String type, String category, String subCategory) {
+    public void updatePost(Long postId, com.habidue.app.dto.board.PostRequestDto dto) {
         Post post = postRepository.findById(postId).orElseThrow(() -> new NoSuchElementException("게시글을 찾을 수 없습니다."));
-        
+
         // [시니어 조치] 게시판 타입 또는 카테고리 변경 감지
-        PostType newType = type != null ? PostType.valueOf(type) : post.getType();
-        if (newType != post.getType() || (category != null && !category.equals(post.getCategory()))) {
-            postService.updatePostTypeAndCategory(postId, newType, category, subCategory);
+        PostType newType = dto.getType() != null ? dto.getType() : post.getType();
+        if (newType != post.getType() || (dto.getCategory() != null && !dto.getCategory().equals(post.getCategory()))) {
+            postService.updatePostTypeAndCategory(postId, newType, dto.getCategory(), dto.getSubCategory());
+            // 타입/카테고리 변경 후 깨끗한 상태의 post 재조회
+            post = postRepository.findById(postId).orElseThrow();
         }
-        
-        post.update(title, content, newType, category, subCategory, post.getRegionTag());
+
+        // 기본 필드 업데이트
+        post.update(dto.getTitle(), dto.getContent(), newType, dto.getCategory(), dto.getSubCategory(), post.getRegionTag());
+
+        // 물물교환 필드 업데이트 (BARTER 타입일 때만)
+        if (newType == PostType.BARTER) {
+            post.updateBarter(
+                dto.getItemName(),
+                dto.getWantedItem(),
+                dto.getItemCondition(),
+                dto.getBarterStatus(),
+                dto.getPreferredMethod(),
+                dto.getPreferredDate(),
+                dto.getPreferredTime()
+            );
+        }
+
+        // 변경사항 저장
+        postRepository.save(post);
     }
 
     @Transactional(readOnly = true)

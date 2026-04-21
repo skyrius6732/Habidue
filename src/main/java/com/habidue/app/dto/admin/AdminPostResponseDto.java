@@ -58,6 +58,15 @@ public class AdminPostResponseDto {
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 
+    // 물물교환 필드
+    private String itemName;
+    private String wantedItem;
+    private com.habidue.app.domain.barter.ItemCondition itemCondition;
+    private com.habidue.app.domain.barter.BarterStatus barterStatus;
+    private com.habidue.app.domain.barter.TradeMethod preferredMethod;
+    private java.time.LocalDate preferredDate;
+    private String preferredTime;
+
     public static AdminPostResponseDto from(Post post) {
         boolean isActive = post.getAuthor().getStatus() == com.habidue.app.domain.user.UserStatus.ACTIVE;
         String displayName = isActive 
@@ -100,6 +109,13 @@ public class AdminPostResponseDto {
                 .likeCount(post.getLikeCount())
                 .createdAt(post.getCreatedAt())
                 .updatedAt(post.getUpdatedAt())
+                .itemName(post.getItemName())
+                .wantedItem(post.getWantedItem())
+                .itemCondition(post.getItemCondition())
+                .barterStatus(post.getBarterStatus())
+                .preferredMethod(post.getPreferredMethod())
+                .preferredDate(post.getPreferredDate())
+                .preferredTime(post.getPreferredTime())
                 .build();
     }
 }

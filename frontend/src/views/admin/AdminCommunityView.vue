@@ -245,7 +245,7 @@
             <div class="modal-head"><h3>🛠️ {{ currentTab === 'posts' ? '게시글' : '댓글' }} 수정</h3><span class="modal-id-badge">ID: {{ editForm.id }}</span></div>
             <div class="modal-form-body">
               <!-- [시니어 조치] 정밀 4단계 계층형 수정 UI -->
-              <template v-if="currentTab === 'posts'">
+              <template v-if="currentTab === 'posts' && editForm.type !== 'BARTER'">
                 <div class="form-row-multi">
                   <!-- 1단계: 게시판 -->
                   <div class="form-group quarter">
@@ -270,8 +270,8 @@
                     </select>
                   </div>
 
-                  <!-- 3단계: 상세 대상 (지역/기관 등) -->
-                  <div v-if="ADMIN_4STEP_MAP[editForm.type]" class="form-group quarter">
+                  <!-- 3단계: 상세 대상 (GENERAL만) -->
+                  <div v-if="editForm.type === 'GENERAL'" class="form-group quarter">
                     <label>3. 상세 대상</label>
                     <select v-model="editForm.subCategory" class="form-select">
                       <option v-for="target in ADMIN_4STEP_MAP[editForm.type].groups.find(g => g.value === categoryGroup)?.targets" :key="target.value" :value="target.value">
@@ -280,9 +280,9 @@
                     </select>
                   </div>
 
-                  <!-- 4단계: 소통 주제 -->
-                  <div v-if="ADMIN_4STEP_MAP[editForm.type]" class="form-group quarter">
-                    <label>4. 소통 주제</label>
+                  <!-- 4단계(또는 3단계): 소통 주제 -->
+                  <div v-if="ADMIN_4STEP_MAP[editForm.type]" class="form-group" :class="editForm.type === 'GENERAL' ? 'quarter' : 'half'">
+                    <label>{{ editForm.type === 'GENERAL' ? '4. 소통 주제' : '3. 소통 주제' }}</label>
                     <select v-model="editForm.category" class="form-select">
                       <option v-for="topic in ADMIN_4STEP_MAP[editForm.type].groups.find(g => g.value === categoryGroup)?.topics" :key="topic.value" :value="topic.value">
                         {{ topic.label }}
@@ -290,17 +290,78 @@
                     </select>
                   </div>
                 </div>
-
-                <div class="form-group">
-                  <label>게시글 제목</label>
-                  <input v-model="editForm.title" class="form-input" />
-                </div>
               </template>
-              
+
+              <div v-if="currentTab === 'posts'" class="form-group">
+                <label>게시글 제목</label>
+                <input v-model="editForm.title" class="form-input" />
+              </div>
+
               <div class="form-group">
                 <label>{{ currentTab === 'posts' ? '본문 내용' : '댓글 내용' }}</label>
                 <textarea v-model="editForm.content" class="form-textarea" rows="10"></textarea>
               </div>
+
+              <!-- 물물교환 전용 필드 -->
+              <template v-if="currentTab === 'posts' && editForm.type === 'BARTER'">
+                <div style="border-top: 2px solid var(--border-color); margin-top: 20px; padding-top: 20px;">
+                  <h4 style="margin: 0 0 15px 0; font-size: 0.95rem; color: var(--text-primary);">🔄 물물교환 정보</h4>
+
+                  <div class="form-row-multi">
+                    <div class="form-group half">
+                      <label>상품명</label>
+                      <input v-model="editForm.itemName" class="form-input" />
+                    </div>
+                    <div class="form-group half">
+                      <label>물건상태</label>
+                      <select v-model="editForm.itemCondition" class="form-select">
+                        <option value="">선택</option>
+                        <option value="NEW">새것</option>
+                        <option value="LIKE_NEW">거의 새것</option>
+                        <option value="USED">중고</option>
+                        <option value="HEAVILY_USED">많이 사용됨</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div class="form-group">
+                    <label>희망교환</label>
+                    <input v-model="editForm.wantedItem" class="form-input" />
+                  </div>
+
+                  <div class="form-row-multi">
+                    <div class="form-group half">
+                      <label>거래방식</label>
+                      <select v-model="editForm.preferredMethod" class="form-select">
+                        <option value="">선택</option>
+                        <option value="DIRECT">직거래</option>
+                        <option value="DOORSTEP">문고리 거래</option>
+                        <option value="PARCEL">택배 교환</option>
+                      </select>
+                    </div>
+                    <div class="form-group half">
+                      <label>거래상태</label>
+                      <select v-model="editForm.barterStatus" class="form-select">
+                        <option value="">선택</option>
+                        <option value="TRADING">교환 가능</option>
+                        <option value="RESERVED">예약 중</option>
+                        <option value="COMPLETED">교환 완료</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div class="form-row-multi">
+                    <div class="form-group half">
+                      <label>선호날짜</label>
+                      <input v-model="editForm.preferredDate" type="date" class="form-input" />
+                    </div>
+                    <div class="form-group half">
+                      <label>선호시간</label>
+                      <input v-model="editForm.preferredTime" type="time" class="form-input" />
+                    </div>
+                  </div>
+                </div>
+              </template>
             </div>
             <div class="modal-actions-footer"><button @click="handleUpdate" class="btn-save">저장</button><button @click="isEditModalOpen = false" class="btn-cancel">닫기</button></div>
           </div>
@@ -339,7 +400,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, watch, computed } from 'vue'
+import { ref, onMounted, watch, computed, nextTick } from 'vue'
 import { useRoute } from 'vue-router'
 import axios from '@/plugins/axios'
 import AdminMessageLogModal from '@/components/AdminMessageLogModal.vue'
@@ -380,6 +441,7 @@ const totalCount = ref(0)
 const isEditModalOpen = ref(false)
 const categoryGroup = ref('ALL')
 const editForm = ref({ id: null, title: '', content: '', type: '', category: '', subCategory: '' })
+const isInitializingEditForm = ref(false)
 const isReporterModalOpen = ref(false)
 const selectedReporters = ref([])
 const selectedTargetId = ref(null)
@@ -516,7 +578,7 @@ const getReportTargetLabel = (type) => { const labels = { POST: '게시글', COM
 const getReportStatusLabel = (status) => { const labels = { WAITING: '대기중', BLIND_COMPLETE: '블라인드 완료', DELETE_COMPLETE: '영구 삭제 완료', REJECTED: '반려됨' }; return labels[status] || status }
 
 const getPostTypeLabel = (type) => {
-  const labels = { GENERAL: '통합광장', NOTICE: '공고소통방', REVIEW: '당첨후기', PARTNER: '파트너스' }
+  const labels = { GENERAL: '통합광장', NOTICE: '공고소통방', REVIEW: '당첨후기', PARTNER: '파트너스', BARTER: '물물교환' }
   return labels[type] || type
 }
 
@@ -564,20 +626,20 @@ const ADMIN_4STEP_MAP = {
       { label: '🌐 전체', value: 'ALL', targets: [{ label: '전체', value: 'ALL' }], topics: [
         { label: '☕ 자유수다', value: 'FREE' }
       ]},
-      { label: '📍 지역별 소통', value: 'REGION', 
+      { label: '📍 지역별 소통', value: 'REGION',
         targets: [
-          { label: '서울', value: 'SEOUL' }, { label: '경기/인천', value: 'GYEONGGI_INCHEON' }, 
-          { label: '충청/강원/세종', value: 'CHUNG_GANG_SEJONG' }, { label: '경상/부산/대구', value: 'GYEONG_BU_DAE' }, 
-          { label: '전라/광주/제주', value: 'JEON_GWANG_JEJU' }
-        ], 
+          { label: '서울', value: 'SEOUL' }, { label: '경기/인천', value: 'METRO' },
+          { label: '충청/강원/세종', value: 'CHUNGCHEONG_GANGWON' }, { label: '경상/부산/대구', value: 'GYEONGSANG' },
+          { label: '전라/광주/제주', value: 'JEOLLA_JEJU' }
+        ],
         topics: [
           { label: '📢 동네소식', value: 'LOCAL_NEWS' }, { label: '📍 장소추천', value: 'PLACE' }, { label: '🤝 동네번개', value: 'MEETUP' }
         ]
       },
-      { label: '🏢 기관별 소통', value: 'INSTITUTION', 
+      { label: '🏢 기관별 소통', value: 'INSTITUTION',
         targets: [
-          { label: 'LH 소통', value: 'LH' }, { label: 'SH 소통', value: 'SH' }, { label: '민간임대 소통', value: 'PRIVATE' }
-        ], 
+          { label: 'LH 소통', value: 'LH' }, { label: 'SH 소통', value: 'SH' }, { label: '민간임대 소통', value: 'PRIVATE_RENTAL' }
+        ],
         topics: [
           { label: '📊 서류현황', value: 'STATUS' }, { label: '💡 기관별팁', value: 'INST_TIPS' }, { label: '📢 기관문의', value: 'INQUIRY' }
         ]
@@ -612,13 +674,13 @@ const ADMIN_4STEP_MAP = {
 
 // 계층형 선택 연동 로직
 watch(() => editForm.value.type, (newType) => {
-  if (isEditModalOpen.value && ADMIN_4STEP_MAP[newType]) {
+  if (!isInitializingEditForm.value && isEditModalOpen.value && ADMIN_4STEP_MAP[newType]) {
     categoryGroup.value = ADMIN_4STEP_MAP[newType].groups[0].value;
   }
 });
 
 watch(categoryGroup, (newGroup) => {
-  if (isEditModalOpen.value && editForm.value.type && ADMIN_4STEP_MAP[editForm.value.type]) {
+  if (!isInitializingEditForm.value && isEditModalOpen.value && editForm.value.type && ADMIN_4STEP_MAP[editForm.value.type]) {
     const group = ADMIN_4STEP_MAP[editForm.value.type].groups.find(g => g.value === newGroup);
     if (group) {
       // 2단계 선택 시 3, 4단계 기본값 세팅
@@ -628,40 +690,116 @@ watch(categoryGroup, (newGroup) => {
   }
 });
 
-const openEditModal = (item) => { 
+const openEditModal = async (item) => {
+  isInitializingEditForm.value = true;
+
   if (currentTab.value === 'posts') {
-    editForm.value = { 
-      id: item.id, title: item.title, content: item.content,
-      type: item.type, category: item.category || '', subCategory: item.subCategory || ''
+    editForm.value = {
+      id: item.id,
+      title: item.title,
+      content: item.content,
+      type: item.type,
+      originalType: item.type,
+      originalCategory: item.category,
+      category: item.category || '',
+      subCategory: (item.type === 'REVIEW' || item.type === 'PARTNER') ? 'ALL' : (item.subCategory || ''),
+      // 물물교환 필드
+      itemName: item.itemName || '',
+      wantedItem: item.wantedItem || '',
+      itemCondition: item.itemCondition || '',
+      barterStatus: item.barterStatus || '',
+      preferredMethod: item.preferredMethod || '',
+      preferredDate: item.preferredDate || '',
+      preferredTime: item.preferredTime || ''
     };
-    // 현재 데이터로부터 categoryGroup 유추 (UI 동기화)
+
+    // DOM이 렌더링될 때까지 기다리기
+    await nextTick();
+
+    // 현재 데이터로부터 categoryGroup 유추 및 3,4단계 자동 설정
     const board = ADMIN_4STEP_MAP[item.type];
     if (board) {
-      for (const group of board.groups) {
-        if (group.topics.some(t => t.value === item.category)) {
-          categoryGroup.value = group.value;
-          break;
+      let selectedGroup = null;
+
+      if (item.type === 'REVIEW' || item.type === 'PARTNER') {
+        categoryGroup.value = item.subCategory || board.groups[0].value;
+        selectedGroup = board.groups.find(g => g.value === categoryGroup.value);
+      } else {
+        selectedGroup = board.groups.find(group =>
+          group.topics.some(t => t.value === item.category)
+        );
+        if (selectedGroup) {
+          categoryGroup.value = selectedGroup.value;
+        } else {
+          categoryGroup.value = board.groups[0].value;
+          selectedGroup = board.groups[0];
         }
       }
+
+      // categoryGroup 변경이 반영되도록 다시 기다리기
+      await nextTick();
+
+      // 선택된 group에서 3단계(target), 4단계(topic) 자동 설정
+      if (selectedGroup) {
+        editForm.value.subCategory = (item.type === 'REVIEW' || item.type === 'PARTNER') ? 'ALL' : (item.subCategory || selectedGroup.targets[0].value);
+        editForm.value.category = item.category || selectedGroup.topics[0].value;
+      }
     }
-  } else { 
-    editForm.value = { id: item.id, title: '', content: item.content, type: '', category: '', subCategory: '' }; 
-  } 
-  isEditModalOpen.value = true 
+  } else {
+    editForm.value = { id: item.id, title: '', content: item.content, type: '', category: '', subCategory: '' };
+  }
+
+  isInitializingEditForm.value = false;
+  isEditModalOpen.value = true;
 }
 
 const handleUpdate = async () => {
   try {
-    const type = currentTab.value === 'posts' ? 'posts' : 'comments'; 
-    const payload = currentTab.value === 'posts' ? { 
-      title: editForm.value.title, content: editForm.value.content,
-      type: editForm.value.type, category: editForm.value.category, subCategory: editForm.value.subCategory
-    } : { content: editForm.value.content }
-    
-    await axios.patch(`/api/admin/board/${type}/${editForm.value.id}`, payload); 
-    alert('수정되었습니다 (3단계 매핑 및 점수 재계산 완료).'); 
+    const type = currentTab.value === 'posts' ? 'posts' : 'comments';
+    let payload = {};
+
+    if (currentTab.value === 'posts') {
+      payload = {
+        title: editForm.value.title,
+        content: editForm.value.content,
+        type: editForm.value.type,
+        category: editForm.value.category,
+        // GENERAL은 target값, REVIEW/PARTNER는 group값을 subCategory로 전송
+        subCategory: (editForm.value.type === 'REVIEW' || editForm.value.type === 'PARTNER')
+          ? categoryGroup.value
+          : editForm.value.subCategory
+      };
+
+      // 물물교환 필드 추가
+      if (editForm.value.type === 'BARTER') {
+        payload.itemName = editForm.value.itemName;
+        payload.wantedItem = editForm.value.wantedItem;
+        payload.itemCondition = editForm.value.itemCondition;
+        payload.barterStatus = editForm.value.barterStatus;
+        payload.preferredMethod = editForm.value.preferredMethod;
+        payload.preferredDate = editForm.value.preferredDate;
+        payload.preferredTime = editForm.value.preferredTime;
+      }
+    } else {
+      payload = { content: editForm.value.content };
+    }
+
+    await axios.patch(`/api/admin/board/${type}/${editForm.value.id}`, payload);
+
+    // 타입/카테고리 변경 여부 확인
+    const typeChanged = editForm.value.type !== editForm.value.originalType;
+    const categoryChanged = editForm.value.category !== editForm.value.originalCategory;
+    const message = (typeChanged || categoryChanged)
+      ? '수정되었습니다 (3단계 매핑 및 점수 재계산 완료).'
+      : '수정되었습니다.';
+
+    alert(message);
     fetchData(); isEditModalOpen.value = false
-  } catch (e) { alert('수정 실패') }
+  } catch (e) {
+    console.error('수정 실패 상세:', e);
+    const errorMsg = e.response?.data?.message || e.response?.data?.error || e.message || '알 수 없는 오류';
+    alert('수정 실패: ' + errorMsg);
+  }
 }
 
 const setUserFilter = (id) => { currentFilter.value.userId = id; handleFilterChange() }

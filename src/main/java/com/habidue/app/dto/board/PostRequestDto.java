@@ -41,6 +41,7 @@ public class PostRequestDto {
     private String itemName;                                           // 내 물건 품명
     private String wantedItem;
     private com.habidue.app.domain.barter.ItemCondition itemCondition;
+    private com.habidue.app.domain.barter.BarterStatus barterStatus;   // 거래 상태
     private com.habidue.app.domain.barter.TradeMethod preferredMethod;
     private java.time.LocalDate preferredDate;
     private String preferredTime;
