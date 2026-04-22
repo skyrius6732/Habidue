@@ -56,3 +56,4 @@ frontend/dist/
 # Project Specific
 GEMINI.md
 plan/
+.claude/

@@ -71,6 +71,14 @@ public interface UserActivityStatsRepository extends JpaRepository<UserActivityS
     void decrementCommentLikeReceivedCountBy(@Param("userId") Long userId, @Param("count") int count);
 
     @Modifying
+    @Query(value = "UPDATE user_activity_stats SET post_like_received_count = post_like_received_count + :count WHERE user_id = :userId", nativeQuery = true)
+    void incrementPostLikeReceivedCountBy(@Param("userId") Long userId, @Param("count") int count);
+
+    @Modifying
+    @Query(value = "UPDATE user_activity_stats SET comment_like_received_count = comment_like_received_count + :count WHERE user_id = :userId", nativeQuery = true)
+    void incrementCommentLikeReceivedCountBy(@Param("userId") Long userId, @Param("count") int count);
+
+    @Modifying
     @Query("UPDATE UserActivityStats s SET s.totalViewReceivedCount = s.totalViewReceivedCount + 1 WHERE s.userId = :userId")
     void incrementViewReceivedCount(@Param("userId") Long userId);
 

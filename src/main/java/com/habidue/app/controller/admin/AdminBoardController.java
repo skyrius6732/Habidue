@@ -131,7 +131,7 @@ public class AdminBoardController {
         Long targetId = Long.valueOf(body.get("targetId").toString());
         ReportTargetType targetType = ReportTargetType.valueOf(body.get("targetType").toString());
         ReportStatus status = ReportStatus.valueOf(body.get("status").toString());
-        
+
         adminBoardService.handleReport(targetId, targetType, status);
         return ApiResponse.success(null);
     }

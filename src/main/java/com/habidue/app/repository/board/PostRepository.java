@@ -72,4 +72,8 @@ public interface PostRepository extends JpaRepository<Post, Long>, PostRepositor
     // 대시보드용 게시글 상태별 건수
     @Query("SELECT p.status, COUNT(p) FROM Post p GROUP BY p.status")
     List<Object[]> getCountByPostStatus();
+
+    @Modifying
+    @Query("UPDATE Post p SET p.status = :status WHERE p.id = :id")
+    void updateStatus(@Param("id") Long id, @Param("status") String status);
 }
