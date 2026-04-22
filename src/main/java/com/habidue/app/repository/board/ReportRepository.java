@@ -5,11 +5,18 @@ import com.habidue.app.domain.board.ReportStatus;
 import com.habidue.app.domain.board.ReportTargetType;
 import com.habidue.app.domain.user.User; // 추가
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 import java.util.List;
 
 public interface ReportRepository extends JpaRepository<Report, Long>, ReportRepositoryCustom {
     List<Report> findAllByTargetIdAndTargetType(Long targetId, ReportTargetType targetType);
+
+    @Modifying
+    @Query("UPDATE Report r SET r.status = :status WHERE r.targetId = :targetId AND r.targetType = :targetType")
+    void bulkUpdateStatus(@Param("targetId") Long targetId, @Param("targetType") ReportTargetType targetType, @Param("status") ReportStatus status);
 
     // [시니어 조치] 중복 신고 방지를 위한 체크 메서드
     boolean existsByReporter_IdAndTargetIdAndTargetType(Long reporterId, Long targetId, com.habidue.app.domain.board.ReportTargetType targetType);

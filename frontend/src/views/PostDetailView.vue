@@ -280,10 +280,8 @@
                     </div>
                     
                     <template v-if="editingCommentId !== comment.id">
-                      <p class="c-text" :class="{ 'is-blinded': comment.status === 'BLINDED', 'is-deleted': comment.status === 'DELETED' }">
-                        <template v-if="comment.status === 'BLINDED' && !isAdmin">🚫 관리자에 의해 차단된 댓글입니다.</template>
-                        <template v-else-if="comment.status === 'DELETED' && !isAdmin">🗑️ 운영 정책 위반으로 영구 삭제된 댓글입니다.</template>
-                        <template v-else>{{ comment.content }}</template>
+                      <p class="c-text" :class="{ 'is-blinded': comment.status === 'BLINDED', 'is-deleted': comment.status === 'DELETED' || comment.status === 'USER_DELETED' }">
+                        {{ comment.content }}
                       </p>
                       <div class="c-meta-footer" v-if="comment.status === 'ACTIVE' || isAdmin">
                         <span class="c-date-small">{{ formatFullDate(comment.createdAt) }}</span>
@@ -363,9 +361,9 @@
                         </div>
 
                         <template v-if="editingCommentId !== reply.id">
-                        <p class="c-text" :class="{ 'is-blinded': reply.status === 'BLINDED', 'is-deleted': reply.status === 'DELETED' }">
-                        <template v-if="reply.status === 'ACTIVE' || isAdmin">
-                          <span v-if="reply.targetAuthorName" class="mention-tag clickable" @click="scrollToComment(reply.parentId)">
+                        <p class="c-text" :class="{ 'is-blinded': reply.status === 'BLINDED', 'is-deleted': reply.status === 'DELETED' || reply.status === 'USER_DELETED' }">
+                        <template v-if="reply.status === 'ACTIVE' || reply.status === 'DELETED' || reply.status === 'USER_DELETED' || isAdmin">
+                          <span v-if="reply.targetAuthorName && (reply.status === 'ACTIVE' || isAdmin)" class="mention-tag clickable" @click="scrollToComment(reply.parentId)">
                             @{{ reply.targetAuthorName }}
                           </span>
                           {{ reply.content }}
@@ -745,7 +743,7 @@ const handleDeleteComment = async (id) => {
     await uiStore.showAlert('관리자에 의해 차단된 댓글은 삭제할 수 없습니다.');
     return;
   }
-  if (!await uiStore.showConfirm('댓글 삭제 시 획득한 경험치와 받은 신뢰 점수가 회수됩니다.\n정말 삭제하시겠습니까?', '댓글 삭제')) return; 
+  if (!await uiStore.showConfirm('정말 삭제하시겠습니까?', '댓글 삭제')) return; 
   try { 
     await axios.delete(`/api/comments/${id}`); 
     activeCommentMenuId.value = null;
@@ -961,9 +959,12 @@ const handleToggleCommentLike = async (comment) => {
   }
   if (isMyComment(comment.authorPublicId)) { await uiStore.showAlert('본인의 댓글에는 좋아요를 누를 수 없습니다.', '알림'); return }
   try {
-    await axios.post(`/api/comments/${comment.id}/like`)
-    comment.liked = !comment.liked
-    comment.likeCount += comment.liked ? 1 : -1
+    const res = await axios.post(`/api/comments/${comment.id}/like`)
+    const isLiked = res.data.data
+    const wasLiked = comment.liked
+    comment.liked = isLiked
+    if (isLiked && !wasLiked) comment.likeCount += 1
+    else if (!isLiked && wasLiked) comment.likeCount -= 1
   } catch (e) {
     if (e.response?.data?.message) await uiStore.showAlert(e.response.data.message, '오류')
   }

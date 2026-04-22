@@ -61,8 +61,8 @@ public class CommentController {
     // [시니어] 댓글 좋아요/취소 토글
     @PostMapping("/comments/{commentId}/like")
     @Secured("ROLE_USER")
-    public ResponseEntity<ApiResponse<Void>> toggleCommentLike(@PathVariable Long commentId) {
-        commentService.toggleCommentLike(commentId);
-        return ApiResponse.success(null);
+    public ResponseEntity<ApiResponse<Boolean>> toggleCommentLike(@PathVariable Long commentId) {
+        boolean isLiked = commentService.toggleCommentLike(commentId);
+        return ApiResponse.success(isLiked);
     }
 }

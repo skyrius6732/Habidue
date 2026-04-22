@@ -76,9 +76,13 @@ public class UserActivityStats {
 
     public void incrementPostLikeReceivedCount() { this.postLikeReceivedCount++; }
     public void decrementPostLikeReceivedCount() { this.postLikeReceivedCount = Math.max(0, this.postLikeReceivedCount - 1); }
+    public void incrementPostLikeReceivedCountBy(int count) { this.postLikeReceivedCount += count; }
+    public void decrementPostLikeReceivedCountBy(int count) { this.postLikeReceivedCount = Math.max(0, this.postLikeReceivedCount - count); }
 
     public void incrementCommentLikeReceivedCount() { this.commentLikeReceivedCount++; }
     public void decrementCommentLikeReceivedCount() { this.commentLikeReceivedCount = Math.max(0, this.commentLikeReceivedCount - 1); }
+    public void incrementCommentLikeReceivedCountBy(int count) { this.commentLikeReceivedCount += count; }
+    public void decrementCommentLikeReceivedCountBy(int count) { this.commentLikeReceivedCount = Math.max(0, this.commentLikeReceivedCount - count); }
 
     // [수정] 인자 없는 버전과 있는 버전 모두 지원하여 PostService 오류 해결
     public void incrementViewReceivedCount() { this.totalViewReceivedCount++; }

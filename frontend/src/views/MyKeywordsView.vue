@@ -1084,7 +1084,7 @@ const scrollToActivityItem = (type, id) => {
       const isLoading = type === 'posts' ? postsLoading.value : commentsLoading.value
       if (hasMore && !isLoading) {
         const fetchFn = type === 'posts' ? fetchMyPosts : fetchMyComments
-        fetchFn(true).then(() => setTimeout(attemptScroll, 100))
+        fetchFn(true).then(() => setTimeout(attemptScroll, 300))
       } else {
         isRestoring.value = false
       }
@@ -1426,7 +1426,16 @@ onMounted(async () => {
       activeSubTab.value = subTab
       await router.replace({ query: { ...route.query, tab: 'my-activity' } })
       const fetchFn = subTab === 'posts' ? fetchMyPosts : fetchMyComments
+      const itemsRef = subTab === 'posts' ? myPosts : myComments
+      const hasMoreRef = subTab === 'posts' ? postsHasMore : commentsHasMore
+
       await fetchFn()
+
+      // [시니어 조치] 내가 본 게시글이 로드될 때까지 계속 로드
+      while (hasMoreRef.value && !itemsRef.value.some(item => item.id === itemId)) {
+        await fetchFn(true)
+      }
+
       await nextTick()
       scrollToActivityItem(subTab === 'posts' ? 'post' : 'comment', itemId)
     } catch (e) {

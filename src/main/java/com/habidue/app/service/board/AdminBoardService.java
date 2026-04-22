@@ -13,6 +13,7 @@ import com.habidue.app.repository.board.CommentRepository;
 import com.habidue.app.repository.board.PostRepository;
 import com.habidue.app.repository.board.ReportRepository;
 import com.habidue.app.repository.message.MessageRepository;
+import com.habidue.app.repository.user.UserActivityStatsRepository;
 import com.habidue.app.service.user.KarmaService;
 import com.habidue.app.service.notification.NotificationService;
 import com.habidue.app.service.message.MessageService;
@@ -36,6 +37,7 @@ public class AdminBoardService {
     private final PostService postService;
     private final CommentRepository commentRepository;
     private final ReportRepository reportRepository;
+    private final UserActivityStatsRepository userActivityStatsRepository;
     private final KarmaService karmaService;
     private final NotificationService notificationService;
     private final MessageService messageService;
@@ -56,19 +58,79 @@ public class AdminBoardService {
         String oldStatus = post.getStatus();
         User author = post.getAuthor();
         post.changeStatus(status);
+
         if ("BLINDED".equalsIgnoreCase(status) && !"BLINDED".equalsIgnoreCase(oldStatus)) {
             syncReportStatus(postId, ReportTargetType.POST, ReportStatus.BLIND_COMPLETE);
             karmaService.deductKarma(author.getId(), 20, KarmaReason.REPORT_POST_APPROVED, "관리자에 의한 게시글 블라인드 (ID: " + postId + ")", null, true);
             notificationService.send(author, NotificationType.SYSTEM, "⚠️ 작성하신 게시글이 블라인드 처리되었습니다: \"" + post.getTitle() + "\"", post.getId(), post.getId());
             notifyReporters(postId, ReportTargetType.POST, true);
+
+            // [추가] BLINDED 처리 시 활동 통계 감소 (마이페이지에 표시되지 않으므로)
+            userActivityStatsRepository.findById(author.getId()).ifPresent(stats -> {
+                stats.decrementPostCount();
+                if (post.getLikeCount() > 0) {
+                    stats.decrementPostLikeReceivedCountBy(post.getLikeCount());
+                }
+                userActivityStatsRepository.save(stats);
+            });
         } else if ("DELETED".equalsIgnoreCase(status) && !"DELETED".equalsIgnoreCase(oldStatus)) {
             syncReportStatus(postId, ReportTargetType.POST, ReportStatus.DELETE_COMPLETE);
             karmaService.deductKarma(author.getId(), 50, KarmaReason.POST_DELETED, "심각한 운영원칙 위반으로 인한 게시글 삭제 (ID: " + postId + ")", null, true);
             notificationService.send(author, NotificationType.SYSTEM, "🚫 작성하신 게시글이 운영 정책 위반으로 영구 삭제되었습니다: \"" + post.getTitle() + "\"", null, null);
             notifyReporters(postId, ReportTargetType.POST, true);
+
+            // [추가] DELETED 처리 시 활동 통계 감소 (USER_DELETED가 아닐 때만)
+            if (!"USER_DELETED".equalsIgnoreCase(oldStatus)) {
+                userActivityStatsRepository.findById(author.getId()).ifPresent(stats -> {
+                    stats.decrementPostCount();
+                    if (post.getLikeCount() > 0) {
+                        stats.decrementPostLikeReceivedCountBy(post.getLikeCount());
+                    }
+                    userActivityStatsRepository.save(stats);
+                });
+            }
         } else if ("ACTIVE".equalsIgnoreCase(status)) {
-            syncReportStatus(postId, ReportTargetType.POST, ReportStatus.REJECTED);
+            syncReportStatus(postId, ReportTargetType.POST, ReportStatus.WAITING);
             notifyReporters(postId, ReportTargetType.POST, false);
+
+            if ("DELETED".equalsIgnoreCase(oldStatus) || "USER_DELETED".equalsIgnoreCase(oldStatus)) {
+                // [시니어 조치] 게시글 복구 시 활동지표 동기화
+                // 게시글 작성자의 활동 통계 업데이트 (게시글 수 + 좋아요 수)
+                userActivityStatsRepository.findById(author.getId()).ifPresent(stats -> {
+                    stats.incrementPostCount();
+                    if (post.getLikeCount() > 0) {
+                        stats.incrementPostLikeReceivedCountBy(post.getLikeCount());
+                    }
+                    userActivityStatsRepository.save(stats);
+                });
+
+                // 삭제된 댓글들 복구 및 각 댓글 작성자의 활동 통계 업데이트
+                // (DELETED와 USER_DELETED 모두 복구: 게시글 삭제로 인한 자동 삭제도 포함)
+                post.getComments().stream()
+                    .filter(comment -> "DELETED".equalsIgnoreCase(comment.getStatus()) || "USER_DELETED".equalsIgnoreCase(comment.getStatus()))
+                    .forEach(comment -> {
+                        comment.changeStatus("ACTIVE");
+                        syncReportStatus(comment.getId(), ReportTargetType.COMMENT, ReportStatus.WAITING);
+
+                        // 댓글 작성자의 활동 통계 업데이트 (댓글 수 + 좋아요 수)
+                        userActivityStatsRepository.findById(comment.getAuthor().getId()).ifPresent(stats -> {
+                            stats.incrementCommentCount();
+                            if (comment.getLikeCount() > 0) {
+                                stats.incrementCommentLikeReceivedCountBy(comment.getLikeCount());
+                            }
+                            userActivityStatsRepository.save(stats);
+                        });
+                    });
+            } else if ("BLINDED".equalsIgnoreCase(oldStatus)) {
+                // [추가] BLINDED에서 복구 시 활동지표 동기화
+                userActivityStatsRepository.findById(author.getId()).ifPresent(stats -> {
+                    stats.incrementPostCount();
+                    if (post.getLikeCount() > 0) {
+                        stats.incrementPostLikeReceivedCountBy(post.getLikeCount());
+                    }
+                    userActivityStatsRepository.save(stats);
+                });
+            }
         }
     }
 
@@ -118,21 +180,66 @@ public class AdminBoardService {
         Comment comment = commentRepository.findById(commentId).orElseThrow(() -> new NoSuchElementException("댓글을 찾을 수 없습니다."));
         String oldStatus = comment.getStatus();
         User author = comment.getAuthor();
+        Post post = comment.getPost();
         comment.changeStatus(status);
         String preview = comment.getContent().length() > 25 ? comment.getContent().substring(0, 25) + "..." : comment.getContent();
+
         if ("BLINDED".equalsIgnoreCase(status) && !"BLINDED".equalsIgnoreCase(oldStatus)) {
             syncReportStatus(commentId, ReportTargetType.COMMENT, ReportStatus.BLIND_COMPLETE);
             karmaService.deductKarma(author.getId(), 10, KarmaReason.REPORT_COMMENT_APPROVED, "관리자에 의한 댓글 블라인드 (ID: " + commentId + ")", null, true);
-            notificationService.send(author, NotificationType.SYSTEM, "⚠️ 작성하신 댓글이 블라인드 처리되었습니다: \"" + preview + "\"", comment.getId(), comment.getPost().getId());
+            notificationService.send(author, NotificationType.SYSTEM, "⚠️ 작성하신 댓글이 블라인드 처리되었습니다: \"" + preview + "\"", comment.getId(), post.getId());
             notifyReporters(commentId, ReportTargetType.COMMENT, true);
+
+            // [추가] BLINDED 처리 시 활동 통계 감소 (마이페이지에 표시되지 않으므로)
+            userActivityStatsRepository.findById(author.getId()).ifPresent(stats -> {
+                stats.decrementCommentCount();
+                if (comment.getLikeCount() > 0) {
+                    stats.decrementCommentLikeReceivedCountBy(comment.getLikeCount());
+                }
+                userActivityStatsRepository.save(stats);
+            });
         } else if ("DELETED".equalsIgnoreCase(status) && !"DELETED".equalsIgnoreCase(oldStatus)) {
             syncReportStatus(commentId, ReportTargetType.COMMENT, ReportStatus.DELETE_COMPLETE);
             karmaService.deductKarma(author.getId(), 30, KarmaReason.COMMENT_DELETED, "심각한 운영원칙 위반으로 인한 댓글 삭제 (ID: " + commentId + ")", null, true);
             notificationService.send(author, NotificationType.SYSTEM, "🚫 작성하신 댓글이 운영 정책 위반으로 영구 삭제되었습니다: \"" + preview + "\"", null, null);
             notifyReporters(commentId, ReportTargetType.COMMENT, true);
-        } else if ("ACTIVE".equalsIgnoreCase(status)) {
-            syncReportStatus(commentId, ReportTargetType.COMMENT, ReportStatus.REJECTED);
+
+            // [추가] DELETED 처리 시 활동 통계 감소 (USER_DELETED가 아닐 때만)
+            if (!"USER_DELETED".equalsIgnoreCase(oldStatus)) {
+                userActivityStatsRepository.findById(author.getId()).ifPresent(stats -> {
+                    stats.decrementCommentCount();
+                    if (comment.getLikeCount() > 0) {
+                        stats.decrementCommentLikeReceivedCountBy(comment.getLikeCount());
+                    }
+                    userActivityStatsRepository.save(stats);
+                });
+            }
+        } else if ("ACTIVE".equalsIgnoreCase(status) && ("DELETED".equalsIgnoreCase(oldStatus) || "USER_DELETED".equalsIgnoreCase(oldStatus))) {
+            // [시니어 조치] DELETED/USER_DELETED에서 복구 시 활동지표 동기화
+            syncReportStatus(commentId, ReportTargetType.COMMENT, ReportStatus.WAITING);
             notifyReporters(commentId, ReportTargetType.COMMENT, false);
+
+            // 댓글 작성자의 활동 통계 업데이트 (댓글 수 + 좋아요 수)
+            userActivityStatsRepository.findById(author.getId()).ifPresent(stats -> {
+                stats.incrementCommentCount();
+                if (comment.getLikeCount() > 0) {
+                    stats.incrementCommentLikeReceivedCountBy(comment.getLikeCount());
+                }
+                userActivityStatsRepository.save(stats);
+            });
+        } else if ("ACTIVE".equalsIgnoreCase(status) && "BLINDED".equalsIgnoreCase(oldStatus)) {
+            // [추가] BLINDED에서 복구 시 활동지표 동기화
+            syncReportStatus(commentId, ReportTargetType.COMMENT, ReportStatus.WAITING);
+            notifyReporters(commentId, ReportTargetType.COMMENT, false);
+
+            // 댓글 작성자의 활동 통계 업데이트 (댓글 수 + 좋아요 수)
+            userActivityStatsRepository.findById(author.getId()).ifPresent(stats -> {
+                stats.incrementCommentCount();
+                if (comment.getLikeCount() > 0) {
+                    stats.incrementCommentLikeReceivedCountBy(comment.getLikeCount());
+                }
+                userActivityStatsRepository.save(stats);
+            });
         }
     }
 
@@ -186,43 +293,105 @@ public class AdminBoardService {
     }
 
     private void handlePostSanction(Long targetId, ReportStatus status, ReportStatus oldStatus) {
-        syncReportStatus(targetId, ReportTargetType.POST, status);
         postRepository.findById(targetId).ifPresent(p -> {
             User author = p.getAuthor();
             if (status == ReportStatus.BLIND_COMPLETE && !"BLINDED".equalsIgnoreCase(p.getStatus())) {
                 p.changeStatus("BLINDED");
+                syncReportStatus(targetId, ReportTargetType.POST, ReportStatus.BLIND_COMPLETE);
                 karmaService.deductKarma(author.getId(), 20, KarmaReason.REPORT_POST_APPROVED, "신고 승인에 따른 게시글 블라인드 (ID: " + targetId + ")", null, true);
                 notificationService.send(author, NotificationType.SYSTEM, "⚠️ 작성하신 게시글이 블라인드 처리되었습니다: \"" + p.getTitle() + "\"", targetId, targetId);
+
+                // [추가] 활동 통계 감소
+                userActivityStatsRepository.findById(author.getId()).ifPresent(stats -> {
+                    stats.decrementPostCount();
+                    if (p.getLikeCount() > 0) {
+                        stats.decrementPostLikeReceivedCountBy(p.getLikeCount());
+                    }
+                    userActivityStatsRepository.save(stats);
+                });
             } else if (status == ReportStatus.DELETE_COMPLETE && !"DELETED".equalsIgnoreCase(p.getStatus())) {
                 p.changeStatus("DELETED");
+                syncReportStatus(targetId, ReportTargetType.POST, ReportStatus.DELETE_COMPLETE);
                 karmaService.deductKarma(author.getId(), 50, KarmaReason.POST_DELETED, "신고 승인에 따른 게시글 영구 삭제 (ID: " + targetId + ")", null, true);
                 notificationService.send(author, NotificationType.SYSTEM, "🚫 작성하신 게시글이 운영 정책 위반으로 영구 삭제되었습니다: \"" + p.getTitle() + "\"", null, null);
+
+                // [추가] 활동 통계 감소
+                userActivityStatsRepository.findById(author.getId()).ifPresent(stats -> {
+                    stats.decrementPostCount();
+                    if (p.getLikeCount() > 0) {
+                        stats.decrementPostLikeReceivedCountBy(p.getLikeCount());
+                    }
+                    userActivityStatsRepository.save(stats);
+                });
             } else if (status == ReportStatus.REJECTED || status == ReportStatus.WAITING) {
-                p.changeStatus("ACTIVE");
+                postRepository.updateStatus(targetId, "ACTIVE");
+                syncReportStatus(targetId, ReportTargetType.POST, status);
                 if (oldStatus == ReportStatus.BLIND_COMPLETE) karmaService.manualAdjustKarma(author.getId(), 20, KarmaReason.ADMIN_REVERSAL, "조치 번복에 따른 점수 복구", null, false);
                 else if (oldStatus == ReportStatus.DELETE_COMPLETE) karmaService.manualAdjustKarma(author.getId(), 50, KarmaReason.ADMIN_REVERSAL, "조치 번복에 따른 점수 복구", null, false);
+
+                // [추가] 활동 통계 복구
+                if (oldStatus == ReportStatus.BLIND_COMPLETE || oldStatus == ReportStatus.DELETE_COMPLETE) {
+                    userActivityStatsRepository.findById(author.getId()).ifPresent(stats -> {
+                        stats.incrementPostCount();
+                        if (p.getLikeCount() > 0) {
+                            stats.incrementPostLikeReceivedCountBy(p.getLikeCount());
+                        }
+                        userActivityStatsRepository.save(stats);
+                    });
+                }
             }
             notifyReporters(targetId, ReportTargetType.POST, status != ReportStatus.REJECTED && status != ReportStatus.WAITING);
         });
     }
 
     private void handleCommentSanction(Long targetId, ReportStatus status, ReportStatus oldStatus) {
-        syncReportStatus(targetId, ReportTargetType.COMMENT, status);
         commentRepository.findById(targetId).ifPresent(c -> {
             User author = c.getAuthor();
             String preview = c.getContent().length() > 25 ? c.getContent().substring(0, 25) + "..." : c.getContent();
             if (status == ReportStatus.BLIND_COMPLETE && !"BLINDED".equalsIgnoreCase(c.getStatus())) {
                 c.changeStatus("BLINDED");
+                syncReportStatus(targetId, ReportTargetType.COMMENT, ReportStatus.BLIND_COMPLETE);
                 karmaService.deductKarma(author.getId(), 10, KarmaReason.REPORT_COMMENT_APPROVED, "신고 승인에 따른 댓글 블라인드 (ID: " + targetId + ")", null, true);
                 notificationService.send(author, NotificationType.SYSTEM, "⚠️ 작성하신 댓글이 블라인드 처리되었습니다: \"" + preview + "\"", c.getId(), c.getPost().getId());
+
+                // [추가] 활동 통계 감소
+                userActivityStatsRepository.findById(author.getId()).ifPresent(stats -> {
+                    stats.decrementCommentCount();
+                    if (c.getLikeCount() > 0) {
+                        stats.decrementCommentLikeReceivedCountBy(c.getLikeCount());
+                    }
+                    userActivityStatsRepository.save(stats);
+                });
             } else if (status == ReportStatus.DELETE_COMPLETE && !"DELETED".equalsIgnoreCase(c.getStatus())) {
                 c.changeStatus("DELETED");
+                syncReportStatus(targetId, ReportTargetType.COMMENT, ReportStatus.DELETE_COMPLETE);
                 karmaService.deductKarma(author.getId(), 30, KarmaReason.COMMENT_DELETED, "신고 승인에 따른 댓글 영구 삭제 (ID: " + targetId + ")", null, true);
                 notificationService.send(author, NotificationType.SYSTEM, "🚫 작성하신 댓글이 운영 정책 위반으로 영구 삭제되었습니다: \"" + preview + "\"", null, null);
+
+                // [추가] 활동 통계 감소
+                userActivityStatsRepository.findById(author.getId()).ifPresent(stats -> {
+                    stats.decrementCommentCount();
+                    if (c.getLikeCount() > 0) {
+                        stats.decrementCommentLikeReceivedCountBy(c.getLikeCount());
+                    }
+                    userActivityStatsRepository.save(stats);
+                });
             } else if (status == ReportStatus.REJECTED || status == ReportStatus.WAITING) {
-                c.changeStatus("ACTIVE");
+                commentRepository.updateStatus(targetId, "ACTIVE");
+                syncReportStatus(targetId, ReportTargetType.COMMENT, status);
                 if (oldStatus == ReportStatus.BLIND_COMPLETE) karmaService.manualAdjustKarma(author.getId(), 10, KarmaReason.ADMIN_REVERSAL, "조치 번복에 따른 점수 복구", null, false);
                 else if (oldStatus == ReportStatus.DELETE_COMPLETE) karmaService.manualAdjustKarma(author.getId(), 30, KarmaReason.ADMIN_REVERSAL, "조치 번복에 따른 점수 복구", null, false);
+
+                // [추가] 활동 통계 복구
+                if (oldStatus == ReportStatus.BLIND_COMPLETE || oldStatus == ReportStatus.DELETE_COMPLETE) {
+                    userActivityStatsRepository.findById(author.getId()).ifPresent(stats -> {
+                        stats.incrementCommentCount();
+                        if (c.getLikeCount() > 0) {
+                            stats.incrementCommentLikeReceivedCountBy(c.getLikeCount());
+                        }
+                        userActivityStatsRepository.save(stats);
+                    });
+                }
             }
             notifyReporters(targetId, ReportTargetType.COMMENT, status != ReportStatus.REJECTED && status != ReportStatus.WAITING);
         });
@@ -335,9 +504,6 @@ public class AdminBoardService {
     }
 
     private void syncReportStatus(Long targetId, ReportTargetType targetType, ReportStatus status) {
-        List<Report> reports = reportRepository.findAllByTargetIdAndTargetType(targetId, targetType);
-        for (Report report : reports) {
-            report.changeStatus(status);
-        }
+        reportRepository.bulkUpdateStatus(targetId, targetType, status);
     }
 }

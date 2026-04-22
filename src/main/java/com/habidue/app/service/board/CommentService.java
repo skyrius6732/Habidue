@@ -234,33 +234,45 @@ public class CommentService {
     }
 
     @Transactional
-    public void toggleCommentLike(Long commentId) {
+    public boolean toggleCommentLike(Long commentId) {
         User currentUser = getCurrentUser();
         Comment comment = commentRepository.findById(commentId).orElseThrow();
         if (comment.getAuthor().getId().equals(currentUser.getId())) throw new IllegalArgumentException("본인 댓글 좋아요 불가");
 
         java.util.Optional<com.habidue.app.domain.board.CommentLike> existingLike = commentLikeRepository.findByCommentAndUser(comment, currentUser);
         User author = comment.getAuthor();
+
+        // [정책] 댓글별 카르마 (개별 증감, 한도 없음)
+        String commentKey = "COMMENT_ID: " + comment.getId();
+        // [정책] 게시글 전체 한도 (게시글당 최대 1.0P)
         String postKey = "POST_ID: " + comment.getPost().getId();
 
         if (existingLike.isPresent()) {
             commentLikeRepository.delete(existingLike.get());
+            commentLikeRepository.flush();
             commentRepository.decrementLikeCount(commentId);
             userActivityStatsRepository.decrementCommentLikeReceivedCount(author.getId());
+
+            // [정책 B] 댓글 좋아요 취소: 댓글별 카르마 정확하게 회수
+            karmaService.revokeKarma(author.getId(), 1, commentKey, com.habidue.app.domain.user.KarmaReason.LIKE_CANCELED, null, null);
 
             // [시니어 조치] 댓글 좋아요 취소 시 경험치 회수
             expService.revokeExp(author.getId(), ExpReason.RECEIVED_LIKE, "댓글 좋아요 취소: " + comment.getId());
 
-            // [시니어 조치] KarmaService가 DB에서 직접 잔여 좋아요를 계산 (null 전달)
-            karmaService.revokeKarma(author.getId(), 1, postKey, com.habidue.app.domain.user.KarmaReason.LIKE_CANCELED, null, 10);
+            return false;
         } else {
             commentLikeRepository.save(com.habidue.app.domain.board.CommentLike.builder().comment(comment).user(currentUser).build());
+            commentLikeRepository.flush();
             commentRepository.incrementLikeCount(commentId);
             userActivityStatsRepository.incrementCommentLikeReceivedCount(author.getId());
 
-            // 신뢰 점수 회복 시도 (게시글 당 1.0P 상한 공유)
+            // 신뢰 점수 회복 시도
             int gain = 0;
             try {
+                // [정책] 댓글별 카르마: 계속 증가 (한도 없음)
+                karmaService.restoreKarma(author.getId(), 1, commentKey, null, null, com.habidue.app.domain.user.KarmaReason.LIKE_RECEIVED);
+
+                // [정책] 게시글 한도 체크: 게시글당 최대 1.0P (상한선 체크용)
                 gain = karmaService.restoreKarma(author.getId(), 1, postKey, null, 10, com.habidue.app.domain.user.KarmaReason.LIKE_RECEIVED);
 
                 // [시니어 조치] 댓글 좋아요 수신 시 경험치(열정파) 부여
@@ -285,9 +297,11 @@ public class CommentService {
             } catch (Exception e) {
                 log.error("Error sending like notification: {}", e.getMessage());
             }
+
+            UserActivityStats freshStats = userActivityStatsRepository.findById(author.getId()).orElseThrow();
+            badgeService.checkAndAwardBadges(freshStats);
+            return true;
         }
-        UserActivityStats freshStats = userActivityStatsRepository.findById(author.getId()).orElseThrow();
-        badgeService.checkAndAwardBadges(freshStats);
     }
 
     public Page<CommentResponseDto> getComments(Long postId, Pageable pageable) {
@@ -309,41 +323,48 @@ public class CommentService {
         User currentUser = getCurrentUser();
         Comment comment = commentRepository.findByIdWithAllInfo(commentId).orElseThrow();
         if (!comment.getAuthor().getId().equals(currentUser.getId())) throw new IllegalArgumentException("권한 없음");
-        
-        // [시니어 조치] 중복 회수 방지 가드: ACTIVE 상태가 아니면 (USER_DELETED, DELETED, BLINDED 등) 모두 스킵
+
+        // [정책 B] 중복 삭제 방지: ACTIVE 상태가 아니면 스킵
         if (!"ACTIVE".equals(comment.getStatus())) {
-            log.info("ACTIVE 상태가 아닌 댓글이므로 회수 로직을 건너뜁니다. ID: {}, status: {}", commentId, comment.getStatus());
+            log.info("이미 삭제된 댓글입니다. ID: {}, status: {}", commentId, comment.getStatus());
             return;
         }
-        
+
+        // [정책 B] 상태만 변경 (모든 데이터 유지: 경험치, 카르마, 좋아요 등)
+        // 관리자가 댓글을 복구할 때 모든 데이터가 함께 복구되도록 함
         User author = comment.getAuthor();
+        int originalLikeCount = comment.getLikeCount();
+
+        comment.changeStatus("USER_DELETED");
+        commentRepository.save(comment);
+
+        // [정책 B] 활동 통계 갱신 (마이페이지 정확성 유지)
+        userActivityStatsRepository.decrementCommentCount(author.getId());
+        if (originalLikeCount > 0) {
+            userActivityStatsRepository.decrementCommentLikeReceivedCountBy(author.getId(), originalLikeCount);
+        }
+        postRepository.decrementCommentCount(comment.getPost().getId());
+
+        /* [정책 B: 주석 처리] 경험치/카르마 회수 안 함
 
         // [시니어 조치] 경험치 회수 (댓글 작성 및 해당 댓글이 받았던 좋아요 경험치 모두 회수)
-        expService.revokeExp(author.getId(), ExpReason.COMMENT_CREATED, "댓글 삭제: " + comment.getId());
-        for (int i = 0; i < comment.getLikeCount(); i++) {
-            expService.revokeExp(author.getId(), ExpReason.RECEIVED_LIKE, "댓글 삭제에 따른 좋아요 경험치 회수");
-        }
+        // expService.revokeExp(author.getId(), ExpReason.COMMENT_CREATED, "댓글 삭제: " + comment.getId());
+        // for (int i = 0; i < comment.getLikeCount(); i++) {
+        //     expService.revokeExp(author.getId(), ExpReason.RECEIVED_LIKE, "댓글 삭제에 따른 좋아요 경험치 회수");
+        // }
 
         // [시니어 조치] 카르마 회수 - 상태를 먼저 USER_DELETED로 변경 + flush하여
         // KarmaService.computeRemainingHeartsForPostKey()의 DB 쿼리에서 이 댓글이 제외되도록 함
-        int originalLikeCount = comment.getLikeCount();
-        comment.changeStatus("USER_DELETED");
-        commentRepository.saveAndFlush(comment);
-
-        if (originalLikeCount > 0) {
-            String postKey = "POST_ID: " + comment.getPost().getId();
-            karmaService.revokeKarma(author.getId(), originalLikeCount, postKey, com.habidue.app.domain.user.KarmaReason.LIKE_CANCELED, null, 10);
-        }
+        // commentRepository.saveAndFlush(comment);
+        // if (originalLikeCount > 0) {
+        //     String postKey = "POST_ID: " + comment.getPost().getId();
+        //     karmaService.revokeKarma(author.getId(), originalLikeCount, postKey, com.habidue.app.domain.user.KarmaReason.LIKE_CANCELED, null, 10);
+        // }
 
         // [시니어 조치] 실시간 급상승 랭킹 점수 차감 (공고글일 경우)
-        if (comment.getPost().getNotice() != null) {
-            rankingService.increaseNoticeScore(comment.getPost().getNotice().getId(), -com.habidue.app.service.ranking.RankingService.SCORE_COMMENT);
-        }
-
-        // [시니어 조치] 유저 활동 통계 원자적 차감 (마이페이지 반영)
-        userActivityStatsRepository.decrementCommentCount(author.getId());
-        if (originalLikeCount > 0) userActivityStatsRepository.decrementCommentLikeReceivedCountBy(author.getId(), originalLikeCount);
-
-        postRepository.decrementCommentCount(comment.getPost().getId());
+        // if (comment.getPost().getNotice() != null) {
+        //     rankingService.increaseNoticeScore(comment.getPost().getNotice().getId(), -com.habidue.app.service.ranking.RankingService.SCORE_COMMENT);
+        // }
+        */
     }
 }

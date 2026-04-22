@@ -524,25 +524,19 @@ public class PostService {
                 .filter(c -> "ACTIVE".equals(c.getStatus()))
                 .forEach(comment -> {
                     User cAuthor = comment.getAuthor();
-                    // 통계 원자적 차감
+                    // 통계 원자적 차감 (UI에서 안 보이게 하기 위함)
                     userActivityStatsRepository.decrementCommentCount(cAuthor.getId());
                     if (comment.getLikeCount() > 0) userActivityStatsRepository.decrementCommentLikeReceivedCountBy(cAuthor.getId(), comment.getLikeCount());
-                    // EXP 및 카르마 회수 (이미 보완된 KarmaService 호출)
-                    expService.revokeExp(cAuthor.getId(), ExpReason.COMMENT_CREATED, "게시글 삭제 연쇄 회수");
-                    for (int i = 0; i < comment.getLikeCount(); i++) {
-                        expService.revokeExp(cAuthor.getId(), ExpReason.RECEIVED_LIKE, "댓글 좋아요 회수");
-                    }
-                    // 카르마 정밀 회수 (게시글 삭제 시 남은 활동은 0이 되므로 0 전달)
-                    if (comment.getLikeCount() > 0) {
-                        karmaService.revokeKarma(cAuthor.getId(), comment.getLikeCount(), "POST_ID: " + post.getId(), com.habidue.app.domain.user.KarmaReason.LIKE_CANCELED, 0, 10);
-                    }
+
+                    // [정책 B] 댓글 작성자의 exp/카르마는 회수 안 함 (댓글 작성자는 잘못 없음)
+                    // 게시글 작성자의 선택으로 인한 벌칙은 게시글 작성자에게만 적용
+                    // 댓글은 게시글과 함께 USER_DELETED 상태로 변경 (관리자 복구 시 함께 복구)
                     comment.changeStatus("USER_DELETED");
                 });
         }
 
         // 6. 상태 변경 및 정리
         post.changeStatus("USER_DELETED");
-        post.getPostLikes().clear();
         
         if (post.getNotice() != null) {
             rankingService.increaseNoticeScore(post.getNotice().getId(), -com.habidue.app.service.ranking.RankingService.SCORE_POST);
