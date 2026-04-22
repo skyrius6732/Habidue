@@ -42,7 +42,6 @@ onMounted(() => {
   
   // 모든 인증 정보 삭제 (확실하게 즉시 튕겨내기)
   authStore.clearTokens()
-  localStorage.clear() 
 })
 
 const goHome = () => {

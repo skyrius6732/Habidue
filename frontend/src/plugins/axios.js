@@ -1,6 +1,13 @@
 import axios from 'axios'
 import router from '@/router'
 
+const clearAuthStorage = () => {
+  localStorage.removeItem('accessToken')
+  localStorage.removeItem('refreshToken')
+  localStorage.removeItem('user')
+  localStorage.removeItem('userRole')
+}
+
 // [시니어 조치] 하드코딩된 주소를 제거하고 Vite Proxy(/api)를 활용하도록 설정
 const instance = axios.create({
   baseURL: '', // Vite 프록시 사용을 위해 비워둠 (상대 경로 사용)
@@ -50,7 +57,7 @@ instance.interceptors.response.use(
     // 1. 차단된 유저 처리 (기존 로직 유지)
     if (errorMsg.startsWith('USER_BLOCKED:')) {
       const displayMsg = errorMsg.replace('USER_BLOCKED:', '')
-      localStorage.clear()
+      clearAuthStorage()
       router.push({ name: 'blocked', query: { reason: displayMsg } })
       return Promise.reject(error)
     }
@@ -59,7 +66,7 @@ instance.interceptors.response.use(
     if (error.response?.status === 401 && !originalRequest._retry) {
       const refreshToken = localStorage.getItem('refreshToken')
       if (!refreshToken) {
-        localStorage.clear()
+        clearAuthStorage()
         if (router.currentRoute.value.name !== 'home') router.push({ name: 'home' })
         return Promise.reject(error)
       }
@@ -100,7 +107,7 @@ instance.interceptors.response.use(
         }
       } catch (reissueError) {
         isRefreshing = false
-        localStorage.clear()
+        clearAuthStorage()
         if (router.currentRoute.value.name !== 'home') router.push({ name: 'home' })
         return Promise.reject(reissueError)
       }
