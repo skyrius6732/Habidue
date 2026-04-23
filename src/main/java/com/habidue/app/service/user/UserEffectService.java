@@ -98,11 +98,22 @@ public class UserEffectService {
 
     /**
      * 특정 이펙트를 사용자에게서 제거
+     * 장착 중인 이펙트라면 equippedEffect도 함께 해제
      */
     @Transactional
     public void revokeEffect(Long userId, String effectCode) {
+        // 1단계: 회수 대상 이펙트가 장착 중이라면 먼저 장착 해제
+        User user = userRepository.findById(userId).orElse(null);
+        if (user != null && effectCode.equals(user.getEquippedEffect())) {
+            user.setEquippedEffect(null);
+            userRepository.save(user);
+            log.info("Equipped effect unequipped before revoke. userId={}, effectCode={}", userId, effectCode);
+        }
+
+        // 2단계: UserEffect 레코드 삭제
         userEffectRepository.findByUserIdAndEffectCode(userId, effectCode)
             .ifPresent(userEffectRepository::delete);
+
         log.info("Effect revoked. userId={}, effectCode={}", userId, effectCode);
     }
 }

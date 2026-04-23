@@ -1,6 +1,7 @@
 package com.habidue.app.controller;
 
 import com.habidue.app.domain.user.User;
+import com.habidue.app.domain.user.UserStatus;
 import com.habidue.app.domain.usernotice.UserNotice;
 import com.habidue.app.dto.ApiResponse;
 import com.habidue.app.dto.user.UserResponseDto;
@@ -61,6 +62,7 @@ public class UserController {
 
         String searchTerm = search.toLowerCase();
         List<User> users = userRepository.findAll().stream()
+            .filter(u -> u.getStatus() != UserStatus.WITHDRAWN)
             .filter(u -> u.getUsername().toLowerCase().contains(searchTerm) ||
                         (u.getNickname() != null && u.getNickname().toLowerCase().contains(searchTerm)) ||
                         u.getEmail().toLowerCase().contains(searchTerm))
@@ -68,9 +70,30 @@ public class UserController {
             .toList();
 
         List<UserResponseDto> result = users.stream()
-            .map(UserResponseDto::new)
+            .map(u -> {
+                UserResponseDto dto = new UserResponseDto(u);
+                dto.setOwnedEffectCodes(userEffectService.getUserEffectCodes(u.getId()));
+                return dto;
+            })
             .toList();
 
+        return ApiResponse.success(result);
+    }
+
+    /**
+     * [시니어 조치] 전체 활성 사용자 목록 조회 (탈퇴 제외, 전체선택용)
+     */
+    @GetMapping("/admin/active-list")
+    @Secured("ROLE_ADMIN")
+    public ResponseEntity<ApiResponse<List<UserResponseDto>>> getAllActiveUsers() {
+        List<UserResponseDto> result = userRepository.findAll().stream()
+            .filter(u -> u.getStatus() != UserStatus.WITHDRAWN)
+            .map(u -> {
+                UserResponseDto dto = new UserResponseDto(u);
+                dto.setOwnedEffectCodes(userEffectService.getUserEffectCodes(u.getId()));
+                return dto;
+            })
+            .toList();
         return ApiResponse.success(result);
     }
 
@@ -213,28 +236,27 @@ public class UserController {
     }
 
     /**
-     * [시니어 조치] 단일 사용자에게 이펙트 지급 (관리자만)
+     * [시니어 조치] 단일 사용자에게 이펙트 지급 (관리자만) - publicId 기반
      */
-    @PostMapping("/admin/{userId}/grant-effect")
+    @PostMapping("/admin/{publicId}/grant-effect")
     @Secured("ROLE_ADMIN")
     @Transactional
     public ResponseEntity<ApiResponse<java.util.Map<String, Object>>> grantEffect(
-            @PathVariable Long userId,
+            @PathVariable String publicId,
             @RequestParam String effectCode,
             @RequestParam(defaultValue = "EVENT") String source) {
 
-        User targetUser = userRepository.findById(userId)
+        User targetUser = userRepository.findByPublicId(publicId)
             .orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다."));
 
         try {
             com.habidue.app.domain.user.UserEffect.EffectSource effectSource =
                 com.habidue.app.domain.user.UserEffect.EffectSource.valueOf(source.toUpperCase());
 
-            userEffectService.grantEffect(userId, effectCode, effectSource);
+            userEffectService.grantEffect(targetUser.getId(), effectCode, effectSource);
 
             java.util.Map<String, Object> result = new java.util.HashMap<>();
-            result.put("userId", userId);
-            result.put("publicId", targetUser.getPublicId());
+            result.put("publicId", publicId);
             result.put("effectCode", effectCode);
             result.put("source", source);
             result.put("message", "이펙트 지급 완료");
@@ -248,18 +270,21 @@ public class UserController {
     }
 
     /**
-     * [시니어 조치] 여러 사용자에게 이펙트 일괄 지급 (관리자만)
+     * [시니어 조치] 여러 사용자에게 이펙트 일괄 지급 (관리자만) - publicId + 복수 effectCodes 기반
      */
     @PostMapping("/admin/batch/grant-effect")
     @Secured("ROLE_ADMIN")
     @Transactional
     public ResponseEntity<ApiResponse<java.util.Map<String, Object>>> grantEffectBatch(
-            @RequestParam List<Long> userIds,
-            @RequestParam String effectCode,
+            @RequestParam List<String> publicIds,
+            @RequestParam List<String> effectCodes,
             @RequestParam(defaultValue = "EVENT") String source) {
 
-        if (userIds == null || userIds.isEmpty()) {
+        if (publicIds == null || publicIds.isEmpty()) {
             return ApiResponse.error(HttpStatus.BAD_REQUEST, "사용자 ID 리스트가 필요합니다.", "Empty List");
+        }
+        if (effectCodes == null || effectCodes.isEmpty()) {
+            return ApiResponse.error(HttpStatus.BAD_REQUEST, "이펙트 코드가 필요합니다.", "Empty Effects");
         }
 
         try {
@@ -269,26 +294,30 @@ public class UserController {
             int successCount = 0;
             int alreadyOwned = 0;
 
-            for (Long userId : userIds) {
-                try {
-                    if (userEffectService.hasEffect(userId, effectCode)) {
-                        alreadyOwned++;
-                    } else {
-                        userEffectService.grantEffect(userId, effectCode, effectSource);
-                        successCount++;
+            for (String publicId : publicIds) {
+                User user = userRepository.findByPublicId(publicId).orElse(null);
+                if (user == null) continue;
+                for (String effectCode : effectCodes) {
+                    try {
+                        if (userEffectService.hasEffect(user.getId(), effectCode)) {
+                            alreadyOwned++;
+                        } else {
+                            userEffectService.grantEffect(user.getId(), effectCode, effectSource);
+                            successCount++;
+                        }
+                    } catch (Exception e) {
+                        log.warn("이펙트 지급 실패. publicId={}, effectCode={}, error={}", publicId, effectCode, e.getMessage());
                     }
-                } catch (Exception e) {
-                    log.warn("이펙트 지급 실패. userId={}, effectCode={}, error={}", userId, effectCode, e.getMessage());
                 }
             }
 
             java.util.Map<String, Object> result = new java.util.HashMap<>();
-            result.put("totalRequested", userIds.size());
+            result.put("totalRequested", publicIds.size());
+            result.put("effectCount", effectCodes.size());
             result.put("successCount", successCount);
             result.put("alreadyOwned", alreadyOwned);
-            result.put("effectCode", effectCode);
             result.put("source", source);
-            result.put("message", String.format("신규 지급: %d명, 이미 소유: %d명", successCount, alreadyOwned));
+            result.put("message", String.format("신규 지급: %d건, 이미 소유: %d건", successCount, alreadyOwned));
 
             return ApiResponse.success(result);
         } catch (IllegalArgumentException e) {
@@ -296,6 +325,76 @@ public class UserController {
         } catch (Exception e) {
             return ApiResponse.error(HttpStatus.INTERNAL_SERVER_ERROR, "일괄 지급 실패: " + e.getMessage(), "Batch Grant Failed");
         }
+    }
+
+    /**
+     * [시니어 조치] 단일 사용자 이펙트 회수 (관리자만) - publicId 기반
+     */
+    @DeleteMapping("/admin/{publicId}/revoke-effect")
+    @Secured("ROLE_ADMIN")
+    @Transactional
+    public ResponseEntity<ApiResponse<java.util.Map<String, Object>>> revokeEffect(
+            @PathVariable String publicId,
+            @RequestParam String effectCode) {
+
+        User targetUser = userRepository.findByPublicId(publicId)
+            .orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다."));
+
+        userEffectService.revokeEffect(targetUser.getId(), effectCode);
+
+        java.util.Map<String, Object> result = new java.util.HashMap<>();
+        result.put("publicId", publicId);
+        result.put("effectCode", effectCode);
+        result.put("message", "이펙트 회수 완료");
+
+        return ApiResponse.success(result);
+    }
+
+    /**
+     * [시니어 조치] 여러 사용자 이펙트 일괄 회수 (관리자만) - publicId 기반
+     */
+    @DeleteMapping("/admin/batch/revoke-effect")
+    @Secured("ROLE_ADMIN")
+    @Transactional
+    public ResponseEntity<ApiResponse<java.util.Map<String, Object>>> revokeEffectBatch(
+            @RequestParam List<String> publicIds,
+            @RequestParam List<String> effectCodes) {
+
+        if (publicIds == null || publicIds.isEmpty()) {
+            return ApiResponse.error(HttpStatus.BAD_REQUEST, "사용자 ID 리스트가 필요합니다.", "Empty List");
+        }
+        if (effectCodes == null || effectCodes.isEmpty()) {
+            return ApiResponse.error(HttpStatus.BAD_REQUEST, "이펙트 코드가 필요합니다.", "Empty Effects");
+        }
+
+        int successCount = 0;
+        int notOwned = 0;
+
+        for (String publicId : publicIds) {
+            User user = userRepository.findByPublicId(publicId).orElse(null);
+            if (user == null) continue;
+            for (String effectCode : effectCodes) {
+                try {
+                    if (!userEffectService.hasEffect(user.getId(), effectCode)) {
+                        notOwned++;
+                    } else {
+                        userEffectService.revokeEffect(user.getId(), effectCode);
+                        successCount++;
+                    }
+                } catch (Exception e) {
+                    log.warn("이펙트 회수 실패. publicId={}, effectCode={}, error={}", publicId, effectCode, e.getMessage());
+                }
+            }
+        }
+
+        java.util.Map<String, Object> result = new java.util.HashMap<>();
+        result.put("totalRequested", publicIds.size());
+        result.put("effectCount", effectCodes.size());
+        result.put("successCount", successCount);
+        result.put("notOwned", notOwned);
+        result.put("message", String.format("회수 완료: %d건, 미소유: %d건", successCount, notOwned));
+
+        return ApiResponse.success(result);
     }
 
     @DeleteMapping("/me")
