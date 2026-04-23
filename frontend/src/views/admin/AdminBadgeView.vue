@@ -8,7 +8,7 @@ const masters = ref([])
 const loading = ref(true)
 const isSyncing = ref(false)
 const selectedType = ref('ALL')
-const activeTab = ref('badges') // 'badges' 또는 'effects'
+const activeTab = ref('effects') // 'badges' 또는 'effects'
 const isEffectAccordionOpen = ref(false) // [시니어 조치] 이펙트 아코디언 상태
 
 // 사용자 데이터 (미리보기용)
@@ -432,17 +432,17 @@ onMounted(fetchInitialData)
       <div class="admin-tabs">
         <button
           class="tab-btn"
-          :class="{ active: activeTab === 'badges' }"
-          @click="activeTab = 'badges'"
-        >
-          🎖️ 배지 관리
-        </button>
-        <button
-          class="tab-btn"
           :class="{ active: activeTab === 'effects' }"
           @click="activeTab = 'effects'"
         >
           ✨ 효과 관리
+        </button>
+        <button
+          class="tab-btn"
+          :class="{ active: activeTab === 'badges' }"
+          @click="activeTab = 'badges'"
+        >
+          🎖️ 배지 관리
         </button>
       </div>
 
