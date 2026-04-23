@@ -28,50 +28,158 @@ const ruleForm = ref({ badgeType: '', level: 1, requiredValue: 0, rankEmoji: '',
 // [시니어 조치] 이펙트 관리 상태
 const searchUserInput = ref('')
 const searchedUsers = ref([])
-const selectedUserIds = ref([])
-const selectedEffectCode = ref('')
+const selectedEffectCodes = ref([])   // 복수 이펙트 선택
 const effectSource = ref('EVENT')
 const isGranting = ref(false)
+const isRevoking = ref(false)
+const isLoadingAllUsers = ref(false)
 const grantMessage = ref('')
 
-// [시니어 조치] 특수 효과 리스트
+// 선택된 사용자: publicId → userObject 맵으로 관리 (검색 변경 후에도 유지)
+const selectedUsersData = ref({})
+const selectedUserIds = computed(() => Object.keys(selectedUsersData.value))
+const selectedUsersList = computed(() => Object.values(selectedUsersData.value))
+
+const addUserToSelection = (user) => {
+  selectedUsersData.value = { ...selectedUsersData.value, [user.publicId]: user }
+}
+const removeUserFromSelection = (publicId) => {
+  const copy = { ...selectedUsersData.value }
+  delete copy[publicId]
+  selectedUsersData.value = copy
+}
+const toggleUserSelect = (user) => {
+  if (selectedUsersData.value[user.publicId]) {
+    removeUserFromSelection(user.publicId)
+  } else {
+    addUserToSelection(user)
+  }
+}
+
+// 검색결과 전체선택 체크박스 상태
+const isAllSearchedSelected = computed(() =>
+  searchedUsers.value.length > 0 &&
+  searchedUsers.value.every(u => !!selectedUsersData.value[u.publicId])
+)
+const toggleSelectAllSearched = () => {
+  if (isAllSearchedSelected.value) {
+    searchedUsers.value.forEach(u => removeUserFromSelection(u.publicId))
+  } else {
+    searchedUsers.value.forEach(u => addUserToSelection(u))
+  }
+}
+
+// 전체선택 (검색 없을때 → 모든 활성 유저)
+const selectAllUsers = async () => {
+  if (searchUserInput.value.trim()) {
+    toggleSelectAllSearched()
+    return
+  }
+  isLoadingAllUsers.value = true
+  try {
+    const res = await axios.get('/api/users/admin/active-list')
+    const users = res.data.data || []
+    users.forEach(u => addUserToSelection(u))
+  } catch (e) {
+    console.error('전체 사용자 로드 실패', e)
+  } finally {
+    isLoadingAllUsers.value = false
+  }
+}
+
+// 레벨 이펙트 해금 맵 (effectConfig.js와 동일하게 유지)
+const LEVEL_UNLOCKS = {
+  5: 'MAGIC_BUBBLES', 10: 'BRONZE_WINGS', 15: 'STARRY_NIGHT', 20: 'SILVER_WINGS',
+  25: 'BOMB', 30: 'GOLD_WINGS', 35: 'SHADOW_DEMON', 40: 'VOID_RIFT',
+  45: 'THUNDER_BLUE', 50: 'NEON_SIGN', 60: 'AURORA_FLAME', 70: 'RAINBOW_WAVE'
+}
+const getLevelUnlock = (code) => {
+  const entry = Object.entries(LEVEL_UNLOCKS).find(([, v]) => v === code)
+  return entry ? parseInt(entry[0]) : null
+}
+
+// 이펙트 코드 → 괄호 안 짧은 이름
+const effectLabel = (code) => {
+  const found = specialEffects.find(e => e.id === code)
+  if (!found) return code
+  const match = found.name.match(/\(([^)]+)\)/)
+  return match ? match[1] : found.name
+}
+
+// 이펙트 복수 토글
+const toggleEffectSelect = (code) => {
+  const idx = selectedEffectCodes.value.indexOf(code)
+  if (idx > -1) {
+    selectedEffectCodes.value.splice(idx, 1)
+  } else {
+    selectedEffectCodes.value.push(code)
+  }
+}
+
+const selectableEffectCodes = computed(() => specialEffects.filter(e => e.id).map(e => e.id))
+const isAllEffectsSelected = computed(() =>
+  selectableEffectCodes.value.length > 0 &&
+  selectableEffectCodes.value.every(code => selectedEffectCodes.value.includes(code))
+)
+const toggleSelectAllEffects = () => {
+  if (isAllEffectsSelected.value) {
+    selectedEffectCodes.value = []
+  } else {
+    selectedEffectCodes.value = [...selectableEffectCodes.value]
+  }
+}
+
+const canExecute = computed(() =>
+  selectedUserIds.value.length > 0 && selectedEffectCodes.value.length > 0
+)
+
+const resetSelection = () => {
+  selectedUsersData.value = {}
+  selectedEffectCodes.value = []
+  searchedUsers.value = []
+  searchUserInput.value = ''
+}
+
+// 특수 효과 리스트 — 마이페이지와 동일한 순서 (레벨순 → 이벤트/상점순)
 const specialEffects = [
   { id: null, name: '효과 없음' },
+  // 레벨 해금 순서
   { id: 'PIONEER_WINGS', name: '🕊️ 화이트 윙 (White)' },
+  { id: 'MAGIC_BUBBLES', name: '🫧 방울방울 (Bubble)' },
   { id: 'BRONZE_WINGS', name: '🥉 브론즈 윙 (Bronze)' },
+  { id: 'STARRY_NIGHT', name: '✨ 별무리 (Starry)' },
   { id: 'SILVER_WINGS', name: '🥈 실버 윙 (Silver)' },
-  { id: 'GOLD_WINGS', name: '👑 골드 윙 (Gold)' },
-  { id: 'MAGIC_BUBBLES', name: '🫧 신비로운 버블 (Bubble)' },
-  { id: 'STARRY_NIGHT', name: '✨ 반짝이는 별무리 (Starry)' },
-  { id: 'THUNDER_BLUE', name: '⚡ 푸른 번개 (Thunder)' },
-  { id: 'AURORA_FLAME', name: '🔥 오로라 화염 (Flame)' },
-  { id: 'ICE_FROST', name: '❄️ 얼음 결정 (Frost)' },
+  { id: 'BOMB', name: '🔫 레이저 (Laser)' },
+  { id: 'GOLD_WINGS', name: '🎖️ 골드 윙 (Gold)' },
+  { id: 'SHADOW_DEMON', name: '🧪 포이즌 (Poison)' },
+  { id: 'VOID_RIFT', name: '🌀 보이드 (Void)' },
+  { id: 'THUNDER_BLUE', name: '⚡ 번개 (Thunder)' },
+  { id: 'NEON_SIGN', name: '💡 네온 (Neon)' },
+  { id: 'AURORA_FLAME', name: '🔥 화염 (Flame)' },
+  { id: 'RAINBOW_WAVE', name: '🌈 무지개 (Rainbow)' },
+  // 이벤트 / 상점 이펙트
+  { id: 'ICE_FROST', name: '❄️ 얼음 (Frost)' },
   { id: 'SAKURA_BLOOM', name: '🌸 벚꽃 (Sakura)' },
   { id: 'ROSES_BLOOM', name: '🌹 장미 (Roses)' },
-  { id: 'SHADOW_DEMON', name: '👹 섀도우 데몬 (Shadow)' },
-  { id: 'NEON_SIGN', name: '🌟 네온 사인 (Neon)' },
   { id: 'PIXEL_GLITCH', name: '💥 픽셀 글리치 (Glitch)' },
-  { id: 'VOID_RIFT', name: '🌀 보이드 리프트 (Void)' },
-  { id: 'LOVE_HEART', name: '💕 두근두근 하트 (Heart)' },
-  { id: 'RAINBOW_WAVE', name: '🌈 무지개 (Rainbow)' },
-  { id: 'SHOOTING_STAR', name: '🌠 별똥별 (Shooting Star)' },
-  { id: 'BOMB', name: '🔫 레이저 (Laser)' },
+  { id: 'LOVE_HEART', name: '💕 하트 (Heart)' },
+  { id: 'SHOOTING_STAR', name: '🌠 별똥별 (Shooting)' },
   { id: 'CROWN', name: '👑 왕관 (Crown)' },
   { id: 'SWORDS_CROSS', name: '⚔️ 칼 교차 (Swords)' },
   { id: 'FLOWER_CROWN', name: '🌸 화관 (Flower Crown)' },
-  { id: 'STAR_TIARA', name: '🌟 별 티아라 (Star Tiara)' },
+  { id: 'STAR_TIARA', name: '🌟 별 티아라 (Tiara)' },
   { id: 'FLOWER_RAIN', name: '🌺 꽃비 (Flower Rain)' },
-  { id: 'SCAN_LINE', name: '📺 스캔라인 (Scan Line)' },
-  { id: 'CHROMATIC_ABERRATION', name: '🌈 색상 분리 (Chromatic)' },
-  { id: 'ECHO_TRAIL', name: '👻 잔상 (Echo Trail)' },
-  { id: 'CORRUPTED_TEXT', name: '🔲 손상된 텍스트 (Corrupted)' },
+  { id: 'SCAN_LINE', name: '📺 스캔라인 (Scan)' },
+  { id: 'CHROMATIC_ABERRATION', name: '🌈 색분리 (Chromatic)' },
+  { id: 'ECHO_TRAIL', name: '👻 잔상 (Echo)' },
+  { id: 'CORRUPTED_TEXT', name: '🔲 손상 텍스트 (Corrupted)' },
   { id: 'GLITCH_SHIFT', name: '⚡ 글리치 (Glitch Shift)' },
-  { id: 'LIQUID_DISTORT', name: '💧 액체 (Liquid Distort)' },
+  { id: 'LIQUID_DISTORT', name: '💧 액체 (Liquid)' },
   { id: 'HALO', name: '✨ 후광 (Halo)' },
   { id: 'LEAVES', name: '🍂 낙엽 (Leaves)' },
   { id: 'BUTTERFLIES', name: '🦋 나비 (Butterflies)' },
-  { id: 'ORBS', name: '🔮 구체들 (Orbs)' },
-  { id: 'SCALE_COLLAPSE', name: '⬇️ 축소 & 사라지기 (Collapse)' }
+  { id: 'ORBS', name: '🔮 구체 (Orbs)' },
+  { id: 'SCALE_COLLAPSE', name: '⬇️ 축소 (Collapse)' }
 ]
 
 const updateEffect = async (effectId) => {
@@ -259,61 +367,50 @@ const searchUsers = async () => {
   }
 }
 
-// [시니어 조치] 사용자 선택 토글
-const toggleUserSelect = (userId) => {
-  const idx = selectedUserIds.value.indexOf(userId)
-  if (idx > -1) {
-    selectedUserIds.value.splice(idx, 1)
-  } else {
-    selectedUserIds.value.push(userId)
-  }
-}
-
-// [시니어 조치] 이펙트 지급 (단일 또는 일괄)
+// 이펙트 지급 (배치 엔드포인트 통일)
 const grantEffectBatch = async () => {
-  if (selectedUserIds.value.length === 0 || !selectedEffectCode.value) {
-    alert('사용자와 이펙트를 선택해주세요.')
-    return
-  }
-
-  if (!confirm(`${selectedUserIds.value.length}명에게 이펙트를 지급하시겠습니까?`)) return
+  if (!canExecute.value) { alert('사용자와 이펙트를 선택해주세요.'); return }
+  if (!confirm(`${selectedUserIds.value.length}명에게 ${selectedEffectCodes.value.length}개 이펙트를 지급하시겠습니까?`)) return
 
   isGranting.value = true
   grantMessage.value = ''
   try {
-    // 1명 선택: 단일 지급 엔드포인트 사용
-    if (selectedUserIds.value.length === 1) {
-      const userId = selectedUserIds.value[0]
-      const res = await axios.post(`/api/users/admin/${userId}/grant-effect`, null, {
-        params: {
-          effectCode: selectedEffectCode.value,
-          source: effectSource.value
-        }
-      })
-      const data = res.data.data
-      grantMessage.value = `✅ ${data.message}`
-    } else {
-      // 여러 명 선택: 일괄 지급 엔드포인트 사용
-      const params = new URLSearchParams()
-      selectedUserIds.value.forEach(id => params.append('userIds', id))
-      params.append('effectCode', selectedEffectCode.value)
-      params.append('source', effectSource.value)
+    const params = new URLSearchParams()
+    selectedUserIds.value.forEach(id => params.append('publicIds', id))
+    selectedEffectCodes.value.forEach(code => params.append('effectCodes', code))
+    params.append('source', effectSource.value)
 
-      const res = await axios.post('/api/users/admin/batch/grant-effect', null, {
-        params: params
-      })
-      const data = res.data.data
-      grantMessage.value = `✅ ${data.message} (총 요청: ${data.totalRequested}명)`
-    }
-
-    selectedUserIds.value = []
-    selectedEffectCode.value = ''
-    searchedUsers.value = []
-    searchUserInput.value = ''
+    const res = await axios.post('/api/users/admin/batch/grant-effect', null, { params })
+    const data = res.data.data
+    grantMessage.value = `✅ 지급 완료 — 신규 지급: ${data.successCount}건 / 이미 보유: ${data.alreadyOwned}건 (${data.totalRequested}명 × ${data.effectCount}개 요청)`
+    resetSelection()
   } catch (e) {
     grantMessage.value = `❌ 지급 실패: ${e.response?.data?.message || e.message}`
   } finally {
     isGranting.value = false
+  }
+}
+
+// 이펙트 회수 (배치 엔드포인트 통일)
+const revokeEffectBatch = async () => {
+  if (!canExecute.value) { alert('사용자와 이펙트를 선택해주세요.'); return }
+  if (!confirm(`${selectedUserIds.value.length}명에게서 ${selectedEffectCodes.value.length}개 이펙트를 회수하시겠습니까?`)) return
+
+  isRevoking.value = true
+  grantMessage.value = ''
+  try {
+    const params = new URLSearchParams()
+    selectedUserIds.value.forEach(id => params.append('publicIds', id))
+    selectedEffectCodes.value.forEach(code => params.append('effectCodes', code))
+
+    const res = await axios.delete('/api/users/admin/batch/revoke-effect', { params })
+    const data = res.data.data
+    grantMessage.value = `✅ 회수 완료 — 회수됨: ${data.successCount}건 / 미보유: ${data.notOwned}건 (${data.totalRequested}명 × ${data.effectCount}개 요청)`
+    resetSelection()
+  } catch (e) {
+    grantMessage.value = `❌ 회수 실패: ${e.response?.data?.message || e.message}`
+  } finally {
+    isRevoking.value = false
   }
 }
 
@@ -525,57 +622,8 @@ onMounted(fetchInitialData)
         <div v-if="filteredRules.length === 0 && !loading" class="empty-state-m">표시할 데이터가 없습니다.</div>
       </div>
 
-      <!-- 등급별 효과 미리보기 -->
-      <section v-if="userProfile" class="admin-section preview-section mt-40">
-        <div class="section-header">
-          <h3>✨ 등급별 효과 미리보기</h3>
-          <p class="section-desc">현재 계정(@{{ userProfile.username }}) 기준 출력</p>
-        </div>
-
-        <!-- 특수 효과 샌드박스 (아코디언 형식) -->
-        <div class="effect-sandbox-accordion">
-          <div class="accordion-header" @click="isEffectAccordionOpen = !isEffectAccordionOpen">
-            <span class="a-icon">🪄</span>
-            <div class="a-text-group">
-              <span class="a-title">본인에게 효과 즉시 적용 테스트</span>
-              <span class="a-subtitle">다양한 효과를 선택해 실시간으로 확인해보세요.</span>
-            </div>
-            <span class="a-arrow">{{ isEffectAccordionOpen ? '▼' : '▲' }}</span>
-          </div>
-
-          <Transition name="fade-slide">
-            <div v-if="isEffectAccordionOpen" class="accordion-body">
-              <div class="effect-chips">
-                <button 
-                  v-for="eff in specialEffects" :key="eff.id"
-                  class="chip-btn-v3" :class="{ active: userProfile.equippedEffect === eff.id }"
-                  @click="updateEffect(eff.id)"
-                >
-                  {{ eff.name }}
-                </button>
-              </div>
-            </div>
-          </Transition>
-        </div>
-
-        <div class="tier-preview-grid">
-          <div v-for="lv in previewLevels" :key="lv" class="preview-item">
-            <span class="preview-label">Lv.{{ lv }}</span>
-            <AnimatedNickname
-              :nickname="userProfile.nickname || userProfile.username"
-              :level="lv"
-              :exp="lv * lv * 50 - 1"
-              :badges="activityData?.badges"
-              :show-effects="true"
-              :equipped-effect="userProfile.equippedEffect"
-              tooltip-direction="top"
-              :is-ellipsis="(userProfile?.nickname || userProfile?.username || '').length >= 6"
-            />          </div>
-        </div>
-      </section>
-
       <!-- 배지 카드 미리보기 (실제 규칙 기반) -->
-      <section class="admin-section preview-section">
+      <section class="admin-section preview-section" style="margin-top: 40px;">
         <div class="section-header">
           <h3>💳 카드 미리보기</h3>
           <p class="section-desc">{{ selectedType === 'ALL' ? '배지 타입을 선택하면 미리보기가 표시됩니다.' : getTypeLabel(selectedType) + ' 기준 디자인 프리뷰' }}</p>
@@ -612,112 +660,191 @@ onMounted(fetchInitialData)
       </section>
     </div>
 
-    <!-- [시니어 조치] 효과 관리 탭 -->
+    <!-- 효과 관리 탭 -->
     <div v-if="activeTab === 'effects'" class="main-content-scrollable scrollable">
-      <section class="admin-section effects-section">
-        <div class="section-header">
-          <h3>✨ 사용자 이펙트 지급</h3>
-          <p class="section-desc">사용자에게 이펙트를 지급합니다 (이벤트, 베타테스터, 구매 등)</p>
-        </div>
+      <div class="effect-layout">
 
-        <div class="effect-grant-container">
-          <!-- 사용자 검색 -->
-          <div class="grant-section">
-            <div class="section-title">1️⃣ 사용자 선택</div>
-            <div class="search-input-wrapper">
-              <input
-                v-model="searchUserInput"
-                @input="searchUsers"
-                placeholder="사용자 이름, 이메일, ID로 검색"
-                class="search-input"
+        <!-- 등급별 효과 미리보기 -->
+        <section v-if="userProfile" class="admin-section preview-section mt-40">
+          <div class="section-header">
+            <h3>✨ 등급별 효과 미리보기</h3>
+            <p class="section-desc">현재 계정(@{{ userProfile.username }}) 기준 출력</p>
+          </div>
+
+          <!-- 특수 효과 샌드박스 (아코디언 형식) -->
+          <div class="effect-sandbox-accordion">
+            <div class="accordion-header" @click="isEffectAccordionOpen = !isEffectAccordionOpen">
+              <span class="a-icon">🪄</span>
+              <div class="a-text-group">
+                <span class="a-title">본인에게 효과 즉시 적용 테스트</span>
+                <span class="a-subtitle">다양한 효과를 선택해 실시간으로 확인해보세요.</span>
+              </div>
+              <span class="a-arrow">{{ isEffectAccordionOpen ? '▼' : '▲' }}</span>
+            </div>
+
+            <Transition name="fade-slide">
+              <div v-if="isEffectAccordionOpen" class="accordion-body">
+                <div class="effect-chips">
+                  <button
+                    v-for="eff in specialEffects" :key="eff.id"
+                    class="chip-btn-v3" :class="{ active: userProfile.equippedEffect === eff.id }"
+                    @click="updateEffect(eff.id)"
+                  >
+                    {{ eff.name }}
+                  </button>
+                </div>
+              </div>
+            </Transition>
+          </div>
+
+          <div class="tier-preview-grid">
+            <div v-for="lv in previewLevels" :key="lv" class="preview-item">
+              <span class="preview-label">Lv.{{ lv }}</span>
+              <AnimatedNickname
+                :nickname="userProfile.nickname || userProfile.username"
+                :level="lv"
+                :exp="lv * lv * 50 - 1"
+                :badges="activityData?.badges"
+                :show-effects="true"
+                :equipped-effect="userProfile.equippedEffect"
+                tooltip-direction="top"
+                :is-ellipsis="(userProfile?.nickname || userProfile?.username || '').length >= 6"
               />
             </div>
-
-            <!-- 검색 결과 -->
-            <div v-if="searchedUsers.length > 0" class="search-results">
-              <div
-                v-for="user in searchedUsers"
-                :key="user.id"
-                class="user-item"
-                :class="{ selected: selectedUserIds.includes(user.id) }"
-                @click="toggleUserSelect(user.id)"
-              >
-                <input
-                  type="checkbox"
-                  :checked="selectedUserIds.includes(user.id)"
-                  readonly
-                  class="user-checkbox"
-                />
-                <div class="user-info">
-                  <div class="user-name">{{ user.nickname || user.username }}</div>
-                  <div class="user-meta">{{ user.email }} (Lv.{{ user.level }})</div>
-                </div>
-              </div>
-            </div>
-
-            <div v-if="searchUserInput && searchedUsers.length === 0" class="empty-search">
-              검색 결과가 없습니다.
-            </div>
-
-            <!-- 선택된 사용자 목록 -->
-            <div v-if="selectedUserIds.length > 0" class="selected-users">
-              <div class="selected-header">선택된 사용자 ({{ selectedUserIds.length }}명)</div>
-              <div class="selected-chips">
-                <div
-                  v-for="userId in selectedUserIds"
-                  :key="userId"
-                  class="selected-chip"
-                >
-                  {{ searchedUsers.find(u => u.id === userId)?.nickname || `User ${userId}` }}
-                  <button @click="toggleUserSelect(userId)" class="chip-close">✕</button>
-                </div>
-              </div>
-            </div>
           </div>
+        </section>
 
-          <!-- 이펙트 선택 -->
-          <div class="grant-section">
-            <div class="section-title">2️⃣ 이펙트 선택</div>
-            <div class="form-row">
-              <div class="form-group">
-                <label>지급할 이펙트</label>
-                <select v-model="selectedEffectCode" class="form-select">
-                  <option value="">-- 선택해주세요 --</option>
-                  <option v-for="eff in specialEffects" :key="eff.id" :value="eff.id">
-                    {{ eff.name }}
-                  </option>
-                </select>
-              </div>
-              <div class="form-group">
-                <label>지급 사유</label>
-                <select v-model="effectSource" class="form-select">
-                  <option value="EVENT">이벤트</option>
-                  <option value="BETA">베타테스터</option>
-                  <option value="SHOP">상점 구매</option>
-                  <option value="WELCOME">신규 가입 보너스</option>
-                </select>
-              </div>
-            </div>
-          </div>
-
-          <!-- 지급 버튼 -->
-          <div class="grant-section">
-            <div class="section-title">3️⃣ 일괄 지급 실행</div>
-            <button
-              @click="grantEffectBatch"
-              :disabled="selectedUserIds.length === 0 || !selectedEffectCode || isGranting"
-              class="btn-grant"
-            >
-              {{ isGranting ? '지급 중...' : `${selectedUserIds.length}명에게 지급하기` }}
+        <!-- 1️⃣ 사용자 검색 & 선택 -->
+        <section class="effect-panel">
+          <div class="effect-panel-header">
+            <span class="effect-panel-title">1️⃣ 사용자 선택</span>
+            <button class="btn-select-all" @click="selectAllUsers" :disabled="isLoadingAllUsers">
+              {{ isLoadingAllUsers ? '로딩 중...' : (searchUserInput ? `검색된 ${searchedUsers.length}명 전체선택` : '모든 사용자 전체선택') }}
             </button>
+          </div>
 
-            <!-- 지급 결과 메시지 -->
-            <div v-if="grantMessage" class="grant-message" :class="{ success: grantMessage.includes('✅'), error: grantMessage.includes('❌') }">
-              {{ grantMessage }}
+          <input
+            v-model="searchUserInput"
+            @input="searchUsers"
+            placeholder="이름, 이메일, ID 검색 (탈퇴 유저 제외)"
+            class="search-input"
+          />
+
+          <!-- 검색 결과 -->
+          <div v-if="searchedUsers.length > 0" class="search-results">
+            <div class="select-all-row" @click="toggleSelectAllSearched">
+              <input type="checkbox" :checked="isAllSearchedSelected" readonly class="user-checkbox" />
+              <span class="select-all-label">검색 결과 전체 선택 ({{ searchedUsers.length }}명)</span>
+            </div>
+            <div
+              v-for="user in searchedUsers"
+              :key="user.publicId"
+              class="user-item"
+              :class="{ selected: !!selectedUsersData[user.publicId] }"
+              @click="toggleUserSelect(user)"
+            >
+              <input type="checkbox" :checked="!!selectedUsersData[user.publicId]" readonly class="user-checkbox" />
+              <div class="user-info">
+                <div class="user-name">{{ user.nickname || user.username }}</div>
+                <div class="user-meta">{{ user.email }} (Lv.{{ user.level }})</div>
+                <div v-if="user.ownedEffectCodes?.length > 0" class="user-effects">
+                  <span
+                    v-for="code in user.ownedEffectCodes" :key="code"
+                    class="effect-chip-small"
+                    :class="{ matched: selectedEffectCodes.includes(code) }"
+                  >{{ effectLabel(code) }}</span>
+                </div>
+                <div v-else class="user-no-effect">이펙트 없음</div>
+              </div>
             </div>
           </div>
-        </div>
-      </section>
+          <div v-else-if="searchUserInput" class="empty-search">검색 결과가 없습니다.</div>
+
+          <!-- 선택된 사용자 카드 패널 -->
+          <div v-if="selectedUsersList.length > 0" class="selected-panel">
+            <div class="selected-panel-header">
+              선택된 사용자 <b>{{ selectedUsersList.length }}명</b>
+              <button class="btn-clear-all" @click="selectedUsersData = {}">전체 해제</button>
+            </div>
+
+            <!-- 50명 이하: 카드 뷰 -->
+            <div v-if="selectedUsersList.length <= 50" class="selected-cards">
+              <div v-for="user in selectedUsersList" :key="user.publicId" class="user-card">
+                <div class="card-top">
+                  <span class="card-name">{{ user.nickname || user.username }}</span>
+                  <button class="card-remove" @click="removeUserFromSelection(user.publicId)">✕</button>
+                </div>
+                <div class="card-effects">
+                  <template v-if="user.ownedEffectCodes?.length > 0">
+                    <span
+                      v-for="code in user.ownedEffectCodes" :key="code"
+                      class="effect-chip-small"
+                      :class="{ matched: selectedEffectCodes.includes(code) }"
+                    >{{ effectLabel(code) }}</span>
+                  </template>
+                  <span v-else class="user-no-effect">없음</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- 50명 초과: 요약만 -->
+            <div v-else class="selected-summary">
+              {{ selectedUsersList.length }}명 선택됨 — 이펙트 칩은 50명 이하일 때만 표시됩니다.
+            </div>
+          </div>
+        </section>
+
+        <!-- 2️⃣ 이펙트 복수 선택 -->
+        <section class="effect-panel">
+          <div class="effect-panel-header">
+            <span class="effect-panel-title">2️⃣ 이펙트 선택</span>
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <span class="selected-count-badge" v-if="selectedEffectCodes.length > 0">{{ selectedEffectCodes.length }}개 선택</span>
+              <button class="btn-select-all" @click="toggleSelectAllEffects">
+                {{ isAllEffectsSelected ? '전체 해제' : '전체 선택' }}
+              </button>
+            </div>
+          </div>
+          <div class="effects-toggle-grid">
+            <button
+              v-for="eff in specialEffects.filter(e => e.id)"
+              :key="eff.id"
+              class="effect-toggle-btn"
+              :class="{ active: selectedEffectCodes.includes(eff.id), 'is-level': getLevelUnlock(eff.id) !== null }"
+              @click="toggleEffectSelect(eff.id)"
+            >
+              <span class="effect-btn-name">{{ eff.name }}</span>
+              <span v-if="getLevelUnlock(eff.id) !== null" class="level-badge">Lv.{{ getLevelUnlock(eff.id) }}</span>
+            </button>
+          </div>
+        </section>
+
+        <!-- 3️⃣ 지급 사유 & 실행 -->
+        <section class="effect-panel">
+          <div class="effect-panel-title">3️⃣ 실행</div>
+          <div class="form-group" style="margin-bottom: 15px;">
+            <label>지급 사유 <span class="label-hint">(회수 시 무시됨)</span></label>
+            <select v-model="effectSource" class="form-select">
+              <option value="EVENT">이벤트</option>
+              <option value="BETA">베타테스터</option>
+              <option value="SHOP">상점 구매</option>
+              <option value="WELCOME">신규 가입 보너스</option>
+            </select>
+          </div>
+          <div class="action-btn-row">
+            <button @click="grantEffectBatch" :disabled="!canExecute || isGranting || isRevoking" class="btn-grant">
+              {{ isGranting ? '지급 중...' : `${selectedUserIds.length}명 × ${selectedEffectCodes.length}개 지급` }}
+            </button>
+            <button @click="revokeEffectBatch" :disabled="!canExecute || isGranting || isRevoking" class="btn-revoke">
+              {{ isRevoking ? '회수 중...' : `${selectedUserIds.length}명 × ${selectedEffectCodes.length}개 회수` }}
+            </button>
+          </div>
+          <div v-if="grantMessage" class="grant-message" :class="{ success: grantMessage.includes('✅'), error: grantMessage.includes('❌') }">
+            {{ grantMessage }}
+          </div>
+        </section>
+
+      </div>
     </div>
   </div>
 </template>
@@ -937,9 +1064,9 @@ code { background: var(--hover-bg); padding: 2px 6px; border-radius: 4px; font-f
   .badge-tip-set { padding: 6px 10px; border-radius: 8px; margin-bottom: 8px; font-size: 0.7rem; }
   .badge-footer-set { font-size: 0.65rem; }
 
-  .tier-preview-grid { 
-    grid-template-columns: repeat(2, 1fr) !important; 
-    gap: 10px; 
+  .tier-preview-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 10px;
     display: grid !important;
   }
   .preview-item { padding: 10px; border-radius: 10px; min-width: 0; }
@@ -971,51 +1098,81 @@ code { background: var(--hover-bg); padding: 2px 6px; border-radius: 4px; font-f
 .chip-btn:hover { border-color: var(--link-color); color: var(--link-color); }
 .chip-btn.active { background: var(--link-color); color: white; border-color: var(--link-color); }
 
-/* --- [시니어 조치] 효과 관리 섹션 --- */
-.effects-section { background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 16px; padding: 25px; }
-.effect-grant-container { display: flex; flex-direction: column; gap: 30px; }
-.grant-section { background: var(--hover-bg); padding: 20px; border-radius: 12px; border: 1px solid var(--border-color); }
-.section-title { font-size: 0.95rem; font-weight: 900; color: var(--text-primary); margin-bottom: 15px; }
-
-.search-input-wrapper { margin-bottom: 15px; }
-.search-input { width: 100%; padding: 12px 15px; border: 1px solid var(--border-color); border-radius: 10px; background: var(--bg-color); color: var(--text-primary); font-size: 0.9rem; outline: none; transition: border 0.2s; }
+/* --- 효과 관리 탭 레이아웃 --- */
+.effect-layout { display: flex; flex-direction: column; gap: 20px; padding-bottom: 40px; }
+.effect-panel { background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 16px; padding: 20px; }
+.effect-panel-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+.effect-panel-title { font-size: 0.95rem; font-weight: 900; color: var(--text-primary); display: block; margin-bottom: 14px; }
+.selected-count-badge { font-size: 0.78rem; font-weight: 800; padding: 3px 10px; border-radius: 20px; background: var(--link-color); color: white; }
+.btn-select-all { height: 30px; padding: 0 12px; border-radius: 8px; border: 1px solid var(--border-color); background: var(--hover-bg); color: var(--text-secondary); font-size: 0.75rem; font-weight: 800; cursor: pointer; transition: all 0.2s; white-space: nowrap; }
+.btn-select-all:hover:not(:disabled) { border-color: var(--link-color); color: var(--link-color); }
+.btn-select-all:disabled { opacity: 0.5; cursor: not-allowed; }
+.search-input { width: 100%; padding: 11px 14px; border: 1px solid var(--border-color); border-radius: 10px; background: var(--bg-color); color: var(--text-primary); font-size: 0.9rem; outline: none; transition: border 0.2s; box-sizing: border-box; margin-bottom: 12px; }
 .search-input:focus { border-color: var(--link-color); }
-
-.search-results { max-height: 300px; overflow-y: auto; border: 1px solid var(--border-color); border-radius: 10px; background: var(--bg-color); margin-bottom: 15px; }
-.user-item { padding: 12px 15px; display: flex; align-items: center; gap: 12px; cursor: pointer; transition: background 0.2s; border-bottom: 1px solid var(--border-color); }
+.search-results { max-height: 280px; overflow-y: auto; border: 1px solid var(--border-color); border-radius: 10px; background: var(--bg-color); margin-bottom: 16px; }
+.select-all-row { padding: 10px 14px; display: flex; align-items: center; gap: 10px; cursor: pointer; background: var(--hover-bg); border-bottom: 2px solid var(--border-color); transition: background 0.2s; }
+.select-all-row:hover { background: var(--divider-color); }
+.select-all-label { font-size: 0.82rem; font-weight: 900; color: var(--text-primary); }
+.user-item { padding: 10px 14px; display: flex; align-items: flex-start; gap: 10px; cursor: pointer; transition: background 0.2s; border-bottom: 1px solid var(--border-color); }
+.user-item:last-child { border-bottom: none; }
 .user-item:hover { background: var(--hover-bg); }
-.user-item.selected { background: rgba(56, 161, 105, 0.08); }
-.user-checkbox { width: 18px; height: 18px; cursor: pointer; }
+.user-item.selected { background: rgba(56, 161, 105, 0.07); }
+.user-checkbox { width: 16px; height: 16px; cursor: pointer; margin-top: 3px; flex-shrink: 0; }
 .user-info { flex: 1; min-width: 0; }
-.user-name { font-weight: 800; font-size: 0.9rem; color: var(--text-primary); }
-.user-meta { font-size: 0.8rem; color: var(--text-secondary); }
-
-.empty-search { padding: 20px; text-align: center; color: var(--text-secondary); }
-
-.selected-users { margin-top: 15px; padding: 12px; background: var(--bg-color); border-radius: 10px; border: 1px solid var(--border-color); }
-.selected-header { font-size: 0.85rem; font-weight: 800; color: var(--text-secondary); margin-bottom: 10px; }
-.selected-chips { display: flex; flex-wrap: wrap; gap: 8px; }
-.selected-chip { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; background: var(--link-color); color: white; border-radius: 6px; font-size: 0.85rem; font-weight: 700; }
-.chip-close { background: none; border: none; color: white; font-size: 1rem; cursor: pointer; padding: 0; }
-
-.form-row { display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px; }
+.user-name { font-weight: 800; font-size: 0.88rem; color: var(--text-primary); }
+.user-meta { font-size: 0.76rem; color: var(--text-secondary); margin-bottom: 4px; }
+.user-effects { display: flex; flex-wrap: wrap; gap: 3px; }
+.effect-chip-small { font-size: 0.65rem; font-weight: 700; padding: 2px 6px; border-radius: 4px; background: rgba(52, 152, 219, 0.1); color: var(--link-color); border: 1px solid rgba(52, 152, 219, 0.25); white-space: nowrap; transition: all 0.2s; }
+.effect-chip-small.matched { background: rgba(229, 62, 62, 0.12); color: #e53e3e; border-color: rgba(229, 62, 62, 0.4); font-weight: 900; }
+.user-no-effect { font-size: 0.65rem; color: var(--text-muted); opacity: 0.6; }
+.empty-search { padding: 20px; text-align: center; color: var(--text-secondary); font-size: 0.85rem; }
+.selected-panel { margin-top: 4px; background: var(--hover-bg); border: 1px solid var(--border-color); border-radius: 12px; overflow: hidden; }
+.selected-panel-header { padding: 10px 14px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--border-color); font-size: 0.82rem; color: var(--text-secondary); }
+.selected-panel-header b { color: var(--text-primary); }
+.btn-clear-all { background: none; border: 1px solid var(--border-color); color: var(--text-secondary); font-size: 0.72rem; font-weight: 700; padding: 3px 8px; border-radius: 6px; cursor: pointer; }
+.btn-clear-all:hover { border-color: #e53e3e; color: #e53e3e; }
+.selected-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 8px; padding: 10px; }
+.user-card { background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 10px; padding: 10px; }
+.card-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 7px; }
+.card-name { font-size: 0.82rem; font-weight: 800; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.card-remove { background: none; border: none; color: var(--text-muted); font-size: 0.8rem; cursor: pointer; padding: 0; flex-shrink: 0; }
+.card-remove:hover { color: #e53e3e; }
+.card-effects { display: flex; flex-wrap: wrap; gap: 3px; }
+.selected-summary { padding: 14px; font-size: 0.82rem; color: var(--text-secondary); text-align: center; }
+.effects-toggle-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 6px; }
+.effect-toggle-btn { padding: 8px 10px; border-radius: 8px; border: 1px solid var(--border-color); background: var(--bg-color); color: var(--text-secondary); font-size: 0.75rem; font-weight: 700; cursor: pointer; transition: all 0.18s; text-align: left; display: flex; align-items: center; justify-content: space-between; gap: 6px; }
+.effect-toggle-btn:hover { border-color: var(--link-color); color: var(--link-color); }
+.effect-toggle-btn.active { background: rgba(52, 152, 219, 0.12); border-color: var(--link-color); color: var(--link-color); font-weight: 900; }
+.effect-toggle-btn.is-level { border-style: dashed; }
+.effect-btn-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.level-badge { flex-shrink: 0; font-size: 0.6rem; font-weight: 900; padding: 1px 5px; border-radius: 4px; background: rgba(251, 191, 36, 0.15); color: #d97706; border: 1px solid rgba(251, 191, 36, 0.4); }
+.action-btn-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 10px; }
+.btn-grant { width: 100%; padding: 12px 16px; background: var(--link-color); color: white; border: none; border-radius: 10px; font-weight: 900; font-size: 0.88rem; cursor: pointer; transition: all 0.2s; }
+.btn-grant:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(52, 152, 219, 0.3); }
+.btn-grant:disabled { opacity: 0.5; cursor: not-allowed; }
+.btn-revoke { width: 100%; padding: 12px 16px; background: #e53e3e; color: white; border: none; border-radius: 10px; font-weight: 900; font-size: 0.88rem; cursor: pointer; transition: all 0.2s; }
+.btn-revoke:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(229, 62, 62, 0.3); }
+.btn-revoke:disabled { opacity: 0.5; cursor: not-allowed; }
 .form-group { display: flex; flex-direction: column; gap: 8px; }
 .form-group label { font-size: 0.8rem; font-weight: 900; color: var(--text-secondary); text-transform: uppercase; }
+.label-hint { font-size: 0.72rem; font-weight: 600; color: var(--text-muted); text-transform: none; opacity: 0.75; }
 .form-select { width: 100%; padding: 10px 12px; border: 1px solid var(--border-color); border-radius: 10px; background: var(--bg-color); color: var(--text-primary); font-size: 0.9rem; font-weight: 600; outline: none; transition: border 0.2s; appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%234a5568' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 10px center; background-size: 14px; padding-right: 30px; }
 .form-select:focus { border-color: var(--link-color); }
-
-.btn-grant { width: 100%; padding: 12px 20px; background: var(--link-color); color: white; border: none; border-radius: 10px; font-weight: 900; font-size: 0.95rem; cursor: pointer; transition: all 0.2s; }
-.btn-grant:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(56, 161, 105, 0.3); }
-.btn-grant:disabled { opacity: 0.5; cursor: not-allowed; }
-
-.grant-message { margin-top: 15px; padding: 12px 15px; border-radius: 10px; font-weight: 800; text-align: center; }
+.grant-message { margin-top: 12px; padding: 11px 14px; border-radius: 10px; font-weight: 800; text-align: center; font-size: 0.88rem; }
 .grant-message.success { background: rgba(56, 161, 105, 0.1); color: #38a169; border: 1px solid rgba(56, 161, 105, 0.3); }
 .grant-message.error { background: rgba(255, 77, 79, 0.1); color: #ff4d4f; border: 1px solid rgba(255, 77, 79, 0.3); }
 
 @media (max-width: 768px) {
-  .form-row { grid-template-columns: 1fr; }
   .admin-tabs { flex-wrap: wrap; }
-  .effect-grant-container { gap: 20px; }
+  .action-btn-row { grid-template-columns: 1fr; }
+  .effects-toggle-grid { grid-template-columns: repeat(2, 1fr); }
+  .effect-toggle-btn { font-size: 0.62rem; padding: 6px 6px; gap: 3px; }
+  .effect-toggle-btn .effect-btn-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+  .effect-toggle-btn .level-badge { flex-shrink: 0; font-size: 0.55rem; padding: 1px 3px; }
+  .selected-cards { grid-template-columns: repeat(2, 1fr); }
+  .effect-chips { max-height: 200px; overflow-y: auto; scrollbar-width: thin; }
+  .effect-chips::-webkit-scrollbar { width: 4px; }
+  .effect-chips::-webkit-scrollbar-thumb { background: var(--border-color); border-radius: 10px; }
 
   .tab-header { padding: 12px 5px 15px; gap: 10px; }
   .tab-controls { display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px; }
