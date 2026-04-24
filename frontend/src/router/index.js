@@ -3,6 +3,7 @@ import { useAuthStore } from '@/stores/auth';
 import { useUiStore } from '@/stores/ui';
 import HomeView from '../views/HomeView.vue';
 import OAuth2RedirectHandler from '../views/OAuth2RedirectHandler.vue';
+import { weddingPublicRoutes, weddingAdminRoutes } from '@/wedding/router.js';
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -82,6 +83,9 @@ const router = createRouter({
       component: () => import('../views/PostWriteView.vue'),
       meta: { requiresAuth: true }
     },
+    // wedding 공개 라우트 (하객용 청첩장 뷰어)
+    ...weddingPublicRoutes,
+
     {
       path: '/withdrawal-success',
       name: 'withdrawalSuccess',
@@ -156,7 +160,9 @@ const router = createRouter({
           path: 'about',
           name: 'adminAbout',
           component: () => import('../views/admin/AboutAdminView.vue')
-        }
+        },
+        // wedding 어드민 라우트
+        ...weddingAdminRoutes
       ]
     },
     // 존재하지 않는 모든 경로는 404 페이지로 안내
