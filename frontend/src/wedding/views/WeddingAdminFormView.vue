@@ -162,8 +162,8 @@
         <button type="button" class="btn-add-account" @click="addAccount">+ 계좌 추가</button>
       </div>
 
-      <!-- 사진 업로드 (수정 시에만) -->
-      <div class="form-section" v-if="isEdit">
+      <!-- 갤러리 사진 -->
+      <div class="form-section">
         <h3 class="section-title">갤러리 사진</h3>
         
         <div class="photo-grid">
@@ -336,12 +336,9 @@ export default {
         })
 
         if (this.isEdit) {
-          await axios.put(`/api/admin/wedding/${this.$route.params.id}`, formData, {
-            headers: { 'Content-Type': 'multipart/form-data' },
-            timeout: 300000 // [시니어 조치] 대용량 파일 및 다중 파일 업로드를 위해 5분으로 상향
-          })
+          await axios.put(`/api/admin/wedding/${this.$route.params.id}`, formData, { timeout: 300000 })
         } else {
-          await axios.post('/api/admin/wedding', payload, { timeout: 300000 })
+          await axios.post('/api/admin/wedding', formData, { timeout: 300000 })
         }
         
         // 미리보기 URL 메모리 해제
@@ -457,9 +454,7 @@ export default {
       try {
         const formData = new FormData()
         formData.append('file', file)
-        const res = await axios.post(`/api/admin/wedding/${this.$route.params.id}/music`, formData, {
-          headers: { 'Content-Type': 'multipart/form-data' }
-        })
+        const res = await axios.post(`/api/admin/wedding/${this.$route.params.id}/music`, formData)
         this.form.musicUrl = res.data.data
       } catch {
         alert('음악 업로드에 실패했습니다.')
