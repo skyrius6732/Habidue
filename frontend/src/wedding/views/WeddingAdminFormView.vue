@@ -167,8 +167,20 @@
         <h3 class="section-title">갤러리 사진</h3>
         
         <div class="photo-grid">
-          <!-- 서버에 이미 저장된 사진들 -->
-          <div v-for="photo in currentPhotos" :key="photo.id" class="photo-item">
+          <!-- 서버에 이미 저장된 사진들 (드래그로 순서 변경) -->
+          <div
+            v-for="(photo, idx) in currentPhotos"
+            :key="photo.id"
+            class="photo-item"
+            :class="{ 'drag-over': dragOverIdx === idx }"
+            draggable="true"
+            @dragstart="dragStart(idx)"
+            @dragover.prevent="dragOverIdx = idx"
+            @dragleave="dragOverIdx = null"
+            @drop.prevent="drop(idx)"
+            @dragend="dragOverIdx = null"
+          >
+            <span class="drag-handle">⠿</span>
             <img :src="photo.imageUrl" class="thumb-img" />
             <button type="button" class="btn-delete-photo" @click="deletePhoto(photo)">✕</button>
           </div>
@@ -251,12 +263,14 @@ export default {
   data() {
     return {
       form: defaultForm(),
-      currentPhotos: [], // 서버에 이미 저장된 사진들
-      deletedPhotoIds: [], // 삭제 대기 중인 기존 사진 ID들
-      newFiles: [],      // 새로 선택한 파일 객체들
-      previews: [],      // 새로 선택한 파일들의 브라우저 미리보기 URL
+      currentPhotos: [],
+      deletedPhotoIds: [],
+      newFiles: [],
+      previews: [],
       saving: false,
       musicUploading: false,
+      dragIdx: null,
+      dragOverIdx: null,
     }
   },
   computed: {
@@ -447,6 +461,26 @@ export default {
       this.newFiles.splice(idx, 1)
       this.previews.splice(idx, 1)
     },
+    dragStart(idx) {
+      this.dragIdx = idx
+    },
+    async drop(toIdx) {
+      if (this.dragIdx === null || this.dragIdx === toIdx) return
+      const moved = this.currentPhotos.splice(this.dragIdx, 1)[0]
+      this.currentPhotos.splice(toIdx, 0, moved)
+      this.dragIdx = null
+      this.dragOverIdx = null
+      if (this.isEdit) {
+        try {
+          await axios.put(
+            `/api/admin/wedding/${this.$route.params.id}/photos/order`,
+            this.currentPhotos.map(p => p.id)
+          )
+        } catch {
+          alert('순서 저장에 실패했습니다.')
+        }
+      }
+    },
     async uploadMusic(e) {
       const file = e.target.files[0]
       if (!file) return
@@ -506,8 +540,11 @@ export default {
 .btn-add-account { background: #fdf0f0; color: #c8a4a4; border: 1px dashed #e0c0c0; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-size: 14px; width: 100%; }
 
 .photo-grid { display: flex; flex-direction: row; flex-wrap: wrap; gap: 12px; margin-bottom: 16px; }
-.photo-item { position: relative; flex-shrink: 0; }
-.new-preview { border: 2px solid #c8a4a4; border-radius: 10px; padding: 2px; }
+.photo-item { position: relative; flex-shrink: 0; cursor: grab; user-select: none; }
+.photo-item:active { cursor: grabbing; }
+.photo-item.drag-over { outline: 2px dashed #c8a4a4; border-radius: 10px; opacity: 0.7; }
+.drag-handle { position: absolute; top: 4px; left: 4px; color: #fff; font-size: 14px; z-index: 2; text-shadow: 0 1px 3px rgba(0,0,0,0.5); pointer-events: none; }
+.new-preview { border: 2px solid #c8a4a4; border-radius: 10px; padding: 2px; cursor: default; }
 .new-badge { position: absolute; bottom: 4px; left: 4px; background: #c8a4a4; color: #fff; font-size: 9px; padding: 2px 4px; border-radius: 4px; font-weight: bold; }
 .thumb-img { width: 100px; height: 100px; object-fit: cover; border-radius: 8px; display: block; }
 .btn-delete-photo { position: absolute; top: -6px; right: -6px; background: #666; color: #fff; border: 2px solid #fff; border-radius: 50%; width: 24px; height: 24px; font-size: 12px; cursor: pointer; display: flex; align-items: center; justify-content: center; z-index: 2; }
