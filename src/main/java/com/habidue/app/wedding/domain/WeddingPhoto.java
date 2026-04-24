@@ -24,4 +24,8 @@ public class WeddingPhoto {
 
     @Column(nullable = false)
     private int orderNum;
+
+    public void updateOrderNum(int orderNum) {
+        this.orderNum = orderNum;
+    }
 }

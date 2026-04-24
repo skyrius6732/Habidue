@@ -67,6 +67,14 @@ public class WeddingAdminController {
         return ApiResponse.success(weddingService.uploadPhotos(id, files));
     }
 
+    @PutMapping("/{id}/photos/order")
+    public ResponseEntity<ApiResponse<Void>> updatePhotoOrder(
+            @PathVariable Long id,
+            @RequestBody List<Long> photoIds) {
+        weddingService.updatePhotoOrder(id, photoIds);
+        return ApiResponse.success(null);
+    }
+
     @DeleteMapping("/{invitationId}/photos/{photoId}")
     public ResponseEntity<ApiResponse<Void>> deletePhoto(
             @PathVariable Long invitationId,

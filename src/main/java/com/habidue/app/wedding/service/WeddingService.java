@@ -136,6 +136,21 @@ public class WeddingService {
 
     // ===================== 어드민: 파일 처리 =====================
 
+    public void updatePhotoOrder(Long invitationId, List<Long> photoIds) {
+        getInvitationById(invitationId);
+        for (int i = 0; i < photoIds.size(); i++) {
+            photoRepository.findById(photoIds.get(i)).ifPresent(photo -> {
+                if (!photo.getInvitation().getId().equals(invitationId)) {
+                    throw new IllegalArgumentException("해당 청첩장의 사진이 아닙니다.");
+                }
+            });
+        }
+        for (int i = 0; i < photoIds.size(); i++) {
+            final int order = i;
+            photoRepository.findById(photoIds.get(i)).ifPresent(photo -> photo.updateOrderNum(order));
+        }
+    }
+
     public String uploadMusic(Long invitationId, MultipartFile file) throws IOException {
         getInvitationById(invitationId);
         List<String> urls = fileStorageService.upload(List.of(file), "wedding/music");
