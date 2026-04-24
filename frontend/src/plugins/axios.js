@@ -18,6 +18,9 @@ const instance = axios.create({
 // 요청 인터셉터: 모든 요청에 Access Token 주입
 instance.interceptors.request.use(
   (config) => {
+    if (config.data instanceof FormData) {
+      delete config.headers['Content-Type']
+    }
     const token = localStorage.getItem('accessToken')
     if (token) {
       // [시니어 조치] 비표준 문자(한글 등)가 포함된 경우 헤더 주입 시 브라우저 에러 발생 방지
