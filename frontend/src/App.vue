@@ -167,8 +167,10 @@ const handleNotiScroll = (e) => {
   }
 }
 
-const isFullMenuVisible = computed(() => authStore.isAuthenticated && !['home', 'withdrawalSuccess', 'blocked'].includes(route.name))
-const isLoginButtonVisible = computed(() => !authStore.isAuthenticated && !['home', 'withdrawalSuccess', 'blocked'].includes(route.name))
+const standaloneRoutes = ['weddingView']
+const isStandalone = computed(() => standaloneRoutes.includes(route.name))
+const isFullMenuVisible = computed(() => authStore.isAuthenticated && !['home', 'withdrawalSuccess', 'blocked', ...standaloneRoutes].includes(route.name))
+const isLoginButtonVisible = computed(() => !authStore.isAuthenticated && !['home', 'withdrawalSuccess', 'blocked', ...standaloneRoutes].includes(route.name))
 
 const scrollToTop = () => { window.scrollTo({ top: 0, behavior: 'smooth' }) }
 const handleScroll = () => { showTopBtn.value = window.pageYOffset > 400 }
@@ -230,7 +232,7 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <header class="app-header">
+  <header v-if="!isStandalone" class="app-header">
     <div class="header-content">
       <button v-if="isFullMenuVisible" class="hamburger-btn" @click="toggleMenu"><span class="bar"></span><span class="bar"></span><span class="bar"></span></button>
       <div class="header-left-group">
@@ -307,10 +309,10 @@ onUnmounted(() => {
 
   <!-- [시니어 조치] 모바일 전용 사이드바 메뉴 및 오버레이 -->
   <Transition name="fade">
-    <div v-if="isMenuOpen" class="sidebar-overlay" @click="toggleMenu"></div>
+    <div v-if="isMenuOpen && !isStandalone" class="sidebar-overlay" @click="toggleMenu"></div>
   </Transition>
   <Transition name="slide">
-    <aside v-if="isMenuOpen" class="app-sidebar insta-style">
+    <aside v-if="isMenuOpen && !isStandalone" class="app-sidebar insta-style">
       <div class="sidebar-inner">
         <div class="sidebar-header">
           <span class="sidebar-id">habidue_official</span>
@@ -412,9 +414,11 @@ onUnmounted(() => {
     </aside>
   </Transition>
 
-  <main class="app-main"><div class="content-wrapper"><RouterView /></div></main>
+  <main class="app-main">
+    <div :class="isStandalone ? '' : 'content-wrapper'"><RouterView /></div>
+  </main>
 
-  <Transition name="fade-top"><button v-if="showTopBtn" class="floating-top-btn" @click="scrollToTop"><div class="top-arrow-icon"><span class="arrow-line"></span><span class="arrow-line"></span></div></button></Transition>
+  <Transition name="fade-top"><button v-if="showTopBtn && !isStandalone" class="floating-top-btn" @click="scrollToTop"><div class="top-arrow-icon"><span class="arrow-line"></span><span class="arrow-line"></span></div></button></Transition>
 
   <!-- [시니어 조치] 실시간 알림 토스트 -->
   <Transition name="toast">

@@ -42,6 +42,9 @@
         <RouterLink to="/admin/about" class="nav-item" @click="isSidebarOpen = false">
           <span class="icon">📢</span> <span class="label">공지 및 패치 관리</span>
         </RouterLink>
+        <RouterLink to="/admin/wedding" class="nav-item" @click="isSidebarOpen = false">
+          <span class="icon">💍</span> <span class="label">모바일 청첩장</span>
+        </RouterLink>
       </nav>
       <div class="sidebar-footer">
         <RouterLink to="/notices" class="back-to-site">서비스로 돌아가기</RouterLink>
