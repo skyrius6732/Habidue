@@ -6,6 +6,7 @@ import com.habidue.app.domain.usernotice.UserNotice;
 import com.habidue.app.dto.ApiResponse;
 import com.habidue.app.dto.user.UserResponseDto;
 import com.habidue.app.repository.user.UserRepository;
+import com.habidue.app.repository.user.UserActivityStatsRepository;
 import com.habidue.app.repository.notice.UserNoticeRepository;
 import com.habidue.app.service.mail.ReportEmailService;
 import com.habidue.app.service.mail.ReportService;
@@ -36,6 +37,7 @@ import java.util.List;
 public class UserController {
 
     private final UserRepository userRepository;
+    private final UserActivityStatsRepository userActivityStatsRepository;
     private final UserNoticeRepository userNoticeRepository;
     private final ReportEmailService reportEmailService;
     private final ReportService reportService;
@@ -105,6 +107,9 @@ public class UserController {
         UserResponseDto dto = new UserResponseDto(user);
         // [시니어 조치] 사용자가 소유한 이펙트 목록 추가
         dto.setOwnedEffectCodes(userEffectService.getUserEffectCodes(user.getId()));
+        // 첫 글 작성 여부: totalPostCount > 0 이면 이미 작성함
+        Integer postCount = userActivityStatsRepository.getTotalPostCount(user.getId());
+        dto.setHasWrittenFirstPost(postCount != null && postCount > 0);
         return ApiResponse.success(dto);
     }
 

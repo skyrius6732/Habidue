@@ -106,6 +106,9 @@ public interface UserActivityStatsRepository extends JpaRepository<UserActivityS
     @Query("UPDATE UserActivityStats s SET s.totalAttendanceCount = s.totalAttendanceCount + 1 WHERE s.userId = :userId")
     void incrementAttendanceCount(@Param("userId") Long userId);
 
+    @Query("SELECT COALESCE(s.totalPostCount, 0) FROM UserActivityStats s WHERE s.userId = :userId")
+    Integer getTotalPostCount(@Param("userId") Long userId);
+
     // [시니어 조치] 원자적 생성 (이미 존재하면 무시)
     // clearAutomatically = true를 추가하여 영속성 컨텍스트와의 정합성 보장
     @Modifying(clearAutomatically = true)
