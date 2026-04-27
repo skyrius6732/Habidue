@@ -207,6 +207,7 @@
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useUiStore } from '@/stores/ui'
+import { useAuthStore } from '@/stores/auth'
 import axios from '@/plugins/axios'
 import PageHeader from '@/components/PageHeader.vue'
 import CommunitySidebar from '@/components/CommunitySidebar.vue'
@@ -215,6 +216,7 @@ import { ITEM_CONDITION } from '@/constants/postConstants'
 const route = useRoute()
 const router = useRouter()
 const uiStore = useUiStore()
+const authStore = useAuthStore()
 
 const editMode = ref(false)
 const loading = ref(false)
@@ -546,11 +548,20 @@ const submitPost = async () => {
     if (editMode.value && route.params.postId) {
       await axios.put(`/api/posts/${route.params.postId}`, payload);
       await uiStore.showAlert('소통글이 수정되었습니다.', '수정 완료');
+      router.back();
     } else {
       await axios.post('/api/posts', payload);
+      // 첫 글 이펙트 지급 등 변경된 사용자 정보를 즉시 반영
+      await authStore.fetchUserProfile();
+      // 첫 글 모달 재표시 방지: 응답값과 무관하게 클라이언트에서 확정
+      if (authStore.user) {
+        authStore.user.hasWrittenFirstPost = true;
+        localStorage.setItem('user', JSON.stringify(authStore.user));
+      }
       await uiStore.showAlert('소통글이 정상적으로 등록되었습니다.', '등록 완료');
+      // 작성한 글이 보이는 커뮤니티 통합광장으로 이동
+      router.push('/board');
     }
-    router.back();
   } catch (e) { 
     const errorMsg = e.response?.data?.message || '저장에 실패했습니다.';
     await uiStore.showAlert(errorMsg, '오류'); 

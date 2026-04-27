@@ -40,6 +40,7 @@ public class UserResponseDto {
     private String equippedEffect; // [시니어 조치] 장착 중인 특수 효과 코드 추가
     private boolean betaTester; // [시니어 조치] 베타테스터 여부 추가
     private List<String> ownedEffectCodes; // [시니어 조치] 사용자가 소유한 이펙트 목록
+    private boolean hasWrittenFirstPost; // 첫 글 작성 여부 (배너 노출 제어용)
 
     @JsonProperty("isOnline")
     private boolean isOnline; // 실시간 접속 여부 추가

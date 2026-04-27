@@ -41,6 +41,8 @@ import com.habidue.app.service.user.ExpService;
 import com.habidue.app.domain.user.ExpReason;
 import com.habidue.app.service.user.KarmaService;
 import com.habidue.app.service.ranking.RankingService;
+import com.habidue.app.service.user.UserEffectService;
+import com.habidue.app.domain.user.UserEffect.EffectSource;
 
 @Slf4j
 @Service
@@ -65,6 +67,7 @@ public class PostService {
     private final com.habidue.app.service.barter.BarterService barterService;
     private final StringRedisTemplate redisTemplate;
     private final jakarta.persistence.EntityManager entityManager;
+    private final UserEffectService userEffectService;
 
     private static final String LIKE_NOTI_COOLDOWN_KEY = "like:noti:cooldown:";
 
@@ -99,6 +102,7 @@ public class PostService {
         if (karmaService.isRestricted(author)) throw new IllegalArgumentException("활동 제한 상태입니다.");
         Notice notice = null;
         if (requestDto.getType() == PostType.NOTICE) notice = noticeRepository.findById(requestDto.getNoticeId()).orElseThrow();
+        boolean isBarter = requestDto.getType() == PostType.BARTER;
         Post post = Post.builder()
                 .title(requestDto.getTitle())
                 .content(requestDto.getContent())
@@ -108,13 +112,13 @@ public class PostService {
                 .regionTag(requestDto.getRegionTag())
                 .notice(notice)
                 .author(author)
-                .itemName(requestDto.getItemName())
-                .wantedItem(requestDto.getWantedItem())
-                .itemCondition(requestDto.getItemCondition())
-                .barterStatus(com.habidue.app.domain.barter.BarterStatus.TRADING)
-                .preferredMethod(requestDto.getPreferredMethod())
-                .preferredDate(requestDto.getPreferredDate())
-                .preferredTime(requestDto.getPreferredTime())
+                .itemName(isBarter ? requestDto.getItemName() : null)
+                .wantedItem(isBarter ? requestDto.getWantedItem() : null)
+                .itemCondition(isBarter ? requestDto.getItemCondition() : null)
+                .barterStatus(isBarter ? com.habidue.app.domain.barter.BarterStatus.TRADING : null)
+                .preferredMethod(isBarter ? requestDto.getPreferredMethod() : null)
+                .preferredDate(isBarter ? requestDto.getPreferredDate() : null)
+                .preferredTime(isBarter ? requestDto.getPreferredTime() : null)
                 .build();
         if (requestDto.getImageUrls() != null) {
             for (int i = 0; i < requestDto.getImageUrls().size(); i++) {
@@ -129,6 +133,9 @@ public class PostService {
         // [시니어 조치] 활동 통계 원자적 업데이트 (마이페이지 게시글 수 반영)
         // existsById -> save 패턴 대신 insertIgnore 사용 (StaleObjectStateException 방지)
         userActivityStatsRepository.insertIgnore(author.getId());
+        // 첫 글 여부 체크: incrementPostCount 전에 현재 카운트 확인 (0이면 첫 글)
+        Integer currentPostCount = userActivityStatsRepository.getTotalPostCount(author.getId());
+        boolean isFirstPost = (currentPostCount == null || currentPostCount == 0);
         userActivityStatsRepository.incrementPostCount(author.getId());
         if (requestDto.getType() == PostType.REVIEW) userActivityStatsRepository.incrementReviewPostCount(author.getId());
 
@@ -146,8 +153,16 @@ public class PostService {
             ExpReason photoReason = ExpReason.SINCERITY_PHOTO_BONUS;
             if (reason.getCategory() == ExpCategory.KNOWLEDGE) photoReason = ExpReason.KNOWLEDGE_PHOTO_BONUS;
             else if (reason.getCategory() == ExpCategory.REVIEW) photoReason = ExpReason.REVIEW_PHOTO_BONUS;
-            
+
             expService.grantExp(author.getId(), photoReason, "사진 첨부 보너스: " + savedPost.getId());
+        }
+
+        // 첫 글 작성 보상: PIONEER_WINGS 이펙트 지급 및 자동 장착
+        if (isFirstPost) {
+            userEffectService.grantEffect(author.getId(), "PIONEER_WINGS", EffectSource.EVENT);
+            author.setEquippedEffect("PIONEER_WINGS");
+            userRepository.save(author);
+            log.info("첫 글 작성 보상 지급: userId={}, effectCode=PIONEER_WINGS", author.getId());
         }
 
         return PostResponseDto.from(savedPost);

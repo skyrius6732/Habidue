@@ -77,6 +77,17 @@
       <HotRankingBoard />
     </div>
 
+    <!-- 첫 글 작성 유도 모달 -->
+    <div v-if="showFirstPostModal" class="first-post-modal-overlay" @click.self="showFirstPostModal = false">
+      <div class="first-post-modal">
+        <button class="first-post-modal-close" @click="showFirstPostModal = false">✕</button>
+        <div class="first-post-modal-icon">🪽</div>
+        <p class="first-post-modal-title">아직 첫 글을 안 쓰셨네요 🙂</p>
+        <p class="first-post-modal-desc">지금 글 하나만 작성하면<br><strong>✨ 닉네임에 날개 이펙트가 적용됩니다 🪽</strong></p>
+        <button class="first-post-modal-cta" @click="goToWrite">👉 지금 바로 작성해보세요</button>
+      </div>
+    </div>
+
     <!-- [PC 레이아웃] -->
     <div v-if="!isMobile" class="pc-list-container">
       <table class="notice-table">
@@ -254,10 +265,15 @@ import HotRankingBoard from '@/components/HotRankingBoard.vue'
 import PageHeader from '@/components/PageHeader.vue'
 import NoticeBoard from '@/components/NoticeBoard.vue'
 import { useUiStore } from '@/stores/ui'
+import { useAuthStore } from '@/stores/auth'
 
 const route = useRoute()
 const router = useRouter()
 const uiStore = useUiStore()
+const authStore = useAuthStore()
+
+const showFirstPostModal = ref(false)
+const goToWrite = () => router.push('/board/write')
 
 const notices = ref([])
 const userKeywords = ref([])
@@ -578,6 +594,13 @@ onMounted(async () => {
   
   await fetchNotices(0, true)
   if (isMobile.value) initInfiniteScroll()
+
+  // 첫 글 미작성자에게 모달 표시
+  // ownedEffectCodes에 PIONEER_WINGS가 없으면 첫 글 미작성으로 판단 (재로그인 후에도 안정적)
+  const hasWings = authStore.user?.ownedEffectCodes?.includes('PIONEER_WINGS');
+  if (authStore.user && !hasWings) {
+    setTimeout(() => { showFirstPostModal.value = true }, 800)
+  }
   
   const openId = route.query.openId;
   if (openId) { 
@@ -815,5 +838,92 @@ onUnmounted(() => { window.removeEventListener('keydown', handleKeyDown); if (me
   .ranking-section {
     max-width: 1200px; /* 아래 리스트와 너비 동일하게 설정 */
   }
+}
+
+/* 첫 글 작성 유도 모달 */
+.first-post-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.first-post-modal {
+  background: var(--card-bg, #fff);
+  border-radius: 20px;
+  padding: 36px 32px 28px;
+  width: 340px;
+  max-width: calc(100vw - 40px);
+  text-align: center;
+  position: relative;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.2);
+  animation: first-post-pop 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes first-post-pop {
+  from { opacity: 0; transform: scale(0.85); }
+  to   { opacity: 1; transform: scale(1); }
+}
+
+.first-post-modal-close {
+  position: absolute;
+  top: 14px;
+  right: 16px;
+  background: none;
+  border: none;
+  font-size: 1rem;
+  color: var(--text-secondary, #9ca3af);
+  cursor: pointer;
+  padding: 4px;
+  line-height: 1;
+}
+
+.first-post-modal-close:hover {
+  color: var(--text-primary, #374151);
+}
+
+.first-post-modal-icon {
+  font-size: 3rem;
+  margin-bottom: 12px;
+  line-height: 1;
+}
+
+.first-post-modal-title {
+  font-size: 1.05rem;
+  font-weight: 600;
+  color: var(--text-primary, #1f2937);
+  margin: 0 0 12px;
+}
+
+.first-post-modal-desc {
+  font-size: 0.95rem;
+  color: var(--text-secondary, #6b7280);
+  line-height: 1.6;
+  margin: 0 0 22px;
+}
+
+.first-post-modal-desc strong {
+  color: #6366f1;
+}
+
+.first-post-modal-cta {
+  width: 100%;
+  background: #6366f1;
+  color: #fff;
+  border: none;
+  border-radius: 10px;
+  padding: 12px 0;
+  font-size: 0.95rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.2s, transform 0.1s;
+}
+
+.first-post-modal-cta:hover {
+  background: #4f46e5;
+  transform: translateY(-1px);
 }
 </style>
