@@ -204,6 +204,17 @@ router.beforeEach(async (to, from) => {
     return { name: 'notices' };
   }
 
+  // 3.5. 모바일 청첩장 관리 접근 제어 (skyrius6732@gmail.com 전용)
+  if (to.path.startsWith('/admin/wedding')) {
+    // user 정보가 없으면 fetchUserProfile()을 시도하거나 localStorage를 확인해야 할 수 있음
+    // 여기서는 authStore.user가 이미 초기화되어 있다고 가정하거나, 이메일 정보를 체크함
+    const userEmail = authStore.user?.email || JSON.parse(localStorage.getItem('user'))?.email;
+    if (userEmail !== 'skyrius6732@gmail.com') {
+      await uiStore.showAlert('모바일 청첩장 관리 기능에 대한 접근 권한이 없습니다.', '접근 차단');
+      return { name: 'adminDashboard' };
+    }
+  }
+
   // 4. 그 외 정상적인 이동
   return;
 });
