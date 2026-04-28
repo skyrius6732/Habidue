@@ -42,7 +42,12 @@
         <RouterLink to="/admin/about" class="nav-item" @click="isSidebarOpen = false">
           <span class="icon">📢</span> <span class="label">공지 및 패치 관리</span>
         </RouterLink>
-        <RouterLink to="/admin/wedding" class="nav-item" @click="isSidebarOpen = false">
+        <RouterLink 
+          v-if="authStore.user?.email === 'skyrius6732@gmail.com'"
+          to="/admin/wedding" 
+          class="nav-item" 
+          @click="isSidebarOpen = false"
+        >
           <span class="icon">💍</span> <span class="label">모바일 청첩장</span>
         </RouterLink>
       </nav>
@@ -92,6 +97,7 @@ const currentMenuName = computed(() => {
   if (route.path.includes('metadata')) return '메타데이터 관리'
   if (route.path.includes('badges')) return '배지 마스터리 관리'
   if (route.path.includes('about')) return '공지 및 패치 관리'
+  if (route.path.includes('wedding')) return '모바일 청첩장'
   return '관리자 센터'
 })
 </script>
