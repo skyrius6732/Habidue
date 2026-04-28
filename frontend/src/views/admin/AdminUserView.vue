@@ -35,7 +35,8 @@
           <option value="USER">USER (일반)</option>
         </select>
 
-        <button @click="fetchUsers" class="btn-refresh-status-v3">🔄 접속상태갱신</button>
+          <button @click="fetchUsers" class="btn-refresh-status-v3">🔄 접속상태갱신</button>
+        <button @click="resetMyDailyCount" class="btn-reset-daily">✉️ 발송횟수 초기화</button>
       </div>
     </div>
 
@@ -131,6 +132,12 @@
                 </button>
               </div>
               <div v-if="!isMe(user)" class="edit-field">
+                <label>쪽지 보내기</label>
+                <button @click="openMessageModal(user)" class="btn-send-message">
+                  💌 쪽지 보내기
+                </button>
+              </div>
+              <div v-if="!isMe(user)" class="edit-field">
                 <label>계정 상태 관리</label>
                 <button 
                   v-if="user.status === 'ACTIVE'" 
@@ -173,6 +180,14 @@
       </div>
     </div>
 
+    <MessageSendModal
+      :show="showMessageModal"
+      :receiverPublicId="messageModalUser?.publicId"
+      :receiverNickname="messageModalUser?.username"
+      @close="showMessageModal = false"
+      @success="showMessageModal = false"
+    />
+
     <div v-if="totalPages > 1" class="pagination-bar">
       <button :disabled="currentPage === 1" @click="currentPage = 1" class="btn-page first-last">처음</button>
       <button :disabled="currentPage === 1" @click="currentPage--" class="btn-page">이전</button>
@@ -188,11 +203,17 @@ import { ref, computed, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import axios from '@/plugins/axios'
 import { useAuthStore } from '@/stores/auth'
+import { useMessageStore } from '@/stores/message'
+import MessageSendModal from '@/components/MessageSendModal.vue'
 
 const users = ref([])
 const router = useRouter()
 const authStore = useAuthStore()
+const messageStore = useMessageStore()
 const searchQuery = ref('')
+
+const showMessageModal = ref(false)
+const messageModalUser = ref(null)
 const roleFilter = ref('ALL')
 const statusFilter = ref('ALL')
 const onlineFilter = ref('ALL')
@@ -346,6 +367,20 @@ const formatDate = (dateStr) => {
   if (!dateStr) return '-'
   const d = new Date(dateStr)
   return `${d.getFullYear()}.${String(d.getMonth()+1).padStart(2,'0')}.${String(d.getDate()).padStart(2,'0')} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`
+}
+
+const openMessageModal = (user) => {
+  messageModalUser.value = user
+  showMessageModal.value = true
+}
+
+const resetMyDailyCount = async () => {
+  if (!confirm('오늘 쪽지 발송 횟수를 초기화하시겠습니까?')) return
+  try {
+    await axios.delete('/api/admin/messages/daily-count')
+    await messageStore.fetchDailyStatus()
+    alert('발송 횟수가 초기화되었습니다.')
+  } catch (e) { alert('초기화 실패') }
 }
 
 onMounted(() => {
@@ -525,6 +560,10 @@ onMounted(() => {
 }
 
 .btn-close-drawer { background: var(--tag-bg); color: var(--text-primary); border: none; padding: 6px; border-radius: 6px; font-size: 0.7rem; margin-top: 4px; cursor: pointer; font-weight: 600; }
+.btn-send-message { background: none; border: 1px solid var(--link-color); color: var(--link-color); padding: 6px; border-radius: 6px; font-size: 0.7rem; cursor: pointer; font-weight: 700; margin-top: 2px; transition: all 0.2s; }
+.btn-send-message:hover { background: var(--link-color); color: white; }
+.btn-reset-daily { height: 38px; padding: 0 15px; background: rgba(52, 152, 219, 0.08); border: 1px solid var(--link-color); border-radius: 8px; font-size: 0.82rem; font-weight: 700; cursor: pointer; color: var(--link-color); white-space: nowrap; transition: all 0.2s; }
+.btn-reset-daily:hover { background: var(--link-color); color: white; }
 
 .pagination-bar { flex-shrink: 0; height: 34px; display: flex; justify-content: center; align-items: center; gap: 8px; }
 .btn-page { padding: 3px 8px; border-radius: 6px; border: 1px solid var(--border-color); background: var(--header-bg); font-size: 0.7rem; cursor: pointer; color: var(--text-primary); transition: all 0.2s; }

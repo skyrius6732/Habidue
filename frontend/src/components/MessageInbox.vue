@@ -498,7 +498,10 @@ const vClickOutside = {
               <span class="karma-value">{{ displayKarma }} P</span>
             </div>
           </div>
-          <button class="manage-block-btn" @click="openBlockedList" title="차단 목록 관리">🚫</button>
+          <div class="manage-btn-group">
+            <button class="manage-refresh-btn" @click="messageStore.fetchMessageRooms()" title="메시지 새로고침">🔄</button>
+            <button class="manage-block-btn" @click="openBlockedList" title="차단 목록 관리">🚫</button>
+          </div>
         </div>
       </div>
       
@@ -759,6 +762,9 @@ const vClickOutside = {
 .sidebar-title { font-size: 1.2rem; font-weight: 950; margin: 0; letter-spacing: -0.8px; white-space: nowrap; }
 .karma-badge-mini { background: rgba(168, 85, 247, 0.1); padding: 2px 8px; border-radius: 12px; border: 1px solid rgba(168, 85, 247, 0.2); }
 .karma-value { font-size: 0.75rem; font-weight: 900; color: #a855f7; }
+.manage-btn-group { display: flex; align-items: center; gap: 0; }
+.manage-refresh-btn { background: none; border: none; font-size: 1.2rem; cursor: pointer; opacity: 0.6; transition: 0.2s; padding: 5px; }
+.manage-refresh-btn:hover { opacity: 1; transform: scale(1.1); }
 .manage-block-btn { background: none; border: none; font-size: 1.2rem; cursor: pointer; opacity: 0.6; transition: 0.2s; padding: 5px; }
 .manage-block-btn:hover { opacity: 1; transform: scale(1.1); }
 

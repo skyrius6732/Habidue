@@ -1,5 +1,6 @@
 package com.habidue.app.controller.admin;
 
+import com.habidue.app.config.oauth.UserPrincipal;
 import com.habidue.app.domain.message.Message;
 import com.habidue.app.domain.user.User;
 import com.habidue.app.dto.ApiResponse;
@@ -11,6 +12,7 @@ import com.habidue.app.repository.message.MessageRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
@@ -29,6 +31,16 @@ public class AdminMessageController {
     private final MessageRepository messageRepository;
     private final ReportRepository reportRepository;
     private final GeminiMessageAnalyzer geminiMessageAnalyzer;
+
+    /**
+     * 관리자 자신의 일일 쪽지 발송 횟수 초기화
+     */
+    @DeleteMapping("/daily-count")
+    public ResponseEntity<ApiResponse<Void>> resetDailyCount(
+            @AuthenticationPrincipal UserPrincipal userPrincipal) {
+        messageService.resetDailyMessageCount(userPrincipal.getId());
+        return ApiResponse.success(null);
+    }
 
     /**
      * 신고된 메시지 기반 대화 로그 조회 (DB에 저장된 AI 분석 결과 포함)
