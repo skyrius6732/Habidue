@@ -85,6 +85,11 @@ public class MessageService {
         redisTemplate.expire(todayKey, 1, TimeUnit.DAYS);
     }
 
+    public void resetDailyMessageCount(Long userId) {
+        String todayKey = DAILY_MESSAGE_COUNT_KEY + userId + ":" + LocalDateTime.now().toLocalDate();
+        redisTemplate.delete(todayKey);
+    }
+
     /**
      * 컨트롤러에서 요구하는 메서드명 보완
      */
