@@ -164,7 +164,7 @@ const specialEffects = [
   { id: 'ROSES_BLOOM', name: '🌹 장미 (Roses)' },
   { id: 'PIXEL_GLITCH', name: '💥 픽셀 글리치 (Glitch)' },
   { id: 'LOVE_HEART', name: '💕 하트 (Heart)' },
-  { id: 'SHOOTING_STAR', name: '🌠 별똥별 (Shooting)' },
+  { id: 'SHOOTING_STAR', name: '💫 섬광 (Flash)' },
   { id: 'CROWN', name: '👑 왕관 (Crown)' },
   { id: 'SWORDS_CROSS', name: '⚔️ 칼 교차 (Swords)' },
   { id: 'FLOWER_CROWN', name: '🌸 화관 (Flower Crown)' },
@@ -180,7 +180,31 @@ const specialEffects = [
   { id: 'LEAVES', name: '🍂 낙엽 (Leaves)' },
   { id: 'BUTTERFLIES', name: '🦋 나비 (Butterflies)' },
   { id: 'ORBS', name: '🔮 구체 (Orbs)' },
-  { id: 'SCALE_COLLAPSE', name: '⬇️ 축소 (Collapse)' }
+  { id: 'SCALE_COLLAPSE', name: '⬇️ 축소 (Collapse)' },
+  // 신규 효과 (테스트 중)
+  { id: 'SNOWFALL', name: '❄️ 눈송이 (Snowfall)' },
+  { id: 'FIREFLY', name: '🌟 반딧불이 (Firefly)' },
+  { id: 'MATRIX_RAIN', name: '💻 매트릭스 (Matrix)' },
+  { id: 'DANDELION', name: '🌼 민들레 (Dandelion)' },
+  { id: 'RUNE_GLOW', name: '🔮 룬 (Rune)' },
+  { id: 'SPIDER_WEB', name: '🕷️ 거미줄 (Spider)' },
+  { id: 'METEOR', name: '☄️ 유성 (Meteor)' },
+  { id: 'ELECTRIC_ARC', name: '⚡ 전기 아크 (Electric)' },
+  { id: 'HOLY_LIGHT', name: '💛 신성한 빛 (Holy)' },
+  { id: 'POISON_MIST', name: '☠️ 독 안개 (Poison)' },
+  { id: 'BLOOD_DRIP', name: '🩸 핏방울 (Blood)' },
+  { id: 'PIXEL_DISSOLVE', name: '🎮 픽셀 분해 (Dissolve)' },
+  // 신규 효과 2차 (테스트 중)
+  { id: 'MUSIC_NOTES', name: '🎵 음표 (Music Notes)' },
+  { id: 'COIN_SHOWER', name: '💰 코인 (Coin Shower)' },
+  { id: 'CONFETTI', name: '🎊 색종이 (Confetti)' },
+  { id: 'AURORA_WAVE', name: '🌊 오로라 파동 (Aurora Wave)' },
+  { id: 'HOLOGRAM', name: '📡 홀로그램 (Hologram)' },
+  { id: 'HEARTBEAT', name: '💗 심장박동 (Heartbeat)' },
+  { id: 'SMOKE_RISE', name: '💨 연기 (Smoke Rise)' },
+  { id: 'DISCO', name: '🪩 디스코 (Disco)' },
+  { id: 'LANTERN', name: '🏮 등불 (Lantern)' },
+  { id: 'PAPER_PLANE', name: '✈️ 종이비행기 (Paper Plane)' }
 ]
 
 const updateEffect = (effectId) => {

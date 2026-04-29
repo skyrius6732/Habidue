@@ -23,7 +23,7 @@ export const SPECIAL_EFFECTS = [
   { id: 'VOID_RIFT', name: '🌀 보이드 리프트 (Void)', icon: '🌀' },
   { id: 'LOVE_HEART', name: '💕 두근두근 하트 (Heart)', icon: '💕' },
   { id: 'RAINBOW_WAVE', name: '🌈 무지개 (Rainbow)', icon: '🌈' },
-  { id: 'SHOOTING_STAR', name: '🌠 별똥별 (Shooting Star)', icon: '🌠' },
+  { id: 'SHOOTING_STAR', name: '💫 섬광 (Flash)', icon: '💫' },
   { id: 'BOMB', name: '🔫 레이저 (Laser)', icon: '🔫' },
   { id: 'CROWN', name: '👑 왕관 (Crown)', icon: '👑' },
   { id: 'SWORDS_CROSS', name: '⚔️ 칼 교차 (Swords)', icon: '⚔️' },

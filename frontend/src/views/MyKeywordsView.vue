@@ -866,7 +866,7 @@ const specialEffectsList = [
   { id: 'SAKURA_BLOOM', name: '🌸 벚꽃 (Sakura)', icon: '🌸' },
   { id: 'PIXEL_GLITCH', name: '🎮 픽셀 글리치 (Glitch)', icon: '🎮' },
   { id: 'LOVE_HEART', name: '💕 두근두근 하트 (Heart)', icon: '💕' },
-  { id: 'SHOOTING_STAR', name: '🌠 별똥별 (Shooting Star)', icon: '🌠' }
+  { id: 'SHOOTING_STAR', name: '💫 섬광 (Flash)', icon: '💫' }
 ]
 
 // 관리자용: 모든 이펙트 코드 반환
