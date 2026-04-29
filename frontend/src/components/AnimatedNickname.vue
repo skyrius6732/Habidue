@@ -25,7 +25,12 @@
     <span v-if="(Number(karmaPoint) <= 800)" class="karma-warning-icon-outer" title="활동 신뢰 점수 주의">⚠️</span>
 
     <!-- 화려한 닉네임 표시부 (클릭 시 토글) -->
-    <div :class="['nickname-with-effects', { 'has-wings': isWingsEffect, 'has-bubbles': isBubblesEffect, 'has-stars': isStarsEffect, 'has-thunder': isThunderEffect, 'has-flame': isFlameEffect, 'has-ice': isIceFrostEffect, 'has-sakura': isSakuraEffect, 'has-roses': isRosesEffect, 'has-shadow': isShadowEffect, 'has-neon': isNeonEffect, 'has-glitch': isGlitchEffect, 'has-void': isVoidEffect, 'has-heart': isHeartEffect, 'has-rainbow': isRainbowEffect, 'has-shooting': isShootingStarEffect, 'has-bomb': isBombEffect, 'has-crown': isCrownEffect, 'has-swords': isSwordsCrossEffect, 'has-flower': isFlowerCrownEffect, 'has-star-tiara': isStarTiaraEffect, 'has-flower-rain': isFlowerRainEffect, 'has-scanline': isScanLineEffect, 'has-chromatic': isChromaticAberrationEffect, 'has-echo': isEchoTrailEffect, 'has-corrupted': isCorruptedTextEffect, 'has-glitch-shift': isGlitchShiftEffect, 'has-liquid': isLiquidDistortEffect, 'has-halo': isHaloEffect, 'has-leaves': isLeavesEffect, 'has-butterflies': isButterfliesEffect, 'has-orbs': isOrbsEffect, 'has-scale-collapse': isScaleCollapseEffect }]">
+    <div :class="['nickname-with-effects', { 'has-wings': isWingsEffect, 'has-bubbles': isBubblesEffect, 'has-stars': isStarsEffect, 'has-thunder': isThunderEffect, 'has-flame': isFlameEffect, 'has-ice': isIceFrostEffect, 'has-sakura': isSakuraEffect, 'has-roses': isRosesEffect, 'has-shadow': isShadowEffect, 'has-neon': isNeonEffect, 'has-glitch': isGlitchEffect, 'has-void': isVoidEffect, 'has-heart': isHeartEffect, 'has-rainbow': isRainbowEffect, 'has-shooting': isShootingStarEffect, 'has-bomb': isBombEffect, 'has-crown': isCrownEffect, 'has-swords': isSwordsCrossEffect, 'has-flower': isFlowerCrownEffect, 'has-star-tiara': isStarTiaraEffect, 'has-flower-rain': isFlowerRainEffect, 'has-scanline': isScanLineEffect, 'has-chromatic': isChromaticAberrationEffect, 'has-echo': isEchoTrailEffect, 'has-corrupted': isCorruptedTextEffect, 'has-glitch-shift': isGlitchShiftEffect, 'has-liquid': isLiquidDistortEffect, 'has-halo': isHaloEffect, 'has-leaves': isLeavesEffect, 'has-butterflies': isButterfliesEffect, 'has-orbs': isOrbsEffect, 'has-scale-collapse': isScaleCollapseEffect,
+        'has-snowfall': isSnowfallEffect, 'has-firefly': isFireflyEffect, 'has-matrix': isMatrixRainEffect, 'has-dandelion': isDandelionEffect, 'has-rune': isRuneGlowEffect, 'has-spider': isSpiderWebEffect, 'has-meteor': isMeteorEffect,
+        'has-electric': isElectricArcEffect, 'has-holy': isHolyLightEffect, 'has-poison': isPoisonMistEffect, 'has-blood': isBloodDripEffect, 'has-pixel-dissolve': isPixelDissolveEffect,
+        'has-music': isMusicNotesEffect, 'has-coin': isCoinShowerEffect, 'has-confetti': isConfettiEffect,
+        'has-aurora-wave': isAuroraWaveEffect, 'has-hologram': isHologramEffect, 'has-heartbeat': isHeartbeatEffect, 'has-smoke': isSmokeRiseEffect, 'has-disco': isDiscoEffect,
+        'has-lantern': isLanternEffect, 'has-plane': isPaperPlaneEffect }]">
       
       <!-- Effect Components Left -->
       <EffectWings v-if="isWingsEffect" direction="left" :wing-layers="wingLayers" :wing-colors="wingColors" :instance-id="instanceId" />
@@ -57,6 +62,18 @@
       <EffectButterflies v-if="isButterfliesEffect" />
       <EffectOrbs v-if="isOrbsEffect" />
       <EffectScaleCollapse v-if="isScaleCollapseEffect" />
+      <EffectSnowfall v-if="isSnowfallEffect" />
+      <EffectFirefly v-if="isFireflyEffect" />
+      <EffectMatrixRain v-if="isMatrixRainEffect" />
+      <EffectDandelion v-if="isDandelionEffect" />
+      <EffectRune v-if="isRuneGlowEffect" />
+      <EffectSpiderWeb v-if="isSpiderWebEffect" />
+      <EffectMeteor v-if="isMeteorEffect" />
+      <EffectMusicNotes v-if="isMusicNotesEffect" />
+      <EffectCoinShower v-if="isCoinShowerEffect" />
+      <EffectConfetti v-if="isConfettiEffect" />
+      <EffectLantern v-if="isLanternEffect" />
+      <EffectPaperPlane v-if="isPaperPlaneEffect" />
 
       <span ref="nicknameRef" :class="['animated-nickname', currentTierClass, { 'is-ellipsis': isEllipsis }]" :data-text="nickname" :style="nicknameTextColor ? { color: nicknameTextColor } : {}" @click.stop="handleToggleClick">
         {{ nickname }}
@@ -125,18 +142,14 @@
           >
             <div class="effect-toggle-group">
               <button
-                v-for="eff in specialEffects" :key="eff.id"
+                v-for="eff in specialEffects.filter(e => !e.id || isAdmin || effectCodes.includes(e.id))" :key="eff.id"
                 class="effect-toggle-btn"
-                :class="{
-                  active: (displayEquippedEffect === eff.id) || (!displayEquippedEffect && !eff.id),
-                  locked: !isAdmin && eff.id && !effectCodes.includes(eff.id)
-                }"
-                @click.stop="isAdmin || !eff.id || effectCodes.includes(eff.id) ? updateEffect(eff.id, $event) : null"
+                :class="{ active: (displayEquippedEffect === eff.id) || (!displayEquippedEffect && !eff.id) }"
+                @click.stop="updateEffect(eff.id, $event)"
                 :disabled="isUpdatingEffect"
                 :title="eff.name"
               >
                 <span class="eff-icon">{{ eff.icon }}</span>
-                <span v-if="!isAdmin && eff.id && !effectCodes.includes(eff.id)" class="lock-overlay">🔒</span>
                 <span v-if="(displayEquippedEffect === eff.id) || (!displayEquippedEffect && !eff.id)" class="active-check">✓</span>
               </button>
             </div>
@@ -194,6 +207,18 @@ import EffectLeaves from '@/components/effects/EffectLeaves.vue'
 import EffectButterflies from '@/components/effects/EffectButterflies.vue'
 import EffectOrbs from '@/components/effects/EffectOrbs.vue'
 import EffectScaleCollapse from '@/components/effects/EffectScaleCollapse.vue'
+import EffectSnowfall from '@/components/effects/EffectSnowfall.vue'
+import EffectFirefly from '@/components/effects/EffectFirefly.vue'
+import EffectMatrixRain from '@/components/effects/EffectMatrixRain.vue'
+import EffectDandelion from '@/components/effects/EffectDandelion.vue'
+import EffectRune from '@/components/effects/EffectRune.vue'
+import EffectSpiderWeb from '@/components/effects/EffectSpiderWeb.vue'
+import EffectMeteor from '@/components/effects/EffectMeteor.vue'
+import EffectMusicNotes from '@/components/effects/EffectMusicNotes.vue'
+import EffectCoinShower from '@/components/effects/EffectCoinShower.vue'
+import EffectConfetti from '@/components/effects/EffectConfetti.vue'
+import EffectLantern from '@/components/effects/EffectLantern.vue'
+import EffectPaperPlane from '@/components/effects/EffectPaperPlane.vue'
 import gsap from 'gsap'
 import { SPECIAL_EFFECTS, WING_COLORS, DEFAULT_WING_COLOR, WING_LAYERS_MAP, LEVEL_UNLOCKS, PARTICLE_PRESETS, getParticleOptionsForLevel } from '@/components/effectConfig'
 
@@ -267,7 +292,6 @@ const authStore = useAuthStore()
 const uiStore = useUiStore()
 const showTooltip = ref(false)
 const nicknameRef = ref(null)
-
 // 다크/라이트 테마 감지
 const isDark = ref(document.documentElement.classList.contains('dark-mode'))
 let themeObserver = null
@@ -435,6 +459,28 @@ const isLeavesEffect = computed(() => displayEquippedEffect.value === 'LEAVES')
 const isButterfliesEffect = computed(() => displayEquippedEffect.value === 'BUTTERFLIES')
 const isOrbsEffect = computed(() => displayEquippedEffect.value === 'ORBS')
 const isScaleCollapseEffect = computed(() => displayEquippedEffect.value === 'SCALE_COLLAPSE')
+const isSnowfallEffect = computed(() => displayEquippedEffect.value === 'SNOWFALL')
+const isFireflyEffect = computed(() => displayEquippedEffect.value === 'FIREFLY')
+const isMatrixRainEffect = computed(() => displayEquippedEffect.value === 'MATRIX_RAIN')
+const isDandelionEffect = computed(() => displayEquippedEffect.value === 'DANDELION')
+const isRuneGlowEffect = computed(() => displayEquippedEffect.value === 'RUNE_GLOW')
+const isSpiderWebEffect = computed(() => displayEquippedEffect.value === 'SPIDER_WEB')
+const isMeteorEffect = computed(() => displayEquippedEffect.value === 'METEOR')
+const isElectricArcEffect = computed(() => displayEquippedEffect.value === 'ELECTRIC_ARC')
+const isHolyLightEffect = computed(() => displayEquippedEffect.value === 'HOLY_LIGHT')
+const isPoisonMistEffect = computed(() => displayEquippedEffect.value === 'POISON_MIST')
+const isBloodDripEffect = computed(() => displayEquippedEffect.value === 'BLOOD_DRIP')
+const isPixelDissolveEffect = computed(() => displayEquippedEffect.value === 'PIXEL_DISSOLVE')
+const isMusicNotesEffect = computed(() => displayEquippedEffect.value === 'MUSIC_NOTES')
+const isCoinShowerEffect = computed(() => displayEquippedEffect.value === 'COIN_SHOWER')
+const isConfettiEffect = computed(() => displayEquippedEffect.value === 'CONFETTI')
+const isAuroraWaveEffect = computed(() => displayEquippedEffect.value === 'AURORA_WAVE')
+const isHologramEffect = computed(() => displayEquippedEffect.value === 'HOLOGRAM')
+const isHeartbeatEffect = computed(() => displayEquippedEffect.value === 'HEARTBEAT')
+const isSmokeRiseEffect = computed(() => displayEquippedEffect.value === 'SMOKE_RISE')
+const isDiscoEffect = computed(() => displayEquippedEffect.value === 'DISCO')
+const isLanternEffect = computed(() => displayEquippedEffect.value === 'LANTERN')
+const isPaperPlaneEffect = computed(() => displayEquippedEffect.value === 'PAPER_PLANE')
 
 // [드래그 스크롤 로직]
 const scrollContainer = ref(null)
@@ -879,4 +925,143 @@ onUnmounted(() => {
 /* 축소 사라지기 효과 */
 .has-scale-collapse .animated-nickname { animation: scale-collapse-effect 2.5s ease-in-out infinite; transform-origin: center center; }
 @keyframes scale-collapse-effect { 0% { opacity: 1; transform: scale(1); } 35% { opacity: 1; transform: scale(1); } 50% { opacity: 0; transform: scale(0.1); } 75% { opacity: 0; transform: scale(0.1); } 100% { opacity: 1; transform: scale(1); } }
+
+/* ELECTRIC_ARC — 전기 아크 */
+.has-electric .animated-nickname {
+  border-color: #00e5ff !important;
+  animation: electric-arc 0.22s steps(3) infinite;
+}
+@keyframes electric-arc {
+  0%   { box-shadow:  2px -1px 8px #00e5ff, -3px  2px 6px rgba(0,229,255,0.7), inset 0 0 5px rgba(0,229,255,0.25); }
+  33%  { box-shadow: -3px  1px 11px #00e5ff,  1px -2px 5px rgba(80,200,255,0.9), inset 0 0 7px rgba(0,229,255,0.2); }
+  66%  { box-shadow:  1px  3px 7px #00e5ff, -1px -1px 13px rgba(0,180,255,0.8), inset 0 0 4px rgba(0,229,255,0.3); }
+  100% { box-shadow: -2px -2px 9px #00e5ff,  3px  1px 6px rgba(0,229,255,0.65), inset 0 0 6px rgba(0,229,255,0.2); }
+}
+
+/* HOLY_LIGHT — 신성한 빛 */
+.has-holy .animated-nickname {
+  border-color: #ffd700 !important;
+  animation: holy-light-pulse 1.6s ease-in-out infinite;
+}
+@keyframes holy-light-pulse {
+  0%, 100% { box-shadow: 0 0 7px rgba(255,215,0,0.5), 0 0 14px rgba(255,200,0,0.3), inset 0 0 6px rgba(255,215,0,0.12); }
+  50%       { box-shadow: 0 0 18px rgba(255,215,0,0.95), 0 0 32px rgba(255,200,0,0.65), 0 0 48px rgba(255,180,0,0.3), inset 0 0 14px rgba(255,215,0,0.22); }
+}
+
+/* POISON_MIST — 독 안개 */
+.has-poison .animated-nickname {
+  border-color: #39ff14 !important;
+  animation: poison-pulse 1.9s ease-in-out infinite;
+}
+@keyframes poison-pulse {
+  0%, 100% { box-shadow: 0 0 6px rgba(57,255,20,0.55), 0 0 12px rgba(57,255,20,0.25), inset 0 0 5px rgba(57,255,20,0.12); }
+  50%       { box-shadow: 0 0 14px rgba(57,255,20,0.85), 0 0 24px rgba(130,50,210,0.45), inset 0 0 9px rgba(57,255,20,0.2); }
+}
+
+/* BLOOD_DRIP — 핏방울 */
+.has-blood .animated-nickname {
+  border-color: #dc143c !important;
+  overflow: visible !important;
+  animation: blood-throb 1.4s ease-in-out infinite;
+}
+.has-blood .animated-nickname::after {
+  content: '';
+  position: absolute; bottom: -1px; left: 28%;
+  width: 3px; height: 0;
+  background: linear-gradient(to bottom, #dc143c 0%, #8b0000 65%, transparent 100%);
+  border-radius: 0 0 50% 50%;
+  animation: blood-drip-drop 1.8s ease-in infinite;
+}
+@keyframes blood-throb {
+  0%, 100% { box-shadow: 0 0 5px rgba(220,20,60,0.5); }
+  50%       { box-shadow: 0 0 13px rgba(220,20,60,0.95), 0 0 22px rgba(139,0,0,0.45); }
+}
+@keyframes blood-drip-drop {
+  0%   { height: 0; opacity: 0; bottom: -1px; }
+  18%  { opacity: 1; height: 5px; }
+  60%  { height: 11px; bottom: -11px; opacity: 0.9; }
+  90%  { opacity: 0.4; }
+  100% { height: 15px; opacity: 0; bottom: -15px; }
+}
+
+/* PIXEL_DISSOLVE — 픽셀 분해 */
+.has-pixel-dissolve .animated-nickname {
+  border-color: #a78bfa !important;
+  animation: pixel-dissolve 3s ease-in-out infinite;
+}
+@keyframes pixel-dissolve {
+  0%, 100% { opacity: 1; filter: none; transform: scale(1); }
+  28%       { opacity: 0.75; filter: blur(0.4px) contrast(1.6); }
+  42%       { opacity: 0.15; filter: blur(3px) saturate(3) contrast(2); transform: scale(1.04); }
+  56%       { opacity: 0.05; filter: blur(5px) saturate(0); }
+  72%       { opacity: 0.4; filter: blur(1px) contrast(1.8); transform: scale(0.97); }
+  86%       { opacity: 0.85; filter: none; }
+}
+
+/* AURORA_WAVE — 오로라 파동 */
+.has-aurora-wave .animated-nickname {
+  border-color: #34d399 !important;
+  animation: aurora-wave 2.2s ease-in-out infinite;
+}
+@keyframes aurora-wave {
+  0%   { box-shadow: 0 0 8px rgba(52,211,153,0.6), 0 0 20px rgba(52,211,153,0.2); color: #34d399; }
+  25%  { box-shadow: 0 0 12px rgba(99,102,241,0.7), 0 0 28px rgba(99,102,241,0.25); color: #818cf8; }
+  50%  { box-shadow: 0 0 10px rgba(16,185,129,0.8), 0 0 24px rgba(16,185,129,0.3); color: #6ee7b7; }
+  75%  { box-shadow: 0 0 14px rgba(167,139,250,0.65), 0 0 32px rgba(167,139,250,0.2); color: #a78bfa; }
+  100% { box-shadow: 0 0 8px rgba(52,211,153,0.6), 0 0 20px rgba(52,211,153,0.2); color: #34d399; }
+}
+
+/* HOLOGRAM — 홀로그램 */
+.has-hologram .animated-nickname {
+  border-color: #67e8f9 !important;
+  animation: hologram-flicker 1.8s ease-in-out infinite;
+  background: linear-gradient(90deg, transparent 0%, rgba(103,232,249,0.08) 50%, transparent 100%);
+}
+@keyframes hologram-flicker {
+  0%, 100% { opacity: 1; filter: hue-rotate(0deg) brightness(1); box-shadow: 0 0 6px rgba(103,232,249,0.5), inset 0 0 10px rgba(103,232,249,0.07); }
+  20%       { opacity: 0.85; filter: hue-rotate(30deg) brightness(1.15); }
+  40%       { opacity: 1; filter: hue-rotate(80deg) brightness(1.05); box-shadow: 0 0 14px rgba(103,232,249,0.8), inset 0 0 18px rgba(103,232,249,0.12); }
+  60%       { opacity: 0.9; filter: hue-rotate(140deg) brightness(0.95); }
+  80%       { opacity: 1; filter: hue-rotate(200deg) brightness(1.1); }
+}
+
+/* HEARTBEAT — 심장박동 */
+.has-heartbeat .animated-nickname {
+  border-color: #f43f5e !important;
+  animation: heartbeat-pulse 0.9s ease-in-out infinite;
+  transform-origin: center center;
+}
+@keyframes heartbeat-pulse {
+  0%   { transform: scale(1);    box-shadow: 0 0 4px rgba(244,63,94,0.4); }
+  14%  { transform: scale(1.08); box-shadow: 0 0 12px rgba(244,63,94,0.8); }
+  28%  { transform: scale(1);    box-shadow: 0 0 4px rgba(244,63,94,0.3); }
+  42%  { transform: scale(1.05); box-shadow: 0 0 9px rgba(244,63,94,0.65); }
+  56%  { transform: scale(1);    box-shadow: 0 0 3px rgba(244,63,94,0.3); }
+  100% { transform: scale(1);    box-shadow: 0 0 4px rgba(244,63,94,0.4); }
+}
+
+/* SMOKE_RISE — 연기 상승 */
+.has-smoke .animated-nickname {
+  border-color: #9ca3af !important;
+  animation: smoke-rise 3s ease-in-out infinite;
+}
+@keyframes smoke-rise {
+  0%, 100% { transform: translateY(0) scale(1); filter: blur(0px); opacity: 1; box-shadow: 0 0 5px rgba(156,163,175,0.4); }
+  30%       { transform: translateY(-2px) scale(1.01); filter: blur(0.3px); opacity: 0.9; }
+  50%       { transform: translateY(-4px) scale(1.02); filter: blur(0.6px); opacity: 0.75; box-shadow: 0 0 12px rgba(156,163,175,0.6), 0 -6px 18px rgba(156,163,175,0.2); }
+  70%       { transform: translateY(-2px) scale(1.01); filter: blur(0.3px); opacity: 0.88; }
+}
+
+/* DISCO — 디스코 */
+.has-disco .animated-nickname {
+  border-color: #f9a8d4 !important;
+  animation: disco-color 0.6s steps(5) infinite;
+}
+@keyframes disco-color {
+  0%   { box-shadow: 0 0 10px #f43f5e, 0 0 20px rgba(244,63,94,0.4); color: #f43f5e; }
+  20%  { box-shadow: 0 0 10px #fb923c, 0 0 20px rgba(251,146,60,0.4); color: #fb923c; }
+  40%  { box-shadow: 0 0 10px #4ade80, 0 0 20px rgba(74,222,128,0.4); color: #4ade80; }
+  60%  { box-shadow: 0 0 10px #38bdf8, 0 0 20px rgba(56,189,248,0.4); color: #38bdf8; }
+  80%  { box-shadow: 0 0 10px #a78bfa, 0 0 20px rgba(167,139,250,0.4); color: #a78bfa; }
+}
 </style>
