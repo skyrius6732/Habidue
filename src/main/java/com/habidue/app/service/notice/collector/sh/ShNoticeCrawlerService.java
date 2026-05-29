@@ -110,7 +110,7 @@ public class ShNoticeCrawlerService {
                 String category = tds.get(1).text().trim();
                 String title = tds.get(2).text().trim();
 
-                Element linkAnchor = tds.get(6).select("a").first();
+                Element linkAnchor = tds.get(7).select("a").first();
                 if (linkAnchor == null) continue;
 
                 String href = linkAnchor.attr("href");
@@ -161,7 +161,8 @@ public class ShNoticeCrawlerService {
             detailDoc.outputSettings(new Document.OutputSettings().prettyPrint(false));
 
             Element contentBox = detailDoc.selectFirst("div.board-view-cont");
-            if (contentBox == null) contentBox = detailDoc.selectFirst("div.cont");
+            if (contentBox == null) contentBox = detailDoc.selectFirst("div.detailTable");
+            if (contentBox == null) contentBox = detailDoc.selectFirst(".cont");
 
             String text;
             if (contentBox != null) {
